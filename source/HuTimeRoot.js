@@ -3,6 +3,7 @@
 // Copyright (C) 2016-2017 Tatsuki Sekino.
 // ********************************
 
+
 // ******** WebHuTime本体 ********
 HuTime = function(elementId) {
     Object.defineProperty(this, "constructor", {writable: false, value: HuTime});
@@ -17,7 +18,7 @@ HuTime = function(elementId) {
             clearTimeout(obj._mouseTimer);
             obj._mouseTimer = setTimeout(
                 function() {
-                        obj.redraw.call(obj);
+                    obj.redraw.call(obj);
                 },
                 obj.mouseTimeOut);
         };
@@ -81,8 +82,8 @@ HuTime.prototype = {
     // **** 描画関係 ****
     redraw: function (minT, maxT) {     // コンテナの再描画
         if (isFinite(minT) && minT != null && isFinite(maxT) && maxT != null && minT < maxT) {
-                this.minT = minT;
-                this.maxT = maxT;
+            this.minT = minT;
+            this.maxT = maxT;
         }
         if (this.minT < this.minTLimit)
             this.minT = this.minTLimit;
@@ -124,11 +125,19 @@ HuTime.prototype = {
         this._handleEvent(ev);
     },
 
+    _handleInnerTouchEvent: function (ev) {
+        if (!(ev.target.hutimeObject instanceof HuTime.ContainerBase))
+            return;
+
+        ev.target.hutimeObject._extractInnerTouchEvent(ev, ev.offsetX, ev.offsetY);
+        this._handleEvent(ev);
+    },
     _handleMouseEvent: function (domEv) {     // マウスイベントの処理
         // イベントの抽出とtypeを特定し、配列に収容
-        var eventInfos = domEv.target.hutimeObject._extractMouseEvent(domEv, domEv.offsetX, domEv.offsetY);
+        var eventInfos;
         var newEv;          // 新たに発火させるための拡張されたのイベントオブジェクト
 
+        eventInfos = domEv.target.hutimeObject._extractMouseEvent(domEv, domEv.offsetX, domEv.offsetY);
         for (var i = 0; i < eventInfos.length; ++i) {
             newEv = HuTime.MouseEvent.createFromDomEv(domEv, eventInfos[i].type, eventInfos[i].target);
             if (newEv._type == "mouseup" || newEv._type == "mouseout" || newEv._originalEvent.type == "mouseout")
@@ -146,13 +155,8 @@ HuTime.prototype = {
         // オブジェクトツリーに沿って、ハンドラの呼び出し先を配列化し、targetArrayに収容する
         ev._targetArray = [ev._target];
         while (!(ev._targetArray[0] === this) && ev._targetArray[0]._parent) {
-                ev._targetArray.unshift(ev._targetArray[0]._parent);    // 先頭に上位のオブジェクトを追加していく
+            ev._targetArray.unshift(ev._targetArray[0]._parent);    // 先頭に上位のオブジェクトを追加していく
         }
-
-        // /* !!!!!!!! 開発用（抽出したイベントのモニタ）!!!!!!!!
-        if ("___monitorEvent" in window)
-            ___monitorEvent(ev);
-        // !!!!!!!! 開発用ここまで !!!!!!!! */
 
         // ユーザイベント（Capture Phase）
         if(!ev._preventUserEvent) {
@@ -171,6 +175,8 @@ HuTime.prototype = {
         if (ev._targetArray.length > 1) {
             ev._targetArray.splice(0, 1);    // 呼び出し先一覧から自分自身を除く
             if (ev instanceof HuTime.MouseEvent)    // マウスイベントの場合
+                ev._targetArray[0]._handleMouseEvent(ev, ev._offsetX, ev._offsetY);
+            else if (ev instanceof HuTime.TouchEvent)
                 ev._targetArray[0]._handleMouseEvent(ev, ev._offsetX, ev._offsetY);
             else                                    // その他のイベントの場合
                 ev._targetArray[0]._handleEvent(ev);
@@ -222,7 +228,307 @@ HuTime.prototype = {
         }
     },
 
-    mouseTimeOut: 300,  // タイマの設定値（ms）
-    _mouseTimer: null   // タイマ
-};
+    mouseTimeOut: 300,      // タイマの設定値（ms）
+    _mouseTimer: null,      // タイマ
 
+    // **** touch イベント関係 ****
+    isInTouchSeries: false,    // 一連のtouch処理中
+    touchCount: 0,              // タッチの数
+
+    // 1つ目のタッチ位置
+    touchOneId: undefined,          // touch ID
+    touchOneOriginX: undefined,     // 元のX座標
+    touchOneOriginY: undefined,     // 元のY座標
+    touchOneX: undefined,           // X座標
+    touchOneY: undefined,           // Y座標
+
+    // 2つ目のタッチ位置
+    touchTwoId: undefined,
+    touchTwoOriginX: undefined,
+    touchTwoOriginY: undefined,
+    touchTwoX: undefined,
+    touchTwoY: undefined,
+
+    // 距離
+    touchDistanceOrigin: undefined,     // 元の距離
+    touchDistance: undefined,           // 距離
+
+    // タップ
+    tapTimer: null,
+    tapTime: 300,           // タップを判断する時間（touchstartからtouceendまで）
+    tapCount: 0,            // タップの数（0 の場合はタイムアウト後などで無効）
+
+    // タップ－クリック互換
+    clickAfterTap: true,    // trueの場合、タップ後にクリックイベントを発火させる
+    touchOneScreenX: undefined,     // クリックイベント（マウスイベント）に渡す座標値
+    touchOneScreenY: undefined,
+    touchOneClientX: undefined,
+    touchOneClientY: undefined,
+
+    // ピンチとスワイプ
+    minPinchDistance: 1,    // ピンチ開始を判断する距離の変化
+    isPinching: false,      // ピンチ操作中
+    isSwiping: false,       // スワイプ操作中
+
+    // ホールド（指の静止）
+    holdTimer: null,        // ホールドを検出するためのタイマ
+    holdTime: 800,          // ホールドを判断する時間（ms）
+    tapArea: 1,             // tap時の移動許容量
+
+    // タッチイベント処理
+    _handleTouchEvent: function _handleTouchEvent(ev, obj) {
+        var i;
+        var mouseEv;
+        if (ev.type == "touchstart") {
+            this.touchCount = ev.touches.length;
+            if (!this.isInTouchSeries) {   // 最初のtouch
+                // 各座標の初期化
+                this.touchOneId = ev.touches[0].identifier;
+                this.touchOneX = ev.touches[0].pageX
+                    - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                this.touchOneY = ev.touches[0].pageY
+                    - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                this.touchOneOriginX = this.touchOneX;
+                this.touchOneOriginY = this.touchOneY;
+
+                this.touchOneScreenX = ev.touches[0].screenX;
+                this.touchOneScreenY = ev.touches[0].screenY;
+                this.touchOneClientX = ev.touches[0].clientX;
+                this.touchOneClientY = ev.touches[0].clientY;
+
+                this.touchTwoX = undefined;
+                this.touchTwoY = undefined;
+                this.touchTwoOriginX = undefined;
+                this.touchTwoOriginY = undefined;
+
+                this.isInTouchSeries = true;
+                this._handleInnerTouchEvent(
+                    HuTime.TouchEvent.createFromDomEv(ev, this, "touchinit", obj));
+
+                // タップ処理の開始
+                clearTimeout(this.tapTimer);
+                this.tapCount = ev.touches.length;
+                this.tapTimer = setTimeout(function () {
+                    this.tapCount = 0;
+                }.bind(this), this.tapTime);
+
+                // 最初のホールドをセット
+                this.holdTimer = setTimeout(function () {
+                    switch (this.touchCount) {
+                        case 1:
+                            this._handleInnerTouchEvent(
+                                HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                            break;
+
+                        case 2:
+                            this._handleInnerTouchEvent(
+                                HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                            break;
+                    }
+                }.bind(this), this.holdTime);
+            }
+
+            // 2か所目以降の位置の処理
+            if (this.touchTwoId == undefined && ev.touches.length >= 2) {
+                for (i = 0; i < ev.touches.length; ++i) {
+                    if (ev.touches[i].identifier == this.touchOneId)
+                        continue;
+                    this.touchTwoId = ev.touches[i].identifier;
+                    this.touchTwoX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchTwoY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                    this.touchTwoOriginX = this.touchTwoX;
+                    this.touchTwoOriginY = this.touchTwoY;
+                    break;
+                }
+            }
+            if (this.tapCount) {      // タップ2か所目以降
+                this.tapCount = ev.touches.length;
+            }
+        }
+        else if (ev.type == "touchend") {
+            this.touchCount = ev.touches.length;
+            // 1st, 2nd touch が終了した場合
+            var existFirst = false;
+            var existSecond = false;
+            for (i = 0; i < ev.touches.length; ++i) {
+                existFirst |= ev.touches[i].identifier == this.touchOneId;
+                existSecond |= ev.touches[i].identifier == this.touchTwoId;
+            }
+            if (!existFirst) {
+                this.touchOneId = undefined;
+                clearTimeout(this.holdTimer);
+                if (this.isPinching) {
+                    this.isPinching = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                }
+                if (this.isSwiping) {
+                    this.isSwiping = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                }
+            }
+            if (!existSecond) {
+                this.touchTwoId = undefined;
+                clearTimeout(this.holdTimer);
+                if (this.isPinching) {
+                    this.isPinching = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                }
+            }
+
+            if (ev.touches.length == 0) {   // シリーズの終了
+                // タップの処理
+                if (this.tapCount) {
+                    switch (this.tapCount) {
+                        case 1:
+                            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "tapone", obj));
+                            break;
+
+                        case 2:
+                            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "taptwo", obj));
+                            break;
+                    }
+                    clearTimeout(this.tapTimer);
+                    this.tapCount = 0;
+
+                    // タップ－クリック互換
+                    if (this.clickAfterTap) {
+                        mouseEv = new MouseEvent("click", {
+                            bubbles: true,
+                            cancelable: true,
+                            clientX: this.touchOneClientX,
+                            clientY: this.touchOneClientY,
+                            screenX: this.touchOneScreenX,
+                            screenY: this.touchOneScreenY,
+                            ctrlKey: ev.ctrlKey,
+                            shiftKey: ev.shiftKey,
+                            altKey: ev.altKey,
+                            metaKey: ev.metaKey
+                        });
+                        ev.target.dispatchEvent(mouseEv);
+                    }
+                }
+
+                // 終了処理
+                clearTimeout(this.holdTimer);
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchfinish", obj));
+                this.isInTouchSeries = false;
+            }
+        }
+        else if (ev.type == "touchmove") {
+            // touch位置および距離を更新
+            for (i = 0; i < ev.touches.length; ++i) {
+                if (ev.touches[i].identifier == this.touchOneId) {
+                    this.touchOneOriginX = this.touchOneX;
+                    this.touchOneOriginY = this.touchOneY;
+                    this.touchOneX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchOneY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                }
+                if (ev.touches[i].identifier == this.touchTwoId) {
+                    this.touchTwoOriginX = this.touchTwoX;
+                    this.touchTwoOriginY = this.touchTwoY;
+                    this.touchTwoX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchTwoY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                }
+            }
+            this.touchDistanceOrigin = this.touchDistance;
+            this.touchDistance = Math.sqrt(
+                Math.pow((this.touchOneX - this.touchTwoX), 2) + Math.pow((this.touchOneY - this.touchTwoY), 2));
+
+            // 実質的なtouch位置の移動をチェック
+            if (this.touchOneId != undefined &&
+                (Math.abs(this.touchOneX - this.touchOneOriginX) > this.tapArea ||
+                Math.abs(this.touchOneY - this.touchOneOriginY) > this.tapArea ||
+                Math.abs(this.touchTwoX - this.touchTwoOriginX) > this.tapArea ||
+                Math.abs(this.touchTwoY - this.touchTwoOriginY) > this.tapArea)) {
+
+                // 動いた場合、tapは無効
+                if (this.tapCount) {
+                    this.tapCount = 0;
+                    clearTimeout(this.tapTimer);
+                }
+
+                // ピンチの処理
+                if (!this.isPinching && this.touchTwoId != undefined &&
+                    Math.abs(this.touchDistance - this.touchDistanceOrigin) > this.minPinchDistance) {
+                    if (this.isSwiping) {   // スワイプからピンチに移行した場合
+                        clearTimeout(this.holdTimer);
+                        this.isSwiping = false;
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                    }
+                    this.isPinching = true;  // 距離に一定以上の変化があれば、ピンチを開始
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchstart", obj));
+                }
+                if (this.isPinching) {
+                    clearTimeout(this.holdTimer);
+                    this.holdTimer = setTimeout(function () {   // 一定時間はピンチ中として扱う
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                        this.isPinching = false;
+                        switch (this.touchCount) {
+                            case 1:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                                break;
+
+                            case 2:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                                break;
+                        }
+                    }.bind(this), this.holdTime);
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinch", obj));
+                }
+
+                // スワイプの処理
+                if (!this.isSwiping && !this.isPinching) {
+                    this.isSwiping = true;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipestart", obj));
+                }
+                if (this.isSwiping) {
+                    clearTimeout(this.holdTimer);
+                    this.holdTimer = setTimeout(function () {   // 一定時間はスワイプ中として扱う
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                        this.isSwiping = false;
+                        switch (this.touchCount) {
+                            case 1:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                                break;
+
+                            case 2:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                                break;
+                        }
+                    }.bind(this), this.holdTime);
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipe", obj));
+                }
+            }
+        }
+
+        else if (ev.type == "touchcancel") {
+            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchcancel", obj));
+
+            // 終了処理
+            clearTimeout(this.holdTimer);
+            if (this.isSwiping) {
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                this.isSwiping = false;
+            }
+            if (this.isPinching) {
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                this.isPinching = false;
+            }
+            this.touchOneId = undefined;
+            this.touchTwoId = undefined;
+            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchfinish", obj));
+            this.isInTouchSeries = false;
+
+        }
+    }
+};
