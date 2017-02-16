@@ -1,4 +1,4 @@
-﻿
+
 // ******** ContainerBase (PanelCollection, Panel, Layer の基底クラス) ********
 HuTime.ContainerBase = function() {
     this._contents = [];

@@ -1,4 +1,4 @@
-﻿
+
 HuTime.Slider = function (vBreadth, vMarginTop, vMarginBottom) {
     HuTime.ContainerBase.apply(this, arguments);
     if (!isNaN(vBreadth))
