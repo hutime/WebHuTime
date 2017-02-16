@@ -1,5 +1,5 @@
-﻿// ********************************
-// WebHuTime
+// ********************************
+// Web HuTime
 // Copyright (C) 2016-2017 Tatsuki Sekino.
 // ********************************
 
@@ -226,7 +226,7 @@ HuTime.prototype = {
     _mouseTimer: null   // タイマ
 };
 
-﻿// ブラウザ判定
+// ブラウザ判定
 HuTime.userAgent = function () {
     var userAgent = window.navigator.userAgent.toLowerCase();
     if (userAgent.indexOf("opera") != -1) {
@@ -837,7 +837,7 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
     return [bJd, eJd];
 };
 
-﻿
+
 // ******** ContainerBase (PanelCollection, Panel, Layer の基底クラス) ********
 HuTime.ContainerBase = function() {
     this._contents = [];
@@ -3748,7 +3748,7 @@ HuTime.PositionConstant = {
         return layer._element.height;   // canvas要素なので、style.heightでなく、height属性が使える
     }
 };
-﻿
+
 // ******** レイヤ上の図形オブジェクト ********
 // レイヤ上の図形オブジェクトの基底クラス
 HuTime.OnLayerObjectBase = function (position) {
@@ -5013,7 +5013,7 @@ HuTime.StringStyle.prototype = {
     }
 };
 
-﻿
+
 HuTime.Slider = function (vBreadth, vMarginTop, vMarginBottom) {
     HuTime.ContainerBase.apply(this, arguments);
     if (!isNaN(vBreadth))

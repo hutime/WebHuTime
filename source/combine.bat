@@ -1,7 +1,7 @@
 setlocal
 cd /d %~dp0
-set source=source\
-set target=release\
+set source=.\
+set target=..\release\
 
 copy /y %source%HuTime.js %target%HuTime.js
 type %source%Common.js >> %target%HuTime.js

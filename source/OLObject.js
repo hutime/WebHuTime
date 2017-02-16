@@ -1,4 +1,4 @@
-﻿
+
 // ******** レイヤ上の図形オブジェクト ********
 // レイヤ上の図形オブジェクトの基底クラス
 HuTime.OnLayerObjectBase = function (position) {

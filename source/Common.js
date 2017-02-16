@@ -1,4 +1,4 @@
-﻿// ブラウザ判定
+// ブラウザ判定
 HuTime.userAgent = function () {
     var userAgent = window.navigator.userAgent.toLowerCase();
     if (userAgent.indexOf("opera") != -1) {
