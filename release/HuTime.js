@@ -3,6 +3,7 @@
 // Copyright (C) 2016-2017 Tatsuki Sekino.
 // ********************************
 
+
 // ******** WebHuTime本体 ********
 HuTime = function(elementId) {
     Object.defineProperty(this, "constructor", {writable: false, value: HuTime});
@@ -17,7 +18,7 @@ HuTime = function(elementId) {
             clearTimeout(obj._mouseTimer);
             obj._mouseTimer = setTimeout(
                 function() {
-                        obj.redraw.call(obj);
+                    obj.redraw.call(obj);
                 },
                 obj.mouseTimeOut);
         };
@@ -81,8 +82,8 @@ HuTime.prototype = {
     // **** 描画関係 ****
     redraw: function (minT, maxT) {     // コンテナの再描画
         if (isFinite(minT) && minT != null && isFinite(maxT) && maxT != null && minT < maxT) {
-                this.minT = minT;
-                this.maxT = maxT;
+            this.minT = minT;
+            this.maxT = maxT;
         }
         if (this.minT < this.minTLimit)
             this.minT = this.minTLimit;
@@ -124,11 +125,19 @@ HuTime.prototype = {
         this._handleEvent(ev);
     },
 
+    _handleInnerTouchEvent: function (ev) {
+        if (!(ev.target.hutimeObject instanceof HuTime.ContainerBase))
+            return;
+
+        ev.target.hutimeObject._extractInnerTouchEvent(ev, ev.offsetX, ev.offsetY);
+        this._handleEvent(ev);
+    },
     _handleMouseEvent: function (domEv) {     // マウスイベントの処理
         // イベントの抽出とtypeを特定し、配列に収容
-        var eventInfos = domEv.target.hutimeObject._extractMouseEvent(domEv, domEv.offsetX, domEv.offsetY);
+        var eventInfos;
         var newEv;          // 新たに発火させるための拡張されたのイベントオブジェクト
 
+        eventInfos = domEv.target.hutimeObject._extractMouseEvent(domEv, domEv.offsetX, domEv.offsetY);
         for (var i = 0; i < eventInfos.length; ++i) {
             newEv = HuTime.MouseEvent.createFromDomEv(domEv, eventInfos[i].type, eventInfos[i].target);
             if (newEv._type == "mouseup" || newEv._type == "mouseout" || newEv._originalEvent.type == "mouseout")
@@ -146,13 +155,8 @@ HuTime.prototype = {
         // オブジェクトツリーに沿って、ハンドラの呼び出し先を配列化し、targetArrayに収容する
         ev._targetArray = [ev._target];
         while (!(ev._targetArray[0] === this) && ev._targetArray[0]._parent) {
-                ev._targetArray.unshift(ev._targetArray[0]._parent);    // 先頭に上位のオブジェクトを追加していく
+            ev._targetArray.unshift(ev._targetArray[0]._parent);    // 先頭に上位のオブジェクトを追加していく
         }
-
-        // /* !!!!!!!! 開発用（抽出したイベントのモニタ）!!!!!!!!
-        if ("___monitorEvent" in window)
-            ___monitorEvent(ev);
-        // !!!!!!!! 開発用ここまで !!!!!!!! */
 
         // ユーザイベント（Capture Phase）
         if(!ev._preventUserEvent) {
@@ -171,6 +175,8 @@ HuTime.prototype = {
         if (ev._targetArray.length > 1) {
             ev._targetArray.splice(0, 1);    // 呼び出し先一覧から自分自身を除く
             if (ev instanceof HuTime.MouseEvent)    // マウスイベントの場合
+                ev._targetArray[0]._handleMouseEvent(ev, ev._offsetX, ev._offsetY);
+            else if (ev instanceof HuTime.TouchEvent)
                 ev._targetArray[0]._handleMouseEvent(ev, ev._offsetX, ev._offsetY);
             else                                    // その他のイベントの場合
                 ev._targetArray[0]._handleEvent(ev);
@@ -222,10 +228,310 @@ HuTime.prototype = {
         }
     },
 
-    mouseTimeOut: 300,  // タイマの設定値（ms）
-    _mouseTimer: null   // タイマ
-};
+    mouseTimeOut: 300,      // タイマの設定値（ms）
+    _mouseTimer: null,      // タイマ
 
+    // **** touch イベント関係 ****
+    isInTouchSeries: false,    // 一連のtouch処理中
+    touchCount: 0,              // タッチの数
+
+    // 1つ目のタッチ位置
+    touchOneId: undefined,          // touch ID
+    touchOneOriginX: undefined,     // 元のX座標
+    touchOneOriginY: undefined,     // 元のY座標
+    touchOneX: undefined,           // X座標
+    touchOneY: undefined,           // Y座標
+
+    // 2つ目のタッチ位置
+    touchTwoId: undefined,
+    touchTwoOriginX: undefined,
+    touchTwoOriginY: undefined,
+    touchTwoX: undefined,
+    touchTwoY: undefined,
+
+    // 距離
+    touchDistanceOrigin: undefined,     // 元の距離
+    touchDistance: undefined,           // 距離
+
+    // タップ
+    tapTimer: null,
+    tapTime: 300,           // タップを判断する時間（touchstartからtouceendまで）
+    tapCount: 0,            // タップの数（0 の場合はタイムアウト後などで無効）
+
+    // タップ－クリック互換
+    clickAfterTap: true,    // trueの場合、タップ後にクリックイベントを発火させる
+    touchOneScreenX: undefined,     // クリックイベント（マウスイベント）に渡す座標値
+    touchOneScreenY: undefined,
+    touchOneClientX: undefined,
+    touchOneClientY: undefined,
+
+    // ピンチとスワイプ
+    minPinchDistance: 1,    // ピンチ開始を判断する距離の変化
+    isPinching: false,      // ピンチ操作中
+    isSwiping: false,       // スワイプ操作中
+
+    // ホールド（指の静止）
+    holdTimer: null,        // ホールドを検出するためのタイマ
+    holdTime: 800,          // ホールドを判断する時間（ms）
+    tapArea: 1,             // tap時の移動許容量
+
+    // タッチイベント処理
+    _handleTouchEvent: function _handleTouchEvent(ev, obj) {
+        var i;
+        var mouseEv;
+        if (ev.type == "touchstart") {
+            this.touchCount = ev.touches.length;
+            if (!this.isInTouchSeries) {   // 最初のtouch
+                // 各座標の初期化
+                this.touchOneId = ev.touches[0].identifier;
+                this.touchOneX = ev.touches[0].pageX
+                    - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                this.touchOneY = ev.touches[0].pageY
+                    - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                this.touchOneOriginX = this.touchOneX;
+                this.touchOneOriginY = this.touchOneY;
+
+                this.touchOneScreenX = ev.touches[0].screenX;
+                this.touchOneScreenY = ev.touches[0].screenY;
+                this.touchOneClientX = ev.touches[0].clientX;
+                this.touchOneClientY = ev.touches[0].clientY;
+
+                this.touchTwoX = undefined;
+                this.touchTwoY = undefined;
+                this.touchTwoOriginX = undefined;
+                this.touchTwoOriginY = undefined;
+
+                this.isInTouchSeries = true;
+                this._handleInnerTouchEvent(
+                    HuTime.TouchEvent.createFromDomEv(ev, this, "touchinit", obj));
+
+                // タップ処理の開始
+                clearTimeout(this.tapTimer);
+                this.tapCount = ev.touches.length;
+                this.tapTimer = setTimeout(function () {
+                    this.tapCount = 0;
+                }.bind(this), this.tapTime);
+
+                // 最初のホールドをセット
+                this.holdTimer = setTimeout(function () {
+                    switch (this.touchCount) {
+                        case 1:
+                            this._handleInnerTouchEvent(
+                                HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                            break;
+
+                        case 2:
+                            this._handleInnerTouchEvent(
+                                HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                            break;
+                    }
+                }.bind(this), this.holdTime);
+            }
+
+            // 2か所目以降の位置の処理
+            if (this.touchTwoId == undefined && ev.touches.length >= 2) {
+                for (i = 0; i < ev.touches.length; ++i) {
+                    if (ev.touches[i].identifier == this.touchOneId)
+                        continue;
+                    this.touchTwoId = ev.touches[i].identifier;
+                    this.touchTwoX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchTwoY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                    this.touchTwoOriginX = this.touchTwoX;
+                    this.touchTwoOriginY = this.touchTwoY;
+                    break;
+                }
+            }
+            if (this.tapCount) {      // タップ2か所目以降
+                this.tapCount = ev.touches.length;
+            }
+        }
+        else if (ev.type == "touchend") {
+            this.touchCount = ev.touches.length;
+            // 1st, 2nd touch が終了した場合
+            var existFirst = false;
+            var existSecond = false;
+            for (i = 0; i < ev.touches.length; ++i) {
+                existFirst |= ev.touches[i].identifier == this.touchOneId;
+                existSecond |= ev.touches[i].identifier == this.touchTwoId;
+            }
+            if (!existFirst) {
+                this.touchOneId = undefined;
+                clearTimeout(this.holdTimer);
+                if (this.isPinching) {
+                    this.isPinching = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                }
+                if (this.isSwiping) {
+                    this.isSwiping = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                }
+            }
+            if (!existSecond) {
+                this.touchTwoId = undefined;
+                clearTimeout(this.holdTimer);
+                if (this.isPinching) {
+                    this.isPinching = false;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                }
+            }
+
+            if (ev.touches.length == 0) {   // シリーズの終了
+                // タップの処理
+                if (this.tapCount) {
+                    switch (this.tapCount) {
+                        case 1:
+                            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "tapone", obj));
+                            break;
+
+                        case 2:
+                            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "taptwo", obj));
+                            break;
+                    }
+                    clearTimeout(this.tapTimer);
+                    this.tapCount = 0;
+
+                    // タップ－クリック互換
+                    if (this.clickAfterTap) {
+                        mouseEv = new MouseEvent("click", {
+                            bubbles: true,
+                            cancelable: true,
+                            clientX: this.touchOneClientX,
+                            clientY: this.touchOneClientY,
+                            screenX: this.touchOneScreenX,
+                            screenY: this.touchOneScreenY,
+                            ctrlKey: ev.ctrlKey,
+                            shiftKey: ev.shiftKey,
+                            altKey: ev.altKey,
+                            metaKey: ev.metaKey
+                        });
+                        ev.target.dispatchEvent(mouseEv);
+                    }
+                }
+
+                // 終了処理
+                clearTimeout(this.holdTimer);
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchfinish", obj));
+                this.isInTouchSeries = false;
+            }
+        }
+        else if (ev.type == "touchmove") {
+            // touch位置および距離を更新
+            for (i = 0; i < ev.touches.length; ++i) {
+                if (ev.touches[i].identifier == this.touchOneId) {
+                    this.touchOneOriginX = this.touchOneX;
+                    this.touchOneOriginY = this.touchOneY;
+                    this.touchOneX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchOneY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                }
+                if (ev.touches[i].identifier == this.touchTwoId) {
+                    this.touchTwoOriginX = this.touchTwoX;
+                    this.touchTwoOriginY = this.touchTwoY;
+                    this.touchTwoX = ev.touches[i].pageX
+                        - ev.target.getBoundingClientRect().left - window.pageXOffset;
+                    this.touchTwoY = ev.touches[i].pageY
+                        - ev.target.getBoundingClientRect().top - window.pageYOffset;
+                }
+            }
+            this.touchDistanceOrigin = this.touchDistance;
+            this.touchDistance = Math.sqrt(
+                Math.pow((this.touchOneX - this.touchTwoX), 2) + Math.pow((this.touchOneY - this.touchTwoY), 2));
+
+            // 実質的なtouch位置の移動をチェック
+            if (this.touchOneId != undefined &&
+                (Math.abs(this.touchOneX - this.touchOneOriginX) > this.tapArea ||
+                Math.abs(this.touchOneY - this.touchOneOriginY) > this.tapArea ||
+                Math.abs(this.touchTwoX - this.touchTwoOriginX) > this.tapArea ||
+                Math.abs(this.touchTwoY - this.touchTwoOriginY) > this.tapArea)) {
+
+                // 動いた場合、tapは無効
+                if (this.tapCount) {
+                    this.tapCount = 0;
+                    clearTimeout(this.tapTimer);
+                }
+
+                // ピンチの処理
+                if (!this.isPinching && this.touchTwoId != undefined &&
+                    Math.abs(this.touchDistance - this.touchDistanceOrigin) > this.minPinchDistance) {
+                    if (this.isSwiping) {   // スワイプからピンチに移行した場合
+                        clearTimeout(this.holdTimer);
+                        this.isSwiping = false;
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                    }
+                    this.isPinching = true;  // 距離に一定以上の変化があれば、ピンチを開始
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchstart", obj));
+                }
+                if (this.isPinching) {
+                    clearTimeout(this.holdTimer);
+                    this.holdTimer = setTimeout(function () {   // 一定時間はピンチ中として扱う
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                        this.isPinching = false;
+                        switch (this.touchCount) {
+                            case 1:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                                break;
+
+                            case 2:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                                break;
+                        }
+                    }.bind(this), this.holdTime);
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinch", obj));
+                }
+
+                // スワイプの処理
+                if (!this.isSwiping && !this.isPinching) {
+                    this.isSwiping = true;
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipestart", obj));
+                }
+                if (this.isSwiping) {
+                    clearTimeout(this.holdTimer);
+                    this.holdTimer = setTimeout(function () {   // 一定時間はスワイプ中として扱う
+                        this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                        this.isSwiping = false;
+                        switch (this.touchCount) {
+                            case 1:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdone", obj));
+                                break;
+
+                            case 2:
+                                this._handleInnerTouchEvent(
+                                    HuTime.TouchEvent.createFromDomEv(ev, this, "tapholdtwo", obj));
+                                break;
+                        }
+                    }.bind(this), this.holdTime);
+                    this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipe", obj));
+                }
+            }
+        }
+
+        else if (ev.type == "touchcancel") {
+            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchcancel", obj));
+
+            // 終了処理
+            clearTimeout(this.holdTimer);
+            if (this.isSwiping) {
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "swipeend", obj));
+                this.isSwiping = false;
+            }
+            if (this.isPinching) {
+                this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "pinchend", obj));
+                this.isPinching = false;
+            }
+            this.touchOneId = undefined;
+            this.touchTwoId = undefined;
+            this._handleInnerTouchEvent(HuTime.TouchEvent.createFromDomEv(ev, this, "touchfinish", obj));
+            this.isInTouchSeries = false;
+
+        }
+    }
+};
 // ブラウザ判定
 HuTime.userAgent = function () {
     var userAgent = window.navigator.userAgent.toLowerCase();
@@ -497,6 +803,105 @@ HuTime.MouseEvent.createFromDomEv = function (domEv, type, hutimeTarget) {   // 
 
     return newEv;
 };
+
+// ** タッチイベント **
+HuTime.TouchEvent = function (handleObj, type, target) {
+    HuTime.Event.call(this, type, target);
+    this._handleObject = handleObj;
+};
+HuTime.TouchEvent.prototype = Object.create(HuTime.Event.prototype, {
+    constructor: {
+        value: HuTime.TouchEvent
+    },
+
+    _handleObject: {        // タッチイベントを処理したオブジェクト（関連情報が格納されている）
+        writable: true,
+        value: null
+    },
+    handleObject:{
+        get: function (){
+            return this._handleObject;
+        }
+    },
+
+    // 座標関係
+    offsetX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    offsetY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    _offsetX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    _offsetY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    touchOneX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    touchOneY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    touchOneOriginX: {
+        get: function (){
+            return this._handleObject.touchOneOriginX;
+        }
+    },
+    touchOneOriginY: {
+        get: function (){
+            return this._handleObject.touchOneOriginY;
+        }
+    },
+    touchTwoX: {
+        get: function (){
+            return this._handleObject.touchTwoX;
+        }
+    },
+    touchTwoY: {
+        get: function (){
+            return this._handleObject.touchTwoY;
+        }
+    },
+    touchTwoOriginX: {
+        get: function (){
+            return this._handleObject.touchTwoOriginX;
+        }
+    },
+    touchTwoOriginY: {
+        get: function (){
+            return this._handleObject.touchTwoOriginY;
+        }
+    },
+    touchDistance: {
+        get: function (){
+            return this._handleObject.touchDistance;
+        }
+    },
+    touchDistanceOrigin: {
+        get: function (){
+            return this._handleObject.touchDistanceOrigin;
+        }
+    }
+});
+HuTime.TouchEvent.createFromDomEv = function (domEv, handleObj, type, hutimeTarget) {
+    var ev = new HuTime.TouchEvent(handleObj, type, hutimeTarget);
+    ev._originalEvent = domEv;
+    return ev;
+};
+
 
 // **** 内部イベント ****
 HuTime.InnerEvent = function (type, target) {
@@ -1045,7 +1450,7 @@ HuTime.ContainerBase.prototype = {
         }
     },
     _hutimeRoot: null,      // 最上位のHuTimeオブジェクト
-    get hutimeRoot() {      
+    get hutimeRoot() {
         return this._hutimeRoot;
     },
     _setHutimeRoot: function(root) {
@@ -1132,7 +1537,7 @@ HuTime.ContainerBase.prototype = {
         }
     },
     _redrawContent: function() {
-    // 子要素の再描画（先頭から末尾に向かって描画：末尾が最前面になる）
+        // 子要素の再描画（先頭から末尾に向かって描画：末尾が最前面になる）
         for (var i = 0; i < this._contents.length; ++i) {
             this._contents[i]._contentsIndex = i;
             if (this._contents[i]._visible)
@@ -1309,10 +1714,39 @@ HuTime.ContainerBase.prototype = {
     isInsideXY: function(x, y) {        // 自域内の座標であるかの判断
         if (this._tRotation == 1)
             return (x < this._currentVBreadth + this._currentVXYOrigin && x >= this._currentVXYOrigin);
-            //return (x < this._currentVBreadth && x >= 0);
+        //return (x < this._currentVBreadth && x >= 0);
         else
             return (y < this._currentVBreadth + this._currentVXYOrigin && y >= this._currentVXYOrigin);
-            //return (y < this._currentVBreadth && y >= 0);
+        //return (y < this._currentVBreadth && y >= 0);
+    },
+
+    _extractInnerTouchEvent: function(ev, eventX, eventY) {   // 内部タッチイベントの抽出
+        if (this.mouseEventCapture == 0)    // HuTime.EventCapture.None = 0
+            return;
+
+        if (!this.isInsideXY(eventX, eventY))
+            return;   // 自域内でない場合は終了
+
+        // 子オブジェクトののイベント情報を抽出
+        ev._target = this;
+        if ((this.mouseEventCapture & 2) != 0) {    // HuTime.EventCapture.Child = 2
+            for (var i = 0; i < this._contents.length; ++i) {
+                //for (var i = this._contents.length; i--;) {
+                if (this._contents[i]._visible) {
+                    if (this._tRotation == 1)
+                        this._contents[i]._extractInnerTouchEvent(ev, eventX  - this._currentVXYOrigin, eventY);
+                    else
+                        this._contents[i]._extractInnerTouchEvent(ev, eventX, eventY - this._currentVXYOrigin);
+                }
+            }
+        }
+        if (ev._target !== this)
+            return;
+
+        if ((this.mouseEventCapture & 1) == 0)    // イベント透過属性のチェック HuTime.EventCapture.WithoutChild = 1
+            return;
+
+        ev._target = this;
     },
 
     _extractMouseEvent: function(domEv, eventX, eventY) {      // イベント情報の抽出
@@ -1409,7 +1843,6 @@ HuTime.ContainerBase.prototype = {
                 addedEventInfos[0].t, addedEventInfos[0].y));
             eventInfos.push(new HuTime.EventInfo("mousemove", addedEventInfos[0].target,
                 addedEventInfos[0].t, addedEventInfos[0].y));
-            return;
         }
     }
 };
@@ -1453,6 +1886,13 @@ HuTime.PanelCollection = function (vBreadth, tLength) {
     this._captureElement.addEventListener("mouseover", this._handleCaptureMouseEvent, false);
     this._captureElement.addEventListener("mouseout", this._handleCaptureMouseEvent, false);
     this._captureElement.addEventListener("wheel", this._handleCaptureMouseEvent, false);
+
+
+    this._captureElement.addEventListener("touchstart", this._handleCaptureMouseEvent, false);
+    this._captureElement.addEventListener("touchmove", this._handleCaptureMouseEvent, false);
+    this._captureElement.addEventListener("touchend", this._handleCaptureMouseEvent, false);
+    this._captureElement.addEventListener("touchcancel", this._handleCaptureMouseEvent, false);
+
 };
 HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype, {
     // **** 基本構造 ****
@@ -1530,10 +1970,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     }
                 }
                 else
-                    if (this._currentTLength != this._element.parentNode.clientWidth) {
-                        isTLengthChanged = true;
-                        this._currentTLength = this._element.parentNode.clientWidth;  // 現在の表示幅を使う
-                    }
+                if (this._currentTLength != this._element.parentNode.clientWidth) {
+                    isTLengthChanged = true;
+                    this._currentTLength = this._element.parentNode.clientWidth;  // 現在の表示幅を使う
+                }
             }
             else {  // 固定値（this.tLengthMode == 0）の場合
                 if (!isFinite(this._tLength) || this._tLength == null) {
@@ -1651,10 +2091,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     if (this._tRotation == 1)
                         this._currentVBreadth = this._element.parentNode.clientWidth;
                     else
-                        if (this._element.parentNode.style.height)
-                            this._currentVBreadth = this._element.parentNode.clientHeight;
-                        else
-                            this._currentVBreadth = this.vBreadthDefault;
+                    if (this._element.parentNode.style.height)
+                        this._currentVBreadth = this._element.parentNode.clientHeight;
+                    else
+                        this._currentVBreadth = this.vBreadthDefault;
                     return;
 
                 default:    // パネルに合わせる場合
@@ -1819,16 +2259,16 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             if (ev._type == "click" && this._preventClick) {
                 this._preventClick = false;
                 ev._preventEvent = true;
-                return;
             }
         }
     },
     _handleMouseEventBubbling: {
         value: function (ev, eventX, eventY) {
             var minT, maxT;
-            var innerEv;        // 発火させる内部イベント
-            var targetPanel;    // イベントにかかわるパネル
-            var i;              // ループカウンタ
+            var innerEv;            // 発火させる内部イベント
+            var targetPanel;        // イベントにかかわるパネル
+            var i;                  // ループカウンタ
+            var deltaX, deltaY;     // 座標の変化
 
             // イベントにかかわるパネルを取得
             targetPanel = ev._target;
@@ -1960,8 +2400,8 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
                 // ドラッグの方向が未決の場合は判断
                 if (!this._dragDirection) {
-                    var deltaX = Math.abs(ev._offsetX - this._dragOriginX);
-                    var deltaY = Math.abs(ev._offsetY - this._dragOriginY);
+                    deltaX = Math.abs(ev._offsetX - this._dragOriginX);
+                    deltaY = Math.abs(ev._offsetY - this._dragOriginY);
                     if (deltaX < this.dragSensitivity && deltaY < this.dragSensitivity)
                         return;     // ドラッグ方向を判断する移動量が無い場合
 
@@ -2007,8 +2447,255 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 this._progressVScroll(ev, eventX, eventY, targetPanel);
                 return;
             }
-            return;
+
+
+            // ** タッチ関係 **
+            // touchinit
+            if (ev._type == "touchinit") {
+                this._pinchDirection = null;    // ピンチの方向を未決に戻す
+                this._dragDirection = null;     // ドラッグ（スワイプ）の方向を未決に戻す
+                this._dragOriginPanel = null;
+                if (this._tSwipeAnimationTimer != null) {   // アニメーション動作中なら止める
+                    clearTimeout(this._tSwipeAnimationTimer);
+                    this._tSwipeAnimationTimer = null;
+                }
+                return;
+            }
+
+            // touchfinish
+            if (ev._type == "touchfinish") {
+                // パネル順序変更確定
+                if (this._panelOrderChanging) {
+                    if (targetPanel)
+                        this._endPanelOrderChange(ev, eventX, eventY, targetPanel);
+                    else
+                        this._endPanelOrderChange(
+                            ev, ev._handleObject.touchTwoX, eventX, eventY, this._panelOrderChanging);
+                }
+
+                //　t軸移動確定
+                else if (this._dragDirection == "t") {
+                    clearTimeout(this._tSwipeAnimationTimer);
+                    this._tSwipeAnimationX = eventX;
+                    this._tSwipeAnimationY = eventY;
+                    if (this._tRotation == 1)
+                        this._tSwipeAnimationDelta = ev._handleObject.touchOneY - this._tSwipeAnimationOrigin;
+                    else
+                        this._tSwipeAnimationDelta = ev._handleObject.touchOneX - this._tSwipeAnimationOrigin;
+                    if (Math.abs(this._tSwipeAnimationDelta) < 3) {
+                        this._endTMove(null, this._tSwipeAnimationX, this._tSwipeAnimationY, null);
+                        this._tSwipeAnimationDelta = null;
+                        this._tSwipeAnimationX = null;
+                        this._tSwipeAnimationY = null;
+                        return;
+                    }
+                    this._tSwipeAnimationTimer = setInterval(function (e) {
+                        if (this._tRotation == 1)
+                            this._tSwipeAnimationY += this._tSwipeAnimationDelta;
+                        else
+                            this._tSwipeAnimationX += this._tSwipeAnimationDelta;
+                        this._progressTMove(e, this._tSwipeAnimationX, this._tSwipeAnimationY, targetPanel);
+                        clearTimeout(this._mouseTimer);     // アニメーション中はタイマによる再描画を抑止
+                        this._tSwipeAnimationDelta
+                            = (this._tSwipeAnimationDelta < 0 ? -1 : 1) * Math.pow(Math.abs(this._tSwipeAnimationDelta), 0.9);
+
+                        if (Math.abs(this._tSwipeAnimationDelta) < 3) {
+                            clearTimeout(this._tSwipeAnimationTimer);
+                            this._tSwipeAnimationTimer = null;
+                            this._endTMove(null, this._tSwipeAnimationX, this._tSwipeAnimationY, null);
+                            this._tSwipeAnimationDelta = null;
+                            this._tSwipeAnimationX = null;
+                            this._tSwipeAnimationY = null;
+                        }
+                    }.bind(this, ev), 50);
+                }
+
+                // v軸移動確定
+                else if (this._dragDirection == "v")
+                    this._endVScroll();
+
+                // パネル幅確定
+                else if (this._pinchDirection == "v")
+                    this._endPanelBreadthChange(ev, eventX, eventY, targetPanel);
+
+                // アニメーション終了だが、確定前の場合
+                if (this._tSwipeAnimationTimer == null && this._tSwipeAnimationDelta != null) {
+                    this._endTMove(ev, this._tSwipeAnimationX, this._tSwipeAnimationY, targetPanel);
+                    this._tSwipeAnimationDelta = null;
+                    this._tSwipeAnimationX = null;
+                    this._tSwipeAnimationY = null;
+                }
+
+                this._preventMouseEvent = false;    // イベント受け入れ抑止を解除
+                return;
+            }
+
+            // swipestart
+            if (ev._type == "swipestart") {
+                this._dragOriginPanel = targetPanel;
+                if (this._tRotation == 1) {
+                    this._dragOriginX = ev._offsetX;
+                    this._dragOriginY = ev._offsetY;
+                }
+                else {
+                    this._dragOriginX = ev._offsetX;
+                    this._dragOriginY = ev._offsetY;
+                }
+                return;
+            }
+
+            // swipe
+            if (ev._type == "swipe" && ev.handleObject.touchCount == 1) {
+                // ドラッグの方向が未決の場合は判断
+                if (!this._dragDirection) {
+                    deltaX = Math.abs(ev._offsetX - this._dragOriginX);
+                    deltaY = Math.abs(ev._offsetY - this._dragOriginY);
+                    if (deltaX < this.dragSensitivity && deltaY < this.dragSensitivity)
+                        return;     // ドラッグ方向を判断する移動量が無い場合
+
+                    if (this._tRotation == 1) {
+                        if (deltaY > deltaX) {
+                            this._dragDirection = "t";
+                            this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginY;
+                            clearTimeout(this._tSwipeAnimationTimer);
+                            this._tSwipeAnimationTimer = setInterval(function (e){
+                                this._tSwipeAnimationOrigin = e._handleObject.touchOneY;
+                            }.bind(this, ev), 100);
+                        }
+                        else {
+                            this._dragDirection = "v";
+                            if (this._tSwipeAnimationDelta != null) {
+                                this._endTMove(ev, this._tSwipeAnimationX, this._tSwipeAnimationY, targetPanel);
+                                this._tSwipeAnimationDelta = null;
+                                this._tSwipeAnimationX = null;
+                                this._tSwipeAnimationY = null;
+                            }
+                        }
+                    }
+                    else {
+                        if (deltaX > deltaY) {
+                            this._dragDirection = "t";
+                            this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginX;
+                            clearTimeout(this._tSwipeAnimationTimer);
+                            this._tSwipeAnimationTimer = setInterval(function (e){   // 移動量履歴の保存
+                                this._tSwipeAnimationOrigin = e._handleObject.touchOneX;
+                            }.bind(this, ev), 100);
+                        }
+                        else {
+                            this._dragDirection = "v";
+                            if (this._tSwipeAnimationDelta != null) {
+                                this._endTMove(ev, this._tSwipeAnimationX, this._tSwipeAnimationY, targetPanel);
+                                this._tSwipeAnimationDelta = null;
+                                this._tSwipeAnimationX = null;
+                                this._tSwipeAnimationY = null;
+                            }
+                        }
+                    }
+
+                    if (this._dragDirection == "t") {   // t軸方向ドラッグ開始
+                        this._startTMove(ev, eventX, eventY, targetPanel);
+                        // 引き続きドラッグの処理を行うので、returnしない
+                    }
+                    this._preventClick = true;
+                }
+
+                // t軸方向ドラッグ
+                if (this._dragDirection == "t") {
+                    if (this._dragOriginPanel instanceof HuTime.SliderPanel)
+                        return;     // スライダ操作の場合はレイヤ（HuTime.Slider）で処理するのでここでの処理は中止
+                    this._progressTMove(ev, eventX, eventY, targetPanel);
+                    return;
+                }
+
+                // v軸方向ドラッグ－パネル表示位置の変更
+                if (this.vBreadthMode == 2)
+                    return;     // 「パネルに合わせる」の場合は表示位置の変更禁止
+                if (!this.vScrollable)    // 移動禁止の場合
+                    return;
+                this._progressVScroll(ev, eventX, eventY, targetPanel);
+                return;
+            }
+
+            if (ev.type == "swipeend") {
+                return;
+            }
+
+            // アニメーション後、未確定状態でスワイプ以外の操作があれば、確定処理
+            if (this._tSwipeAnimationDelta != null) {
+                this._endTMove(ev, this._tSwipeAnimationX, this._tSwipeAnimationY, targetPanel);
+                this._tSwipeAnimationDelta = null;
+                this._tSwipeAnimationX = null;
+                this._tSwipeAnimationY = null;
+            }
+
+            // パネルの入れ替え（２指でのスワイプまたはピンチ操作－移動の基準は２つ目のタッチ）
+            if (this._panelOrderChanging && (ev._type == "pinch" || ev._type == "swipe")) {
+                this._progressPanelOrderChange(ev, eventX, eventY, targetPanel);
+                return;
+            }
+
+            // tapholdtwo（パネル順序変更の開始）
+            if (ev.type == "tapholdtwo" && targetPanel) {
+                this._dragOriginPanel = targetPanel;
+                this._dragOriginX = eventX;
+                this._dragOriginY = eventY;
+                this._startPanelOrderChange(ev, eventX, eventY, targetPanel);
+                return;
+            }
+
+            // pinch
+            if (ev.type == "pinch" && !this._panelOrderChanging) {
+                if (!targetPanel)
+                    return; // 発火元のPanelが特定できない場合
+
+                if (!this._pinchDirection) {
+                    deltaX = Math.abs((ev._handleObject.touchOneX - ev._handleObject.touchTwoX) -
+                        (ev._handleObject.touchOneOriginX - ev._handleObject.touchTwoOriginX));
+                    deltaY = Math.abs((ev._handleObject.touchOneY - ev._handleObject.touchTwoY) -
+                        (ev._handleObject.touchOneOriginY - ev._handleObject.touchTwoOriginY));
+                    if (deltaX < this.dragSensitivity && deltaY < this.dragSensitivity)
+                        return;     // ドラッグ方向を判断する変化量が無い場合
+
+                    if (this._tRotation == 1) {
+                        if (deltaY > deltaX)
+                            this._pinchDirection = "t";
+                        else {
+                            this._pinchDirection = "v";
+                            if (targetPanel instanceof HuTime.PanelBorder)
+                                this._startPanelBreadthChange(ev, eventX, eventY, targetPanel.panel);
+                            else
+                                this._startPanelBreadthChange(ev, eventX, eventY, targetPanel);
+                        }
+                    }
+                    else {
+                        if (deltaX > deltaY)
+                            this._pinchDirection = "t";
+                        else {
+                            this._pinchDirection = "v";
+                            if (targetPanel instanceof HuTime.PanelBorder)
+                                this._startPanelBreadthChange(ev, eventX, eventY, targetPanel.panel);
+                            else
+                                this._startPanelBreadthChange(ev, eventX, eventY, targetPanel);
+                        }
+                    }
+                }
+
+                if (this._pinchDirection == "t")
+                    this._pinchZoom(ev, eventX, eventY, targetPanel);
+                else if (this._pinchDirection == "v")
+                    this._progressPanelBreadthChange(ev, eventX, eventY, targetPanel);
+                return;
+            }
         }
+    },
+
+    _pinchDirection: {
+        writable: true,
+        value: null
+    },
+    pinchSensitivity: {
+        writable: true,
+        value: 8
     },
     isInsideXY: {   // パネル幅変更時に_captureElementを変える場合があるため、_captureElementで領域を判断
         value: function(x, y) {
@@ -2019,7 +2706,106 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
 
+    _extractInnerTouchEvent: {  // 内部タッチイベントの抽出（パネルコレクションは域外でも有効）
+        value: function (ev, eventX, eventY) {
+            if (this.mouseEventCapture == 0)    // HuTime.EventCapture.None = 0
+                return;
+
+            // 自域内でない場合はtargetをパネルコレクションとして終了
+            if (!this.isInsideXY(eventX, eventY)) {
+                ev._target = this;
+                return;
+            }
+
+            // 子オブジェクトのイベント情報を抽出
+            ev._target = this;
+            if ((this.mouseEventCapture & 2) != 0) {    // HuTime.EventCapture.Child = 2
+                for (var i = 0; i < this._contents.length; ++i) {
+                    if (this._contents[i]._visible) {
+                        if (this._tRotation == 1)
+                            this._contents[i]._extractInnerTouchEvent(ev, eventX  - this._currentVXYOrigin, eventY);
+                        else
+                            this._contents[i]._extractInnerTouchEvent(ev, eventX, eventY - this._currentVXYOrigin);
+                    }
+                }
+            }
+            if (ev._target !== this)
+                return;     // 自分以外（子オブジェクトがtarget）
+            ev._target = this;
+        }
+    },
+
     // ** t軸 zoom **
+    _pinchZoom: {
+        value: function _pinchZoom(ev, eventX, eventY, targetPanel){
+
+            var currentTOne, currentTTwo;
+            var newTPerXY, newMinT, newMaxT;
+            switch (this.displayMode) {
+                case 0:
+                    currentTOne = targetPanel.minPnlT + ev._handleObject.touchOneOriginX / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    currentTTwo = targetPanel.minPnlT + ev._handleObject.touchTwoOriginX / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    newTPerXY = (currentTOne - currentTTwo) / (ev._handleObject.touchOneX - ev._handleObject.touchTwoX);
+                    newMinT = currentTOne - ev.handleObject.touchOneX * newTPerXY;
+                    newMaxT = newMinT + newTPerXY * this._currentTLength;
+                    break;
+
+                case 1:
+                    currentTOne = targetPanel.maxPnlT - ev._handleObject.touchOneOriginX / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    currentTTwo = targetPanel.maxPnlT - ev._handleObject.touchTwoOriginX / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    newTPerXY = (currentTOne - currentTTwo) / (ev._handleObject.touchOneX - ev._handleObject.touchTwoX);
+                    newMaxT = currentTOne - ev.handleObject.touchOneX * newTPerXY;
+                    newMinT = newTPerXY * this._currentTLength + newMaxT;
+                    break;
+
+                case 2:
+                    currentTOne = targetPanel.minPnlT + ev._handleObject.touchOneOriginY / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    currentTTwo = targetPanel.minPnlT + ev._handleObject.touchTwoOriginY / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    newTPerXY = (currentTOne - currentTTwo) / (ev._handleObject.touchOneY - ev._handleObject.touchTwoY);
+                    newMinT = currentTOne - ev.handleObject.touchOneY * newTPerXY;
+                    newMaxT = newMinT + newTPerXY * this._currentTLength;
+                    break;
+
+                case 3:
+                    currentTOne = targetPanel.maxPnlT - ev._handleObject.touchOneOriginY / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    currentTTwo = targetPanel.maxPnlT - ev._handleObject.touchTwoOriginY / this._currentTLength *
+                        (this._hutimeRoot.maxT - this._hutimeRoot.minT) * targetPanel.tRatio;
+                    newTPerXY = (currentTOne - currentTTwo) / (ev._handleObject.touchOneY - ev._handleObject.touchTwoY);
+                    newMaxT = currentTOne - ev.handleObject.touchOneY * newTPerXY;
+                    newMinT = newTPerXY * this._currentTLength + newMaxT;
+                    break;
+            }
+            if(newMinT < this._hutimeRoot.minTLimit)
+                newMinT = this._hutimeRoot.minTLimit;
+            if(newMaxT > this._hutimeRoot.maxTLimit)
+                newMaxT = this._hutimeRoot.maxTLimit;
+
+            this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
+                HuTime.InnerEvent.createWithT("tmove", targetPanel, newMinT, newMaxT));
+
+            // タイマ処理
+            clearTimeout(this._mouseTimer);
+            this._mouseTimer = function(obj) {
+                return setTimeout(
+                    function() {
+                        obj._handleTimeout("tmovestop", obj);
+                        // tmovedイベント発火
+                        var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
+                        newEv._relatedTarget = this;
+                        obj._hutimeRoot._handleEvent(newEv)
+                    },
+                    obj._hutimeRoot.mouseTimeOut);
+            }(this);
+            this._isWheeling = true;    // タイムアウト前に、mouseoutした場合（確定処理をする）の識別用
+        }
+    },
     wheelZoomRatio: {   // ホイール操作による拡大/縮小率
         writable: true,
         value: 0.02
@@ -2094,25 +2880,26 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             switch (this.displayMode) {
                 case 0:
                     deltaT = (this._dragOriginPanel.maxPnlT - this._dragOriginPanel.minPnlT) /
-                        this._currentTLength * (ev._offsetX - this._dragOriginX);  // t軸換算での移動量
+                        //this._currentTLength * (ev._offsetX - this._dragOriginX);  // t軸換算での移動量
+                        this._currentTLength * (eventX - this._dragOriginX);  // t軸換算での移動量
                     this._dragOriginX = eventX;
                     break;
 
                 case 1:
                     deltaT = (this._dragOriginPanel.minPnlT - this._dragOriginPanel.maxPnlT) /
-                        this._currentTLength * (ev._offsetX - this._dragOriginX);  // t軸換算での移動量
+                        this._currentTLength * (eventX - this._dragOriginX);  // t軸換算での移動量
                     this._dragOriginX = eventX;
                     break;
 
                 case 2:
                     deltaT = (this._dragOriginPanel.maxPnlT - this._dragOriginPanel.minPnlT) /
-                        this._currentTLength * (ev._offsetY - this._dragOriginY);  // t軸換算での移動量
+                        this._currentTLength * (eventY - this._dragOriginY);  // t軸換算での移動量
                     this._dragOriginY = eventY;
                     break;
 
                 case 3:
                     deltaT = (this._dragOriginPanel.minPnlT - this._dragOriginPanel.maxPnlT) /
-                        this._currentTLength * (ev._offsetY - this._dragOriginY);  // t軸換算での移動量
+                        this._currentTLength * (eventY - this._dragOriginY);  // t軸換算での移動量
                     this._dragOriginY = eventY;
                     break;
             }
@@ -2154,6 +2941,26 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             newEv._relatedTarget = this;
             this._hutimeRoot._handleEvent(newEv)
         }
+    },
+    _tSwipeAnimationTimer: {    // スワイプ後の慣性アニメーション用のタイマ
+        writable: true,         // （スワイプ時の移動量の検出とスワイプ後のアニメーション処理）
+        value: null
+    },
+    _tSwipeAnimationX: {        // アニメーション用のx座標
+        writable: true,
+        value: null
+    },
+    _tSwipeAnimationY: {        // アニメーション用のy座標
+        writable: true,
+        value: null
+    },
+    _tSwipeAnimationDelta: {    // アニメーション時の座標の変化量
+        writable: true,
+        value: null
+    },
+    _tSwipeAnimationOrigin: {   // 変化量を計算するための一定時間前の座標値
+        writable: true,
+        value: 0
     },
 
     // ** v軸移動 **
@@ -2245,7 +3052,8 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     _startPanelOrderChange: {    // 変更開始（対象のパネルの書式変更）（shift+mousedown）
         value: function(ev, eventX, eventY, targetPanel) {
             if (targetPanel.repositionable) {
-                this._captureElement.style.cursor = "pointer";  // カーソル変更
+                if (ev instanceof HuTime.MouseEvent)
+                    this._captureElement.style.cursor = "pointer";  // カーソル変更
                 this._panelOrderChanging = targetPanel;
                 this._panelOrderChangingZIndex = targetPanel._element.style.zIndex;
                 this._panelOrderChangingOpacity = targetPanel._element.style.opacity;
@@ -2257,18 +3065,35 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     _progressPanelOrderChange: { // 変更中（shift+mousemove）
         value: function(ev, eventX, eventY, targetPanel) {
             var left = parseFloat(this._panelOrderChanging._element.style.left);
-            left += ev.originalEvent.offsetX - this._dragOriginX;
-            this._panelOrderChanging._element.style.left = left + "px";
-            this._dragOriginX = ev.originalEvent.offsetX;
-
             var top = parseFloat(this._panelOrderChanging._element.style.top);
-            top += ev.originalEvent.offsetY - this._dragOriginY;
-            this._panelOrderChanging._element.style.top = top+ "px";
-            this._dragOriginY = ev.originalEvent.offsetY;
+
+            if (ev instanceof HuTime.TouchEvent) {
+                left += eventX - this._dragOriginX;
+                this._panelOrderChanging._element.style.left = left + "px";
+                top += eventY - this._dragOriginY;
+                this._panelOrderChanging._element.style.top = top+ "px";
+                this._dragOriginX = eventX;
+                this._dragOriginY = eventY;
+            }
+            else {
+                left += ev.originalEvent.offsetX - this._dragOriginX;
+                this._panelOrderChanging._element.style.left = left + "px";
+                top += ev.originalEvent.offsetY - this._dragOriginY;
+                this._panelOrderChanging._element.style.top = top+ "px";
+                this._dragOriginX = ev.originalEvent.offsetX;
+                this._dragOriginY = ev.originalEvent.offsetY;
+            }
+            clearTimeout(this._mouseTimer);
+
+            this._mouseTimer = setTimeout(function (){
+                this._endPanelOrderChange(ev, eventX, eventY, this._panelOrderChanging);
+            }.bind(this), this._hutimeRoot.mouseTimeOut * 4)
         }
     },
     _endPanelOrderChange: {      // 変更確定（入れ換えと対象のパネルの書式を戻す）（mouseup）
         value: function(ev, eventX, eventY, targetPanel) {
+            clearTimeout(this._mouseTimer);
+
             // カーソルと移動元の書式を元に戻す
             this._captureElement.style.cursor = "default";  // カーソル変更
             this._panelOrderChanging._element.style.opacity = this._panelOrderChangingOpacity;
@@ -2289,10 +3114,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 this._panelOrderChanging._contentsIndex != targetIndex)   // 移動先が見つかった場合、入れ換え操作
                 this.changePanelOrder(this._panelOrderChanging, this._contents[targetIndex]);
             else    // 移動先が見つからない場合、ドラッグされたパネルの位置を戻すだけ
-                if (this._tRotation == 1)
-                    this._panelOrderChanging._element.style.left = this._panelOrderChanging._currentVXYOrigin + "px";
-                else
-                    this._panelOrderChanging._element.style.top = this._panelOrderChanging._currentVXYOrigin + "px";
+            if (this._tRotation == 1)
+                this._panelOrderChanging._element.style.left = this._panelOrderChanging._currentVXYOrigin + "px";
+            else
+                this._panelOrderChanging._element.style.top = this._panelOrderChanging._currentVXYOrigin + "px";
             this._panelOrderChanging = null;
         }
     },
@@ -2309,10 +3134,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             if (target._contentsIndex < source._contentsIndex) {   // 上から下へ移動
                 while (destinationIndex != null) { // 下にある移動先から順に上に向かって入れ換えを進める
                     if (this._contents[destinationIndex].repositionable) {
-                         this._contents[movingIndex]._element.style.zIndex =
-                             this._contents[destinationIndex]._element.style.zIndex;
-                         this._contents[movingIndex]._contentsIndex = this._contents[destinationIndex]._contentsIndex;
-                         movingIndex = destinationIndex;
+                        this._contents[movingIndex]._element.style.zIndex =
+                            this._contents[destinationIndex]._element.style.zIndex;
+                        this._contents[movingIndex]._contentsIndex = this._contents[destinationIndex]._contentsIndex;
+                        movingIndex = destinationIndex;
                     }
                     if (this._contents[destinationIndex]._upperPanelIndex == changingContentsIndex)
                         break;
@@ -2351,7 +3176,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     _startPanelBreadthChange: {  // 変更開始（mousedown）
         value: function(ev, eventX, eventY, targetPanel) {
-            this._panelBreadthChanging = ev._target;    // パル幅変更中を設定
+            if (!targetPanel._panelBorder)
+                return;
+            this._panelBreadthChanging = targetPanel._panelBorder;    // パル幅変更中を設定
 
             // 「パネルの幅に合わせる」の場合は、再下端のパネル幅の変更（マウスイベント）を検知するため、
             // 一時的にcaptureElementの幅を_captureElementExtensionだけ伸ばす
@@ -2384,9 +3211,16 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // 幅を変更するパネル内のレイヤ
             if (this._tRotation == 1) {
-                panel.vBreadth += ev._offsetX - this._dragOriginX;
+                if (ev instanceof HuTime.TouchEvent)
+                    panel.vBreadth += Math.abs(ev.handleObject.touchOneX - ev.handleObject.touchTwoX)
+                        - Math.abs(ev.handleObject.touchOneOriginX - ev.handleObject.touchTwoOriginX);
+                else
+                    panel.vBreadth += ev._offsetX - this._dragOriginX;
+
                 if (panel.vBreadth < panel.panelBorderWidth)   // パネル幅の最小値制限
                     panel.vBreadth = panel.panelBorderWidth;
+                if (ev instanceof HuTime.TouchEvent && panel.vBreadth < panel.vBreadthTouchLoweLimit)
+                    panel.vBreadth = panel.vBreadthTouchLoweLimit;   // タッチイベントの場合の最小値制限
                 if (panel.vBreadth > panel.vBreadthUpperLimit)
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginX = ev._offsetX;
@@ -2407,11 +3241,18 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 }
             }
             else {
-                panel.vBreadth += ev._offsetY - this._dragOriginY;
+                if (ev instanceof HuTime.TouchEvent)
+                    panel.vBreadth += Math.abs(ev.handleObject.touchOneY - ev.handleObject.touchTwoY)
+                        - Math.abs(ev.handleObject.touchOneOriginY - ev.handleObject.touchTwoOriginY);
+                else
+                    panel.vBreadth += ev._offsetY - this._dragOriginY;
+
                 if (panel.vBreadth < panel.panelBorderWidth)
                     panel.vBreadth = panel.panelBorderWidth;
                 if (panel.vBreadth < panel.panelBorderWidth)   // パネル幅の最小値制限
                     panel.vBreadth = panel.panelBorderWidth;
+                if (ev instanceof HuTime.TouchEvent && panel.vBreadth < panel.vBreadthTouchLoweLimit)
+                    panel.vBreadth = panel.vBreadthTouchLoweLimit;   // タッチイベントの場合の最小値制限
                 if (panel.vBreadth > panel.vBreadthUpperLimit)
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginY = ev._offsetY;
@@ -2453,6 +3294,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                         this._captureElement.width, this._captureElement.height - this._captureElementExtension);
                 }
             }
+
         }
     },
     _endPanelBreadthChange: {
@@ -2486,6 +3328,13 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     _handleCaptureMouseEvent: {  // captureElementからのマウスイベントを受け取る
         value: function (domEv) {
+            if ("touches" in domEv) {   // いったんタッチイベント処理に渡し、tap, swip, pinchなどのイベントに変換する
+                domEv.target.hutimeObject._hutimeRoot._handleTouchEvent(domEv, domEv.target.hutimeObject._captureElement);
+                domEv.returnValue = false;
+                domEv.preventDefault();
+                return false;
+            }
+
             // 処理をオブジェクトツリーのRoot（HuTimeオブジェト）に渡す
             // thisが書き換わっているので、canvasに加えておいたhutimeObjectから参照する
             if (!domEv.target.hutimeObject._preventMouseEvent)
@@ -2611,6 +3460,10 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
         }
     },
 
+    vBreadthTouchLoweLimit: {   // タッチ操作の場合のパネル高さ（幅）の下限（指の太さを考慮）
+        writable: true,
+        value: 50
+    },
     vBreadthUpperLimit: {    // パネル高さ（幅）の上限
         writable: true,
         value: 2000
@@ -2790,10 +3643,10 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
         value: function(x, y) {        // 自域内の座標であるかの判断（パネル下端の境界分を追加）
             if (this._tRotation == 1)
                 return (x < this._currentVBreadth + this.panelBorderWidth / 2 + this._currentVXYOrigin &&
-                    x >= this._currentVXYOrigin);
+                x >= this._currentVXYOrigin);
             else
                 return (y < this._currentVBreadth + this.panelBorderWidth / 2 + this._currentVXYOrigin &&
-                    y >= this._currentVXYOrigin);
+                y >= this._currentVXYOrigin);
         }
     }
 });
@@ -3222,7 +4075,7 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
             for (var i = this.contents.length; i--; ) {
                 if (this._contents[i] === obj) {
                     this._contents.splice(i, 1);
-                 break;
+                    break;
                 }
             }
         }
@@ -3819,6 +4672,11 @@ HuTime.OnLayerObjectBase.prototype = {
 
     _isMouseIn: false,
     _getExtractionArea: function(){},    // 抽出領域を取得するためのCallBack関数
+    _extractInnerTouchEvent: function (ev, eventX, eventY) {
+        var ctx = this._getExtractionArea(this.layer);
+        if (ctx.isPointInPath(eventX, eventY))
+            ev._target = this;
+    },
     _extractMouseEvent: function(domEv, eventX, eventY) {
         var ctx = this._getExtractionArea(this.layer);
         var eventInfos = [];
@@ -4698,7 +5556,7 @@ HuTime.FigureStyle.prototype = {
         if (val instanceof Array) {
             for (var i = 0; i < val.length; ++i) {
                 if (typeof val[i] != "number" || val[i] < 0 || val [i] > 1000)
-                        return;
+                    return;
             }
         }
         this._lineDash = val;
@@ -4885,7 +5743,7 @@ HuTime.StringStyle.prototype = {
         var lineHeightVal = parseFloat(val);  // 単位をpxに固定するため、いったん数値化
         if (isFinite(lineHeightVal))
             this._lineHeight = lineHeightVal.toString() + "px";
-   },
+    },
     get font() {
         var result = "";
         if (this._fontStyle != "normal")

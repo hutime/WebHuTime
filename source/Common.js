@@ -270,6 +270,105 @@ HuTime.MouseEvent.createFromDomEv = function (domEv, type, hutimeTarget) {   // 
     return newEv;
 };
 
+// ** タッチイベント **
+HuTime.TouchEvent = function (handleObj, type, target) {
+    HuTime.Event.call(this, type, target);
+    this._handleObject = handleObj;
+};
+HuTime.TouchEvent.prototype = Object.create(HuTime.Event.prototype, {
+    constructor: {
+        value: HuTime.TouchEvent
+    },
+
+    _handleObject: {        // タッチイベントを処理したオブジェクト（関連情報が格納されている）
+        writable: true,
+        value: null
+    },
+    handleObject:{
+        get: function (){
+            return this._handleObject;
+        }
+    },
+
+    // 座標関係
+    offsetX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    offsetY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    _offsetX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    _offsetY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    touchOneX: {
+        get: function (){
+            return this._handleObject.touchOneX;
+        }
+    },
+    touchOneY: {
+        get: function (){
+            return this._handleObject.touchOneY;
+        }
+    },
+    touchOneOriginX: {
+        get: function (){
+            return this._handleObject.touchOneOriginX;
+        }
+    },
+    touchOneOriginY: {
+        get: function (){
+            return this._handleObject.touchOneOriginY;
+        }
+    },
+    touchTwoX: {
+        get: function (){
+            return this._handleObject.touchTwoX;
+        }
+    },
+    touchTwoY: {
+        get: function (){
+            return this._handleObject.touchTwoY;
+        }
+    },
+    touchTwoOriginX: {
+        get: function (){
+            return this._handleObject.touchTwoOriginX;
+        }
+    },
+    touchTwoOriginY: {
+        get: function (){
+            return this._handleObject.touchTwoOriginY;
+        }
+    },
+    touchDistance: {
+        get: function (){
+            return this._handleObject.touchDistance;
+        }
+    },
+    touchDistanceOrigin: {
+        get: function (){
+            return this._handleObject.touchDistanceOrigin;
+        }
+    }
+});
+HuTime.TouchEvent.createFromDomEv = function (domEv, handleObj, type, hutimeTarget) {
+    var ev = new HuTime.TouchEvent(handleObj, type, hutimeTarget);
+    ev._originalEvent = domEv;
+    return ev;
+};
+
+
 // **** 内部イベント ****
 HuTime.InnerEvent = function (type, target) {
     if (!type || !target)

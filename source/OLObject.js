@@ -69,6 +69,11 @@ HuTime.OnLayerObjectBase.prototype = {
 
     _isMouseIn: false,
     _getExtractionArea: function(){},    // 抽出領域を取得するためのCallBack関数
+    _extractInnerTouchEvent: function (ev, eventX, eventY) {
+        var ctx = this._getExtractionArea(this.layer);
+        if (ctx.isPointInPath(eventX, eventY))
+            ev._target = this;
+    },
     _extractMouseEvent: function(domEv, eventX, eventY) {
         var ctx = this._getExtractionArea(this.layer);
         var eventInfos = [];
@@ -948,7 +953,7 @@ HuTime.FigureStyle.prototype = {
         if (val instanceof Array) {
             for (var i = 0; i < val.length; ++i) {
                 if (typeof val[i] != "number" || val[i] < 0 || val [i] > 1000)
-                        return;
+                    return;
             }
         }
         this._lineDash = val;
@@ -1135,7 +1140,7 @@ HuTime.StringStyle.prototype = {
         var lineHeightVal = parseFloat(val);  // 単位をpxに固定するため、いったん数値化
         if (isFinite(lineHeightVal))
             this._lineHeight = lineHeightVal.toString() + "px";
-   },
+    },
     get font() {
         var result = "";
         if (this._fontStyle != "normal")
