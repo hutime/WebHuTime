@@ -134,10 +134,10 @@ HuTime.RecordsetBase.prototype = {
         var recordData;
         var itemData;
         this.recordSettings._reader = this.reader;
-        for (var i = 0; i < this.reader.streamData.length; ++i) {
-            record = this.appendNewRecord(this.recordSettings._tSetting.getValue(this.reader.streamData[i]));
+        for (var i = 0; i < this.reader.recordData.length; ++i) {
+            record = this.appendNewRecord(this.recordSettings._tSetting.getValue(this.reader.recordData[i]));
             for (var j = 0; j < this.recordSettings._dataSettings.length; ++j) {
-                itemData = this.recordSettings._dataSettings[j].getValue(this.reader.streamData[i]);
+                itemData = this.recordSettings._dataSettings[j].getValue(this.reader.recordData[i]);
                 if (itemData != null)
                     record.appendData(this.recordSettings._dataSettings[j].recordDataName, itemData);
             }
@@ -1147,13 +1147,13 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
             var tEnd = [];
             this.recordSettings._reader = this.reader;
             var i, j;
-            for (i = 0; i < this.reader.streamData.length; ++i) {
+            for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.ChartRecord(null));
-                tBegin.push(this._tBeginDataSetting.getValue(this.reader.streamData[i]));
-                tEnd.push(this._tEndDataSetting.getValue(this.reader.streamData[i]));
+                tBegin.push(this._tBeginDataSetting.getValue(this.reader.recordData[i]));
+                tEnd.push(this._tEndDataSetting.getValue(this.reader.recordData[i]));
 
                 for (j = 0; j < this.recordSettings._dataSettings.length; ++j) {
-                    itemData = this.recordSettings._dataSettings[j].getValue(this.reader.streamData[i]);
+                    itemData = this.recordSettings._dataSettings[j].getValue(this.reader.recordData[i]);
                     if (itemData != null)
                         record.appendData(this.recordSettings._dataSettings[j].recordDataName, itemData);
                 }
@@ -1165,7 +1165,7 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
 
             if (this.calendarId) {
                 var data = this.calendarId;
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     data += "\n\"" + tBegin[i] + "\",\"" + tEnd[i] + "\"";
                 }
                 var request = new XMLHttpRequest();
@@ -1174,7 +1174,7 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
                         if (this.readyState != 4 || this.status != 200)
                             return;
                         var ranges = JSON.parse(request.responseText);
-                        for (i = 0; i < obj.reader.streamData.length; ++i) {
+                        for (i = 0; i < obj.reader.recordData.length; ++i) {
                             if (isNaN(ranges[i].beginBegin) || isNaN(ranges[i].endEnd))
                                 continue;
                             obj.records[i].tRange = new HuTime.TRange.createFromBeginEnd(
@@ -1190,12 +1190,12 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
                 request.send(data);
             }
             else {
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     beginRanges.push(HuTime.isoToJdRange(tBegin[i]));
                     endRanges.push(HuTime.isoToJdRange(tEnd[i]));
                 }
                 // レコードへのtRangeの設定
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     if (isNaN(beginRanges[i][0]) || isNaN(endRanges[i][1]))
                         continue;   // ここ、処理注意（要再検討）
                     this.records[i].tRange = new HuTime.TRange.createFromBeginEnd(beginRanges[i][0], endRanges[i][1]);
@@ -1505,13 +1505,13 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             var tEnd = [];
             this.recordSettings._reader = this.reader;
             var i, j;
-            for (i = 0; i < this.reader.streamData.length; ++i) {
+            for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.TLineRecord(null));
-                tBegin.push(this._tBeginDataSetting.getValue(this.reader.streamData[i]));
-                tEnd.push(this._tEndDataSetting.getValue(this.reader.streamData[i]));
+                tBegin.push(this._tBeginDataSetting.getValue(this.reader.recordData[i]));
+                tEnd.push(this._tEndDataSetting.getValue(this.reader.recordData[i]));
 
                 for (j = 0; j < this.recordSettings._dataSettings.length; ++j) {
-                    itemData = this.recordSettings._dataSettings[j].getValue(this.reader.streamData[i]);
+                    itemData = this.recordSettings._dataSettings[j].getValue(this.reader.recordData[i]);
                     if (itemData != null)
                         record.appendData(this.recordSettings._dataSettings[j].recordDataName, itemData);
                 }
@@ -1523,7 +1523,7 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
 
             if (this.calendarId) {
                 var data = this.calendarId;
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     data += "\n\"" + tBegin[i] + "\",\"" + tEnd[i] + "\"";
                 }
                 var request = new XMLHttpRequest();
@@ -1532,7 +1532,7 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
                         if (this.readyState != 4 || this.status != 200)
                             return;
                         var ranges = JSON.parse(request.responseText);
-                        for (i = 0; i < obj.reader.streamData.length; ++i) {
+                        for (i = 0; i < obj.reader.recordData.length; ++i) {
                             if (isNaN(ranges[i].beginBegin) || isNaN(ranges[i].endEnd))
                                 continue;
                             obj.records[i].tRange = new HuTime.TRange.createFromBeginEnd(
@@ -1548,12 +1548,12 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
                 request.send(data);
             }
             else {
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     beginRanges.push(HuTime.isoToJdRange(tBegin[i]));
                     endRanges.push(HuTime.isoToJdRange(tEnd[i]));
                 }
                 // レコードへのtRangeの設定
-                for (i = 0; i < this.reader.streamData.length; ++i) {
+                for (i = 0; i < this.reader.recordData.length; ++i) {
                     if (isNaN(beginRanges[i][0]) || isNaN(endRanges[i][1]))
                         continue;   // ここ、処理注意（要再検討）
                     this.records[i].tRange = new HuTime.TRange.createFromBeginEnd(beginRanges[i][0], endRanges[i][1]);

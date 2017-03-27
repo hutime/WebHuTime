@@ -3,7 +3,7 @@
 HuTime.StreamBase = function() {
 };
 HuTime.StreamBase.prototype = {
-    constructor: HuTime.RecordStream,
+    constructor: HuTime.StreamBase,
 
     _source: null,  // 読み込み元
     get source() {
@@ -11,6 +11,7 @@ HuTime.StreamBase.prototype = {
     },
     set source(val) {
         this._source = val;
+        this.loadState = "ready";
     },
 
     load: function load() {                 // ストリームの読み込み開始
@@ -19,7 +20,7 @@ HuTime.StreamBase.prototype = {
     onloadend: function onloadend() {},     // 読み込み終了後の処理
     loadState: "init",                      // 読み込み状態（init, ready, loading, loadend, error）
 
-    readAll: function readAll() {           // 全ての読み込みデータ（基底クラスなのでnullを返す）
+    readAll: function readAll() {           // 全ての読み込みデータを返す（基底クラスなのでnullを返す）
         return null;
     }
 };
@@ -28,12 +29,10 @@ HuTime.StreamBase.prototype = {
 HuTime.FileStream = function(source) {
     this.source = source;
     this._reader = new FileReader();
-    var onloadend = function(obj) {       // FileReaderの読み込み終了イベントに処理を設定
-        obj._reader.onloadend = function (e) {
-            obj.loadState = "loadend";
-            obj.onloadend.apply(obj);
-        };
-    }(this);
+    this.reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
+        this.loadState = "loadend";
+        this.onloadend.apply(this)
+    }.bind(this);
 };
 HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     constructor: {
@@ -52,7 +51,7 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
         set: function(val) {
             if (!(val instanceof File)) {
                 this._source = null;
-                this.loadState = "init";
+                this.loadState = "error";
                 return;
             }
             this._source = val;
@@ -63,8 +62,10 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     // 基底クラスのオーバライド
     load: {
         value: function load() {
-            if (!(this._source instanceof File))
+            if (!(this._source instanceof File)) {
+                this.loadState = "error";
                 return;
+            }
             this.loadState = "loading";
             this._reader.readAsText(this._source);
         }
@@ -83,6 +84,16 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
 HuTime.HttpStream = function(source) {
     this.source = source;
     this._request = new XMLHttpRequest();
+    this._request.onreadystatechange = function (e) {       // XMLHttpRequestの読み込み終了イベントに処理を設定
+        if (this._request.readyState != 4)
+            return;
+        if (this._request.status != "200") {
+            this.loadState = "error";
+            return;
+        }
+        this.loadState = "loadend";
+        this.onloadend.apply(this);
+    }.bind(this);
 };
 HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     constructor: {
@@ -101,7 +112,7 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
         set: function(val) {
             if (!val) {
                 this._source = null;
-                this.loadState = "init";
+                this.loadState = "error";
                 return;
             }
             this._source = val;
@@ -112,15 +123,12 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     // 基底クラスのオーバライド
     load: {
         value: function load() {
+            if (!this._source) {
+                this.loadState = "error";
+                return;
+            }
             this._request.abort();
             this._responseText = null;
-            this._request = new XMLHttpRequest();
-            var onloadend = function(obj) {       // XMLHttpRequestの読み込み終了イベントに処理を設定
-                obj._request.onload = function (e) {
-                    obj.loadState = "loadend";
-                    obj.onloadend.apply(obj);
-                };
-            }(this);
             this.loadState = "loading";
             this._request.open("get", this._source, true);
             this._request.send(null);
@@ -128,20 +136,16 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     },
     readAll: {
         value: function readAll() {
-            if (this._request.readyState == 4 && this.loadState == "loadend")   // readyState: 4 = DONE
-                return this._request.responseText;
-            else
+            if (this._request.readyState != 4 || this.loadState != "loadend")   // readyState: 4 = DONE
                 return null;
+            return this._request.responseText;
         }
     }
 });
 
 // **** ファイルのタイプに応じた読み取り処理により、読み込んだデータを配列に展開 ****
 HuTime.StreamReaderBase = function(source) {
-    if (typeof source == "string" && source != "")  // URLとして入力された場合
-        this.stream = new HuTime.HttpStream(source);
-    else        // streamとして入力された場合
-        this.stream = source;
+    this.source = source;
 };
 HuTime.StreamReaderBase.prototype = {
     constructor: HuTime.StreamReaderBase,
@@ -154,17 +158,31 @@ HuTime.StreamReaderBase.prototype = {
         if (!(val instanceof HuTime.StreamBase))
             return;
         this._stream = val;
-        var onloadend = function (obj) {
-            obj._stream.onloadend = function () {
-                obj._readStreamData.apply(obj);
-                obj.onloadend.apply(obj);   // 自身に設定された読み取り終了後の処理を、ストリーム読み取り後の処理として設定
-            }
-        }(this)
+        this._stream.onloadend = function () {
+            this._readRecordData.apply(this);
+            this.onloadend.apply(this);   // 自身に設定された読み取り終了後の処理を、ストリーム読み取り後の処理として設定
+        }.bind(this);
     },
 
-    _streamData: null,          // ストリームから読み込んだデータ
-    get streamData() {
-        return this._streamData;
+    _source: null,              // レコードセットの取得元
+    get source() {
+        return this._source;
+    },
+    set source(val) {       // 取得元に応じて、適切なstreamオブジェクトを設定
+        if (typeof val == "string" && val != "")  // URLとして入力された場合
+            this.stream = new HuTime.HttpStream(val);
+        else if (val instanceof File)                // Fileオブジェクトが入力された場合
+            this.stream = new HuTime.FileStream(val);
+        else if (val instanceof HuTime.StreamBase)   // streamオブジェクトが直接入力された場合
+            this.stream = val;
+        else
+            return;
+        this._source = val;
+    },
+
+    _recordData: null,          // ストリームから読み込んだデータ
+    get recordData() {
+        return this._recordData;
     },
     _itemNames: null,           // 項目名（列名）の配列
     get itemNames() {
@@ -175,14 +193,14 @@ HuTime.StreamReaderBase.prototype = {
         this.stream.load();
     },
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
-    _readStreamData: function() {}      // レコードセットの読み取り
+    _readRecordData: function() {}      // レコードセットの読み取り
 };
 
 // テキストファイル
-HuTime.TextReader = function(source, titleRow, delimiter) {
-    // titleRow: trueならば1行目はタイトル行, delimiter: 区切り文字
+HuTime.TextReader = function(source, isTitleRow, delimiter) {
+    // isTitleRow: trueならば1行目はタイトル行, delimiter: 区切り文字
     HuTime.StreamReaderBase.apply(this, arguments);
-    this.titleRow = titleRow;
+    this.isTitleRow = isTitleRow;
     this.delimiter = delimiter;
 };
 HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
@@ -190,17 +208,17 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
         value: HuTime.TextReader
     },
 
-    _titleRow: {            // タイトル行の設定（trueならば1行目はタイトル行）
+    _isTitleRow: {            // タイトル行の設定（trueならば1行目はタイトル行）
         writable: true,
         value: true
     },
-    titleRow: {
+    isTitleRow: {
         get: function() {
-            return this._titleRow;
+            return this._isTitleRow;
         },
         set: function(val) {
             if ((typeof val) == "boolean")
-                this._titleRow = val;
+                this._isTitleRow = val;
         }
     },
     _delimiter: {           // 区切り記号
@@ -217,15 +235,14 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
         }
     },
 
-    _readStreamData: {
-        value: function _readStreamData() {
-            var titleRow = this._titleRow;
-
+    _readRecordData: {
+        value: function _readRecordData() {
+            var isTitleRow = this._isTitleRow;  // 現在処理中の行がタイトル行かどうか
             var pos = 0;        // 現在の読み込み位置
             var posNext;        // 次の読み込み位置（読み込むデータの終端の次）
             var posIndexOf;     // IndexOfの結果を収容
 
-            this._streamData = [];
+            this._recordData = [];
             this._itemNames = [];
             var recordId = 0;
             var item = "";
@@ -239,9 +256,9 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
 
             recordId = 0;
             while (pos < length) {
-                if (!titleRow)
-                    this._streamData.push({
-                        name: this._itemNames,  // 表形式なので、参照を渡すだけ
+                if (!isTitleRow)     // データ行の処理
+                    this._recordData.push({
+                        name: this._itemNames,  // 表形式なので、参照を渡すだけ（全てのレコードで共通になる）
                         value: []
                     });
                 itemCount = 0;
@@ -291,10 +308,10 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                     }
 
                     // 値を結果に出力し、各種編集を初期値に戻す
-                    if (titleRow)
-                        this._itemNames.push(item);
+                    if (isTitleRow)
+                        this._itemNames.push(item);     // タイトル行の処理
                     else
-                        this._streamData[recordId].value.push(item);
+                        this._recordData[recordId].value.push(item);    // データ行の処理
                     isEnclosed = false;
                     item = "";
 
@@ -309,11 +326,11 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                 if (posIndexOf > pos)
                     pos = posIndexOf;
 
-                if (titleRow)
-                    titleRow = false;
+                if (isTitleRow)
+                    isTitleRow = false;  // falseに設定し、以降の処理をデータ行として処理
                 else {      // データ項目数をチェックして、レコードIDをインクリメント
-                    if (maxItemCount < this._streamData[recordId].value.length)
-                        maxItemCount = this._streamData[recordId].value.length;
+                    if (maxItemCount < this._recordData[recordId].value.length)
+                        maxItemCount = this._recordData[recordId].value.length;
                     ++recordId;
                 }
                 ++pos;
@@ -323,13 +340,13 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             for (var i = this._itemNames.length; i < maxItemCount; ++i) {
                 this._itemNames.push(i);
             }
-            return this._streamData;
+            return this._recordData;
         }
     }
 });
 
 // csvファイル（TextReaderの区切り記号を','に固定）
-HuTime.CsvReader = function(source, titleRow) {
+HuTime.CsvReader = function(source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
@@ -349,7 +366,7 @@ HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
 });
 
 // tsvファイル（TextReaderの区切り記号を'\t'に固定）
-HuTime.TsvReader = function(source, titleRow) {
+HuTime.TsvReader = function(source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
