@@ -8043,8 +8043,9 @@ HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
         }
         this.loadRecordset();
     }
-    else {          // HuTime.StreamReaderBaseとしての入力
+    else if (source instanceof HuTime.StreamReaderBase) {   // HuTime.StreamReaderBaseとしての入力
         this.reader = source;
+        this.loadRecordset();
     }
     this._recordSettings = new HuTime.RecordSettings();
 };
@@ -8098,7 +8099,8 @@ HuTime.RecordsetBase.prototype = {
     // **** 読み込み関係 ****
     loadRecordset: function () {
         this.records.length = 0;
-        this._reader.load();
+        if (this._reader instanceof HuTime.StreamReaderBase)
+            this._reader.load();
     },
     _reader: null,
     get reader() {
