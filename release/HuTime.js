@@ -8184,6 +8184,9 @@ HuTime.RecordsetBase.prototype = {
         return null;
     },
 
+    // レコードセット全体の表示の制御
+    showRecordset: true,            // レコードセット全体の表示
+
     // **** t値の範囲 ****
     // 確実範囲の表示
     _itemShowReliableTRanges: null,
@@ -8198,9 +8201,9 @@ HuTime.RecordsetBase.prototype = {
         if (!itemName)
             return;
         if (typeof show == "boolean" || typeof show == "function")
-            this._itemShowReliableTRanges[itemName.toString().trim()] = show;
+            this._itemShowReliableTRanges[itemName] = show;
         else if (show == null && typeof show == "object")
-            this._itemShowReliableTRanges[itemName.toString().trim()] = this.__proto__._showReliableTRange;
+            delete this._itemShowReliableTRanges[itemName];
     },
     _appliedItemShowReliableTRange: function _appliedItemShowReliableTRange(itemName, record) {
         var show = this._getPropertyValue(this._itemShowReliableTRanges, itemName, record);
@@ -8242,9 +8245,9 @@ HuTime.RecordsetBase.prototype = {
         if (!itemName)
             return;
         if (typeof show == "boolean" || typeof show == "function")
-            this._itemShowPossibleTRanges[itemName.toString().trim()] = show;
+            this._itemShowPossibleTRanges[itemName] = show;
         else if (show == null && typeof show == "object")
-            this._itemShowPossibleTRanges[itemName.toString().trim()] = this.__proto__._showPossibleTRange;
+            delete this._itemShowPossibleTRanges[itemName];
     },
     _appliedItemShowPossibleTRange: function _appliedItemShowPossibleTRange(itemName, record) {
         var show = this._getPropertyValue(this._itemShowPossibleTRanges, itemName, record);
@@ -8292,9 +8295,9 @@ HuTime.RecordsetBase.prototype = {
         if (!itemName)
             return;
         if (style instanceof HuTime.FigureStyle || typeof style == "function")
-            this._itemRangeStyles[itemName.toString().trim()] = style;
+            this._itemRangeStyles[itemName] = style;
         else if (style == null && typeof style == "object")
-            this._itemRangeStyles[itemName.toString().trim()] = this.__proto__._rangeStyle;
+            delete this._itemRangeStyles[itemName];
     },
     _appliedItemRangeStyle: function _appliedItemRangeStyle(itemName, record) {     // 実際に適用される範囲の書式
         var style = this._getPropertyValue(this._itemRangeStyles, itemName, record);
@@ -8601,6 +8604,16 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
         }
     },
 
+    // レコードセット全体の表示の制御
+    showRecordsetPlot: {    // レコードセット全体のプロットの表示・非表示
+        writable: true,
+        value: true
+    },
+    showRecordsetLine: {    // レコードセット全体のプロット間の線の表示・非表示
+        writable: true,
+        value: true
+    },
+
     // **** プロット ****
     // プロットの表示
     _itemShowPlots: {
@@ -8621,9 +8634,9 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             if (!itemName)
                 return;
             if (typeof show == "boolean" || typeof show == "function")
-                this._itemShowPlots[itemName.toString().trim()] = show;
+                this._itemShowPlots[itemName] = show;
             else if (show == null && typeof show == "object")
-                this._itemShowPlots[itemName.toString().trim()] = this.__proto__._showPlot;
+                delete this._itemShowPlots[itemName];
         }
     },
     _appliedItemShowPlot: {
@@ -8690,9 +8703,9 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             if (!itemName)
                 return;
             if (style instanceof HuTime.FigureStyle || typeof style == "function")
-                this._itemPlotStyles[itemName.toString().trim()] = style;
+                this._itemPlotStyles[itemName] = style;
             else if (style == null && typeof style == "object")
-                this._itemPlotStyles[itemName.toString().trim()] = this.__proto__._plotStyle;
+                delete this._itemPlotStyles[itemName];
         }
     },
     _appliedItemPlotStyle: {
@@ -8752,7 +8765,7 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             if ((typeof symbol == "number" && symbol >= 0 && symbol <= 3) || typeof symbol == "function")
                 this._itemPlotSymbols[itemName] = symbol;
             else if (symbol == null && typeof symbol == "object")
-                this._itemPlotSymbols[itemName] = this.__proto__._plotSymbol;
+                delete this._itemPlotSymbols[itemName];
         }
     },
     _appliedItemPlotSymbol: {
@@ -8813,7 +8826,7 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             if ((typeof width == "number" && isFinite(width) && width >= 0) || typeof width == "function")
                 this._itemPlotWidths[itemName] = width;
             else if (width == null && typeof width == "object")
-                this._itemPlotWidths[itemName] = this.__proto__._plotWidth;
+                delete this._itemPlotWidths[itemName];
         }
     },
     _appliedItemPlotWidth: {
@@ -8873,7 +8886,7 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             if ((typeof rotate == "number" && isFinite(rotate)) || typeof rotate == "function")
                 this._itemPlotRotates[itemName] = rotate;
             else if (rotate == null && typeof rotate == "object")
-                this._itemPlotRotates[itemName] = this.__proto__._plotRotate;
+                delete this._itemPlotRotates[itemName];
         }
     },
     _appliedItemPlotRotate: {
@@ -8946,13 +8959,13 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
     setItemShowLine: {
         value: function setItemShowLine(itemName, style){
-            if ((typeof itemName != "string" || itemName.trim().length == 0) &&
-                (typeof itemName != "number" || !isFinite(itemName)))
+            itemName = this._validateItemName(itemName);
+            if (!itemName)
                 return;
             if (typeof style == "boolean" || typeof style == "function")
-                this._itemShowLines[itemName.toString().trim()] = style;
+                this._itemShowLines[itemName] = style;
             else if (style == null && typeof style == "object")
-                this._itemShowLines[itemName.toString().trim()] = this.__proto__._showLine;
+                delete this._itemShowLines[itemName];
         }
     },
     _appliedItemShowLine: {
@@ -9015,13 +9028,13 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
     setItemLineStyle: {         // データ名（列名）ごとの線の書式の追加
         value: function setItemLineStyle(itemName, style){
-            if ((typeof itemName != "string" || itemName.trim().length == 0) &&
-                (typeof itemName != "number" || !isFinite(itemName)))
+            itemName = this._validateItemName(itemName);
+            if (!itemName)
                 return;
             if (style instanceof HuTime.FigureStyle || typeof style == "function")
-                this._itemLineStyles[itemName.toString().trim()] = style;
+                this._itemLineStyles[itemName] = style;
             else if (style == null && typeof style == "object")
-                this._itemLineStyles[itemName.toString().trim()] = this.__proto__._lineStyle;
+                delete this._itemLineStyles[itemName];
         }
     },
     _appliedItemLineStyle: {         // データ名（列名）ごとの線の書式を取得
@@ -10230,7 +10243,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 for (i = 0; i < this.recordsets.length; ++i) {
                     if (!this.recordsets[i].visible)
                         continue;
-                    if (!this.recordsets[i].showLine)
+                    if (!this.recordsets[i].showRecordset || !this.recordsets[i].showRecordsetLine)
                         continue;   // レコードセット単位で線が非表示の場合は次のレコードセットへ
                     if (this.recordsets[i].records.length < 2)
                         continue;   // レコードが2つ未満の場合は次のレコードセットへ
@@ -10274,7 +10287,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 for (i = 0; i < this.recordsets.length; ++i) {
                     if (!this.recordsets[i].visible)
                         continue;
-                    if (!this.recordsets[i].showPlot)   // プロットがレコードセット単位で非表示の場合は次のレコードセットへ
+                    // プロットがレコードセット単位で非表示の場合は次のレコードセットへ
+                    if (!this.recordsets[i].showRecordset || !this.recordsets[i].showRecordsetPlot)
                         continue;
 
                     if (typeof this.recordsets[i].drawPlot == "function" && // プロット描画処理の取得
@@ -10415,7 +10429,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 var lineStyle = recordset._appliedItemLineStyle(valueName, prevRecord, record);
                 drawLine(record.tRange._centralValue, record.data[valueName].content,
                     prevRecord.tRange._centralValue, prevRecord.data[valueName].content, lineStyle,
-                    this, recordset, record, valueName, canvas);
+                    this, recordset, record, prevRecord, valueName, canvas);
             }
         }
     },
@@ -11353,7 +11367,9 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
 
     defaultDrawLine: {
-        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, valueName, canvas) {
+        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
+            if (!recordset._appliedItemShowLine(valueName, record, prevRecord))
+                return;
             if (isNaN(t) || !isFinite(v) || v == null ||
                 isNaN(tPrev) || !isFinite(vPrev) || vPrev == null)
                 return;
@@ -11396,6 +11412,8 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
     defaultDrawPlot: {
         value: function (t, v, style, layer, recordset, record, valueName, canvas) {
+            if (!recordset._appliedItemShowPlot(valueName, record))
+                return;
             if (isNaN(t) || !isFinite(v) || v == null)
                 return;
             var dV = Math.abs(layer._vTop - layer._vBottom);
@@ -11532,7 +11550,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     },
 
     defaultDrawLine: {
-        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, valueName, canvas) {
+        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
             if (!tRange || v == null || !tRangePrev || vPrev == null)
                 return;
             if (!(style instanceof HuTime.FigureStyle))

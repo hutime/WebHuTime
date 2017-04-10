@@ -22,7 +22,9 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
 
     defaultDrawLine: {
-        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, valueName, canvas) {
+        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
+            if (!recordset._appliedItemShowLine(valueName, record, prevRecord))
+                return;
             if (isNaN(t) || !isFinite(v) || v == null ||
                 isNaN(tPrev) || !isFinite(vPrev) || vPrev == null)
                 return;
@@ -65,6 +67,8 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
     defaultDrawPlot: {
         value: function (t, v, style, layer, recordset, record, valueName, canvas) {
+            if (!recordset._appliedItemShowPlot(valueName, record))
+                return;
             if (isNaN(t) || !isFinite(v) || v == null)
                 return;
             var dV = Math.abs(layer._vTop - layer._vBottom);
@@ -201,7 +205,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     },
 
     defaultDrawLine: {
-        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, valueName, canvas) {
+        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
             if (!tRange || v == null || !tRangePrev || vPrev == null)
                 return;
             if (!(style instanceof HuTime.FigureStyle))

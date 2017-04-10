@@ -646,7 +646,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 for (i = 0; i < this.recordsets.length; ++i) {
                     if (!this.recordsets[i].visible)
                         continue;
-                    if (!this.recordsets[i].showLine)
+                    if (!this.recordsets[i].showRecordset || !this.recordsets[i].showRecordsetLine)
                         continue;   // レコードセット単位で線が非表示の場合は次のレコードセットへ
                     if (this.recordsets[i].records.length < 2)
                         continue;   // レコードが2つ未満の場合は次のレコードセットへ
@@ -690,7 +690,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 for (i = 0; i < this.recordsets.length; ++i) {
                     if (!this.recordsets[i].visible)
                         continue;
-                    if (!this.recordsets[i].showPlot)   // プロットがレコードセット単位で非表示の場合は次のレコードセットへ
+                    // プロットがレコードセット単位で非表示の場合は次のレコードセットへ
+                    if (!this.recordsets[i].showRecordset || !this.recordsets[i].showRecordsetPlot)
                         continue;
 
                     if (typeof this.recordsets[i].drawPlot == "function" && // プロット描画処理の取得
@@ -831,7 +832,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 var lineStyle = recordset._appliedItemLineStyle(valueName, prevRecord, record);
                 drawLine(record.tRange._centralValue, record.data[valueName].content,
                     prevRecord.tRange._centralValue, prevRecord.data[valueName].content, lineStyle,
-                    this, recordset, record, valueName, canvas);
+                    this, recordset, record, prevRecord, valueName, canvas);
             }
         }
     },
