@@ -805,56 +805,56 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
     _drawRecordRange: {      // レコード単位のt範囲描画
         value: function (drawRange, layer, recordset, record, canvas) {
             for (var i = 0; i <  recordset._valueItems.length; ++i) {
-                var valueName = recordset._valueItems[i].name;
-                if (!(valueName in record.data))   // レコード内に該当列が無い場合
+                var itemName = recordset._valueItems[i].name;
+                if (!(itemName in record.data))   // レコード内に該当列が無い場合
                     continue;
-                if (!recordset._appliedShowReliableTRange(valueName, record) &&
-                    !recordset._appliedShowPossibleTRange(valueName, record))
+                if (!recordset._appliedShowReliableTRange(itemName, record) &&
+                    !recordset._appliedShowPossibleTRange(itemName, record))
                     continue;
 
-                var rangeStyle = recordset._appliedItemRangeStyle(valueName, record);
-                drawRange(record.tRange, record.data[valueName].content, rangeStyle,
-                    this, recordset, record, valueName, canvas);
+                var rangeStyle = recordset._appliedItemRangeStyle(itemName, record);
+                drawRange(record.tRange, record.data[itemName].content, rangeStyle,
+                    this, recordset, record, itemName, canvas);
             }
         }
     },
     _drawRecordLine: {      // レコード単位の線（プロット間の）描画
         value: function(drawLine, layer, recordset, record, prevRecord, canvas) {
+            if (isNaN(record.tRange._centralValue) || isNaN(prevRecord.tRange._centralValue))
+                return;   // レコード内にt値の代表値が無い場合（不連続）
             for (var i = 0; i <  recordset._valueItems.length; ++i) {
-                if (isNaN(record.tRange._centralValue) || isNaN(prevRecord.tRange._centralValue))
-                    continue;   // レコード内にt値の代表値が無い場合（不連続）
-                var valueName = recordset._valueItems[i].name;
-                if (!(valueName in record.data) || !(valueName in prevRecord.data))
+                var itemName = recordset._valueItems[i].name;
+                if (!(itemName in record.data) || !(itemName in prevRecord.data))
                     continue;   // レコード内に該当列が無い場合（不連続）
-                if (!recordset._appliedItemShowLine(valueName, prevRecord, record))
+                if (!recordset._appliedItemShowLine(itemName, record, prevRecord))
                     continue;
 
-                var lineStyle = recordset._appliedItemLineStyle(valueName, prevRecord, record);
-                drawLine(record.tRange._centralValue, record.data[valueName].content,
-                    prevRecord.tRange._centralValue, prevRecord.data[valueName].content, lineStyle,
-                    this, recordset, record, prevRecord, valueName, canvas);
+                var lineStyle = recordset._appliedItemLineStyle(itemName, record, prevRecord);
+                drawLine(record.tRange._centralValue, record.data[itemName].content,
+                    prevRecord.tRange._centralValue, prevRecord.data[itemName].content, lineStyle,
+                    this, recordset, record, prevRecord, itemName, canvas);
             }
         }
     },
     _drawRecordPlot: {      // レコード単位のプロット描画
         value: function(drawPlot, layer, recordset, record, canvas) {
             for (var i = 0; i <  recordset._valueItems.length; ++i) {
-                var valueName = recordset._valueItems[i].name;
-                if (!(valueName in record.data))   // レコード内に該当列が無い場合
+                var itemName = recordset._valueItems[i].name;
+                if (!(itemName in record.data))   // レコード内に該当列が無い場合
                     continue;
-                if (!recordset._appliedItemShowPlot(valueName, record))
+                if (!recordset._appliedItemShowPlot(itemName, record))
                     continue;
 
-                var plotStyle = recordset._appliedItemPlotStyle(valueName, record);
-                drawPlot(record.tRange._centralValue, record.data[valueName].content, plotStyle,
-                    this, recordset, record, valueName, canvas);
+                var plotStyle = recordset._appliedItemPlotStyle(itemName, record);
+                drawPlot(record.tRange._centralValue, record.data[itemName].content, plotStyle,
+                    this, recordset, record, itemName, canvas);
             }
         }
     },
 
     // **** 各値の描画（t値、v値に基づいて描画する） ****
     defaultDrawRange: {     // 範囲の描画
-        value: function(tRange, v, style, layer, recordset, record, valueName, canvas) {
+        value: function(tRange, v, style, layer, recordset, record, itemName, canvas) {
             if (!(style instanceof HuTime.FigureStyle))
                 style = new HuTime.FigureStyle(null, "black", 2);
             if (style.lineWidth <= 0)
@@ -864,7 +864,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             var bPos, ePos;
 
             // 可能範囲を確実範囲として描画する場合
-            if (recordset.drawPRangeAsRRange && recordset._appliedItemShowPossibleTRange(valueName, record)) {
+            if (recordset.drawPRangeAsRRange && recordset._appliedItemShowPossibleTRange(itemName, record)) {
                 style.lineDash = [];        // 実線を指定（点線を解除）
                 begin =     // 無限大は表示範囲に合わせて表示
                     tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
@@ -884,7 +884,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             }
 
             // 確実期間の表示
-            if (layer.showReliableTRange && recordset._appliedItemShowReliableTRange(valueName, record)) {
+            if (layer.showReliableTRange && recordset._appliedItemShowReliableTRange(itemName, record)) {
                 if (!tRange._isNonRRange) {     // 確実期間がある場合は、実線で表示
                     style.lineDash = [];        // 実線を指定（点線を解除）
                     begin =     // 無限大は表示範囲に合わせて表示
@@ -905,11 +905,11 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             }
 
             // 可能期間の表示
-            if (layer.showPossibleTRange && recordset._appliedItemShowPossibleTRange(valueName, record)) {
+            if (layer.showPossibleTRange && recordset._appliedItemShowPossibleTRange(itemName, record)) {
                 if (!isNaN(tRange._pRangeDuration) && (    // 全可能範囲の描画
                         (isNaN(tRange._rRangeDuration) &&                                 // 全可能期間のみの場合
                         isNaN(tRange._antePRangeDuration) && isNaN(tRange._postPRangeDuration)) ||
-                        ((!layer.showReliableTRange || !recordset._appliedItemShowReliableTRange(valueName, record)) &&
+                        ((!layer.showReliableTRange || !recordset._appliedItemShowReliableTRange(itemName, record)) &&
                         !isNaN(tRange._rRangeDuration))         // 確実期間が非表示の場合、全体を可能期間として描画
                     )) {
                     begin = tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
@@ -950,12 +950,12 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
         }
     },
     defaultDrawPlot: {      // プロット（代表値）の描画
-        value: function(t, v, style, layer, recordset, record, valueName, canvas) {
+        value: function(t, v, style, layer, recordset, record, itemName, canvas) {
             // 基底クラスでは宣言のみ（派生先で内容を記述）
         }
     },
     defaultDrawLine: {      // 線の描画
-        value: function(t, v, tPrev, vPrev, style, layer, recordset, record, valueName, canvas) {
+        value: function(t, v, tPrev, vPrev, style, layer, recordset, record, recordPrev, itemName, canvas) {
             // 基底クラスでは宣言のみ（派生先で内容を記述）
         }
     },
@@ -965,6 +965,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
         value: function(ev, eventX, eventY) {
             // t値v値の取得（当たり判定をTV値でするため）
             var eventT, eventV;
+            var clickedRecords;
+            var newEv;
             if (this._tRotation == 1) {
                 eventT = this.getTFromXY(eventY);
                 eventV = this.getVFromXY(eventX - this._currentVXYOrigin);
@@ -990,22 +992,22 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             }
 
             else if (ev._type == "click") {
-                var clickedRecords = this._getClickedRecords(eventT, eventV);  // クリックされたレコードを収集
+                clickedRecords = this._getClickedRecords(eventT, eventV);  // クリックされたレコードを収集
 
                 // イベント発火
                 if (clickedRecords.length > 0) {
-                    var newEv = new HuTime.Event("plotclick", this);
+                    newEv = new HuTime.Event("plotclick", this);
                     newEv.records = clickedRecords;
                     this._hutimeRoot._handleEvent(newEv);
                 }
             }
 
             else if (ev._type == "dblclick") {
-                var clickedRecords = this._getClickedRecords(eventT, eventV);  // ダブルクリックされたレコードを収集
+                clickedRecords = this._getClickedRecords(eventT, eventV);  // ダブルクリックされたレコードを収集
 
                 // イベント発火
                 if (clickedRecords.length > 0) {
-                    var newEv = new HuTime.Event("plotdblclick", this);
+                    newEv = new HuTime.Event("plotdblclick", this);
                     newEv.records = clickedRecords;
                     this._hutimeRoot._handleEvent(newEv);
                 }
@@ -1013,19 +1015,19 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
         }
     },
     _isInPlot: {        // マウスカーソルの当たり判定（t値の代表値が無い－無限大を含む全可能期間のみなど－はヒットしない）
-        value: function(record, valueName, eventT, eventV) {
+        value: function(record, itemName, eventT, eventV) {
             if (isNaN(record.tRange._centralValue))
                 return;
             return (eventT <= record.tRange._centralValue + 5 / this._lyrTResolution &&  // 描画中心から5pxの正方形が有効
             eventT >= record.tRange._centralValue - 5 / this._lyrTResolution &&
-            eventV <= record.data[valueName].content + 5 / Math.abs(this._lyrVResolution) &&
-            eventV >= record.data[valueName].content - 5 / Math.abs(this._lyrVResolution));
+            eventV <= record.data[itemName].content + 5 / Math.abs(this._lyrVResolution) &&
+            eventV >= record.data[itemName].content - 5 / Math.abs(this._lyrVResolution));
         }
     },
     _drawHighlight: {       // ハイライト表示の処理
         value: function(eventT, eventV) {   // マウスのある位置のレコードをハイライト
             var drawPlot, plotStyle;
-            var valueName, valueTagForAll;  // 探索用の値名、レコード単位で選択された場合に全値を処理するための値名
+            var itemName, valueTagForAll;  // 探索用の値名、レコード単位で選択された場合に全値を処理するための値名
             var originalLineColor, originalFillColor;   // ハイライト色を設定するための元の色の退避先
             for (var i = 0; i < this.recordsets.length; ++i) {
                 if (!this.recordsets[i].visible)
@@ -1039,12 +1041,12 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                     if (!this.recordsets[i].records[j]._oLVisible)
                         continue;   // 範囲外の場合は、次のレコードへ
                     for (var k = 0; k <  this.recordsets[i]._valueItems.length; ++k) {
-                        valueName = this.recordsets[i]._valueItems[k].name;
-                        if (!(valueName in this.recordsets[i].records[j].data))
+                        itemName = this.recordsets[i]._valueItems[k].name;
+                        if (!(itemName in this.recordsets[i].records[j].data))
                             continue;
 
                         // ヒットした場合の処理
-                        if (this._isInPlot(this.recordsets[i].records[j], valueName, eventT, eventV)) {
+                        if (this._isInPlot(this.recordsets[i].records[j], itemName, eventT, eventV)) {
                             if (this.recordsets[i].selectRecord || this.selectRecord) {     // レコード単位での選択
                                 for (var m = 0; m < this.recordsets[i]._valueItems.length; ++m) {
                                     valueTagForAll = this.recordsets[i]._valueItems[m].name;
@@ -1066,14 +1068,14 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                                 break;  // ヒットした列（値）を探すループから抜ける
                             }
                             else {          // 列（値）単位での選択
-                                plotStyle = this.recordsets[i]._appliedItemPlotStyle(valueName, this.recordsets[i].records[j]);
+                                plotStyle = this.recordsets[i]._appliedItemPlotStyle(itemName, this.recordsets[i].records[j]);
                                 originalLineColor = plotStyle.lineColor;
                                 originalFillColor = plotStyle.fillColor;
                                 plotStyle.lineColor = this.highlightColor;
                                 plotStyle.fillColor = this.highlightColor;
                                 drawPlot(this.recordsets[i].records[j].tRange._centralValue,
-                                    this.recordsets[i].records[j].data[valueName].content, plotStyle,
-                                    this, this.recordsets[i], this.recordsets[i].records[j], valueName,
+                                    this.recordsets[i].records[j].data[itemName].content, plotStyle,
+                                    this, this.recordsets[i], this.recordsets[i].records[j], itemName,
                                     this._systemCanvas);
                                 plotStyle.lineColor = originalLineColor;
                                 plotStyle.fillColor = originalFillColor;
@@ -1087,7 +1089,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
     _getClickedRecords: {       // クリックされたレコードを収集
         value: function (eventT, eventV) {
             var clickedRecords = [];
-            var valueName, valueTagForAll;
+            var itemName, valueTagForAll;
             for (var i = 0; i < this.recordsets.length; ++i) {
                 if (!this.recordsets[i].visible)
                     continue;
@@ -1095,12 +1097,12 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                     if (!this.recordsets[i].records[j]._oLVisible)
                         continue;   // 範囲外の場合は、次のレコードへ
                     for (var k = 0; k <  this.recordsets[i]._valueItems.length; ++k) {
-                        valueName = this.recordsets[i]._valueItems[k].name;
-                        if (!(valueName in this.recordsets[i].records[j].data))
+                        itemName = this.recordsets[i]._valueItems[k].name;
+                        if (!(itemName in this.recordsets[i].records[j].data))
                             continue;
 
                         // ヒットした場合の処理
-                        if (this._isInPlot(this.recordsets[i].records[j], valueName, eventT, eventV)) {
+                        if (this._isInPlot(this.recordsets[i].records[j], itemName, eventT, eventV)) {
                             if (this.recordsets[i].selectRecord || this.selectRecord) {     // レコード単位での選択
                                 for (var m = 0; m < this.recordsets[i]._valueItems.length; ++m) {
                                     valueTagForAll = this.recordsets[i]._valueItems[m].name;
@@ -1108,7 +1110,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                                         continue;
                                     clickedRecords.push({   // レコードと値タグをセットにしたオブジェクトを追加
                                         record: this.recordsets[i].records[j],
-                                        valueName: valueTagForAll
+                                        itemName: valueTagForAll
                                     });
                                 }
                                 break;  // ヒットした列（値）を探すループから抜ける
@@ -1116,7 +1118,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                             else {          // 列（値）単位での選択
                                 clickedRecords.push({   // レコードと値タグをセットにしたオブジェクトを追加
                                     record: this.recordsets[i].records[j],
-                                    valueName: valueName
+                                    itemName: itemName
                                 });
                             }
                         }
