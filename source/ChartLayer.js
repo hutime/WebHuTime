@@ -22,9 +22,7 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
 
     defaultDrawLine: {
-        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
-            if (!recordset._appliedItemShowLine(valueName, record, prevRecord))
-                return;
+        value: function (t, v, tPrev, vPrev, style, layer, recordset, record, prevRecord, itemName, canvas) {
             if (isNaN(t) || !isFinite(v) || v == null ||
                 isNaN(tPrev) || !isFinite(vPrev) || vPrev == null)
                 return;
@@ -66,9 +64,7 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
         }
     },
     defaultDrawPlot: {
-        value: function (t, v, style, layer, recordset, record, valueName, canvas) {
-            if (!recordset._appliedItemShowPlot(valueName, record))
-                return;
+        value: function (t, v, style, layer, recordset, record, itemName, canvas) {
             if (isNaN(t) || !isFinite(v) || v == null)
                 return;
             var dV = Math.abs(layer._vTop - layer._vBottom);
@@ -78,9 +74,9 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
             if (!(style instanceof HuTime.FigureStyle))
                 style = new HuTime.FigureStyle();
 
-            var width = recordset._appliedItemPlotWidth(valueName, record);
-            var rotate = recordset._appliedItemPlotRotate(valueName, record);
-            switch (recordset._appliedItemPlotSymbol(valueName, record)) {
+            var width = recordset._appliedItemPlotWidth(itemName, record);
+            var rotate = recordset._appliedItemPlotRotate(itemName, record);
+            switch (recordset._appliedItemPlotSymbol(itemName, record)) {
                 case 1:     // 四角
                     HuTime.Drawing.drawSquare(style, layer,
                         new HuTime.TVPosition(t, v), width, rotate, canvas);
@@ -149,38 +145,40 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
 
     _drawRecordRange: {      // レコード単位のt範囲描画
         value: function (drawRange, layer, recordset, record, canvas) {
-            var valueName;
+            var itemName;
             var rangeStyle;
             var baseV = 0;  // 棒を積み上げるための積算値
             for (var i = 0; i <  recordset._valueItems.length; ++i) {
-                valueName = recordset._valueItems[i].name;
-                if (!(valueName in record.data))   // レコード内に該当列が無い場合
+                itemName = recordset._valueItems[i].name;
+                if (!(itemName in record.data))   // レコード内に該当列が無い場合
                     continue;
 
-                rangeStyle = recordset._appliedItemRangeStyle(valueName, record);
-                drawRange(record.tRange, baseV + record.data[valueName].content / 2, rangeStyle,
-                    this, recordset, record, valueName, canvas);
-                baseV += record.data[valueName].content;
+                rangeStyle = recordset._appliedItemRangeStyle(itemName, record);
+                drawRange(record.tRange, baseV + record.data[itemName].content / 2, rangeStyle,
+                    this, recordset, record, itemName, canvas);
+                baseV += record.data[itemName].content;
             }
         }
     },
     _drawRecordLine: {      // レコード単位の線（プロット間の）描画
         value: function(drawLine, layer, recordset, record, prevRecord, canvas) {
-            var valueName;
+            var itemName;
             var lineStyle;
             var baseV = 0;      // 棒を積み上げるための積算値
             var baseVPrev = 0;  // 棒を積み上げるための積算値（前のレコード）
             for (var i = 0; i <  recordset._valueItems.length; ++i) {
-                valueName = recordset._valueItems[i].name;
-                if (!(valueName in record.data) || !(valueName in prevRecord.data))
+                itemName = recordset._valueItems[i].name;
+                if (!(itemName in record.data) || !(itemName in prevRecord.data))
                     continue;   // レコード内に該当列が無い場合（不連続）
+                if (!recordset._appliedItemShowLine(itemName, record, prevRecord))
+                    continue;
 
-                lineStyle = recordset._appliedItemLineStyle(valueName, prevRecord, record);
-                drawLine(record.tRange, baseV + record.data[valueName].content,
-                    prevRecord.tRange, baseVPrev + prevRecord.data[valueName].content, lineStyle,
-                    this, recordset, record, valueName, canvas);
-                baseV += record.data[valueName].content;
-                baseVPrev += prevRecord.data[valueName].content;
+                lineStyle = recordset._appliedItemLineStyle(itemName, record, prevRecord);
+                drawLine(record.tRange, baseV + record.data[itemName].content,
+                    prevRecord.tRange, baseVPrev + prevRecord.data[itemName].content, lineStyle,
+                    this, recordset, record, itemName, canvas);
+                baseV += record.data[itemName].content;
+                baseVPrev += prevRecord.data[itemName].content;
             }
         }
     },
@@ -195,7 +193,6 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                     continue;
                 if (!recordset._appliedItemShowPlot(itemName, record))
                     continue;
-
                 plotStyle = recordset._appliedItemPlotStyle(itemName, record);
                 drawPlot(record.tRange, record.data[itemName].content, baseV, plotStyle,
                     this, recordset, record, itemName, canvas);
@@ -205,7 +202,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     },
 
     defaultDrawLine: {
-        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, prevRecord, valueName, canvas) {
+        value: function (tRange, v, tRangePrev, vPrev, style, layer, recordset, record, recordPrev, itemName, canvas) {
             if (!tRange || v == null || !tRangePrev || vPrev == null)
                 return;
             if (!(style instanceof HuTime.FigureStyle))
@@ -225,13 +222,13 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
-                    barWidth = recordset._appliedItemPlotWidth(valueName, record);
+                    barWidth = recordset._appliedItemPlotWidth(itemName, record);
                     begin = tRangePrev._centralValue + barWidth / 2;
                     end = tRange._centralValue - barWidth / 2;
                     break;
 
                 case 3:     // xy値固定
-                    barWidth = recordset._appliedItemPlotWidth(valueName, record);
+                    barWidth = recordset._appliedItemPlotWidth(itemName, record);
                     begin = tRangePrev._centralValue + barWidth / 2 / layer._lyrTResolution;
                     end = tRange._centralValue - barWidth / 2 / layer._lyrTResolution;
                     break;
@@ -270,7 +267,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     },
 
     defaultDrawPlot: {  // 既定の棒の描画
-        value: function (tRange, v, baseV, style, layer, recordset, record, valueName, canvas) {
+        value: function (tRange, v, baseV, style, layer, recordset, record, itemName, canvas) {
             if (!tRange || v == null)
                 return;
             if (!(style instanceof HuTime.FigureStyle))
@@ -384,7 +381,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var plotStyle;
             var baseV, baseVForAll;     // 積算値と、レコード単位で選択された場合の処理するための積算値
             var originalLineColor, originalFillColor;   // ハイライト色を設定するための退避先
-            var valueName, valueTagForAll;  // 探索用の値名、レコード単位で選択された場合に全値を処理するための値名
+            var itemName, valueTagForAll;  // 探索用の値名、レコード単位で選択された場合に全値を処理するための値名
 
             for (var i = 0; i < this.recordsets.length; ++i) {
                 if (!this.recordsets[i].visible)
@@ -399,13 +396,13 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                         continue;   // 範囲外の場合は、次のレコードへ
                     baseV = 0;
                     for (var k = 0; k < this.recordsets[i]._valueItems.length; ++k) {
-                        valueName = this.recordsets[i]._valueItems[k].name;
-                        if (!(valueName in this.recordsets[i].records[j].data))
+                        itemName = this.recordsets[i]._valueItems[k].name;
+                        if (!(itemName in this.recordsets[i].records[j].data))
                             continue;
 
                         // ヒットした場合の処理
                         if (this._isInPlot(this.recordsets[i], this.recordsets[i].records[j],
-                                this.recordsets[i].records[j].data[valueName].content, baseV, eventT, eventV)) {
+                                this.recordsets[i].records[j].data[itemName].content, baseV, eventT, eventV)) {
                             if (this.recordsets[i].selectRecord || this.selectRecord) {     // レコード単位での選択
                                 baseVForAll = 0;
                                 for (var m = 0; m < this.recordsets[i]._valueItems.length; ++m) {
@@ -429,20 +426,20 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                                 break;  // ヒットした列（値）を探すループから抜ける
                             }
                             else {
-                                plotStyle = this.recordsets[i]._appliedItemPlotStyle(valueName, this.recordsets[i].records[j]);
+                                plotStyle = this.recordsets[i]._appliedItemPlotStyle(itemName, this.recordsets[i].records[j]);
                                 originalLineColor = plotStyle.lineColor;
                                 originalFillColor = plotStyle.fillColor;
                                 plotStyle.lineColor = this.highlightColor;
                                 plotStyle.fillColor = this.highlightColor;
                                 drawPlot(this.recordsets[i].records[j].tRange,
-                                    this.recordsets[i].records[j].data[valueName].content, baseV, plotStyle,
-                                    this, this.recordsets[i], this.recordsets[i].records[j], valueName,
+                                    this.recordsets[i].records[j].data[itemName].content, baseV, plotStyle,
+                                    this, this.recordsets[i], this.recordsets[i].records[j], itemName,
                                     this._systemCanvas);
                                 plotStyle.lineColor = originalLineColor;
                                 plotStyle.fillColor = originalFillColor;
                             }
                         }
-                        baseV += this.recordsets[i].records[j].data[valueName].content;
+                        baseV += this.recordsets[i].records[j].data[itemName].content;
                     }
                 }
             }
@@ -451,7 +448,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     _getClickedRecords: {       // クリックされたレコードを収集
         value: function (eventT, eventV) {
             var clickedRecords = [];
-            var valueName, valueTagForAll;
+            var itemName, valueTagForAll;
             var baseV, baseVForAll;
             for (var i = 0; i < this.recordsets.length; ++i) {
                 if (!this.recordsets[i].visible)
@@ -461,13 +458,13 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                         continue;   // 範囲外の場合は、次のレコードへ
                     baseV = 0;
                     for (var k = 0; k <  this.recordsets[i]._valueItems.length; ++k) {
-                        valueName = this.recordsets[i]._valueItems[k].name;
-                        if (!(valueName in this.recordsets[i].records[j].data))
+                        itemName = this.recordsets[i]._valueItems[k].name;
+                        if (!(itemName in this.recordsets[i].records[j].data))
                             continue;
 
                         // ヒットした場合の処理
                         if (this._isInPlot(this.recordsets[i], this.recordsets[i].records[j],
-                                this.recordsets[i].records[j].data[valueName].content, baseV,
+                                this.recordsets[i].records[j].data[itemName].content, baseV,
                                 eventT, eventV)) {
 
                             if (this.recordsets[i].selectRecord || this.selectRecord) {    // レコード単位での選択
@@ -477,7 +474,7 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                                         continue;
                                     clickedRecords.push({
                                         record: this.recordsets[i].records[j],
-                                        valueName: valueTagForAll
+                                        itemName: valueTagForAll
                                     });
                                 }
                                 break;  // ヒットした列（値）を探すループから抜ける
@@ -485,11 +482,11 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
                             else {
                                 clickedRecords.push({
                                     record: this.recordsets[i].records[j],
-                                    valueName: valueName
+                                    itemName: itemName
                                 });
                             }
                         }
-                        baseV += this.recordsets[i].records[j].data[valueName].content;
+                        baseV += this.recordsets[i].records[j].data[itemName].content;
                     }
                 }
             }

@@ -200,7 +200,7 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
         }
     },
     defaultDrawRange: {  // 既定の帯の描画処理
-        value: function(tRange, v, style, layer, recordset, record, valueName, canvas) {
+        value: function(tRange, v, style, layer, recordset, record, itemName, canvas) {
             if (!tRange || !isFinite(v) || v == null)
                 return;
             if (!(style instanceof HuTime.FigureStyle))
@@ -315,18 +315,18 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
         }
     },
     defaultDrawLabel: {     // 既定のラベル描画処理
-        value: function(tRange, v, style, layer, recordset, record, valueName, canvas) {
+        value: function(tRange, v, style, layer, recordset, record, itemName, canvas) {
             if (!tRange || !isFinite(v) || v == null)
                 return;
-            if (!valueName)
-                valueName = "label";
-            if (!(valueName in record.data))
+            if (!itemName)
+                itemName = "label";
+            if (!(itemName in record.data))
                 return;
 
             // 書式等の取得
             if (!canvas)
                 canvas = layer._syncInfoCanvas;
-            var label = record.data[valueName].content;
+            var label = record.data[itemName].content;
             var bandBreadth = recordset._appliedBandBreadth(record);
             var labelOffsetT = recordset.labelOffsetT / layer._lyrTResolution;
             var labelOffsetV = recordset.labelOffsetV / layer._lyrVResolution;
@@ -534,7 +534,7 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                         eventT, eventV))
                         clickedRecords.push({
                             record: this._sortedRecords[i].record,
-                            valueName: null
+                            itemName: null
                         });
                 }
 
