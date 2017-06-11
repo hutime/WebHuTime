@@ -756,10 +756,8 @@ HuTime.TRange.prototype = {
         writable: true,
         value: Number.NaN
     },
-    centralValue: {
-        get: function() {
-            return this._centralValue;
-        }
+    get centralValue() {
+        return this._centralValue;
     },
 
     // 状態表示
@@ -841,7 +839,6 @@ HuTime.TRange.prototype = {
         else
             this._centralValue = Number.NaN
     },
-
     _updateRanges: function () {    // 各範囲の更新
         // 全可能期間（前後可能期間および確実期間を含む）
         if (!isNaN(this._pBegin) && !isNaN(this._pEnd))     // 始点
@@ -964,20 +961,7 @@ HuTime.TRange.prototype = {
     get postPRangeDuration() {
         return this._postPRangeDuration;
     },
-
-
-
-
-
-
-
 };
-
-
-
-
-
-
 
 
 // 始点と終点をしてTRangeを生成
