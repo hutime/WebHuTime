@@ -419,7 +419,7 @@ HuTime.TRangeAlgebra = {
         return comp;
     },
 
-    // 期間長の関係に基づく更新（dとrelationDに基づいて更新されたs）
+    // 期間長の関係に基づく更新（durationとcompに基づいて更新されたs）
     getTRangeRefinedByDuration: function getTRangeRefinedByDuration (s, duration, comp) {
         if (!HuTime.TRangeAlgebra.isPossibleDuration(s, duration, comp))
             return s;   // 基になる関係が可能でなければ、更新なし
@@ -586,7 +586,7 @@ HuTime.TRangeAlgebra = {
         return comp;
     },
 
-    // 端点間隔の関係に基づく更新（t, intervalとrelationDに基づいて更新されたs）
+    // 端点間隔の関係に基づく更新（t, intervalとcompに基づいて更新されたs）
     getTRangeRefinedByInterval: function getTRangeRefinedByInterval (s, t, sEdge, tEdge, interval, comp) {
         var ab, ae, bb, be;
         if (sEdge == HuTime.TRangeAlgebra.Edge.Begin) {
@@ -961,6 +961,58 @@ HuTime.TRange.prototype = {
     get postPRangeDuration() {
         return this._postPRangeDuration;
     },
+
+    // 自身に関するTime Interval Algebra
+    isReliableRelation: function isReliableRelation (t, relation) {     // 期間間の確実関係の検証
+        return HuTime.TRangeAlgebra.isReliableRelation(this, t, relation);
+    },
+    isPossibleRelation: function isPossibleRelation (t, relation) {     // 期間間の可能関係の検証
+        return HuTime.TRangeAlgebra.isPossibleRelation(this, t, relation);
+    },
+    getRelation: function getRelation (t) {                             // 期間間の関係の取得
+        return HuTime.TRangeAlgebra.getRelation(this, t);
+    },
+    refineByRelation: function getTRangeRefinedByRelation (t, relation) {       // 期間間の関係に基づく更新
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByRelation(this, t, relation);
+        this._pBegin = a._pBegin;
+        this._rBegin = a._rBegin;
+        this._rEnd = a._rEnd;
+        this._pEnd = a._pEnd;
+    },
+
+    isReliableDuration: function isReliableDuration (duration, comp) {  // 期間長の確実関係の検証
+        return HuTime.TRangeAlgebra.isReliableDuration(this, duration, comp);
+    },
+    isPossibleDuration: function isPossibleDuration (duration, comp) {  // 期間長の可能関係の検証
+        return HuTime.TRangeAlgebra.isPossibleDuration(this, duration, comp);
+    },
+    getDurationComp: function getDurationComp (duration) {              // 期間長の関係の取得
+        return HuTime.TRangeAlgebra.getDurationComp(this, duration);
+    },
+    refineByDuration: function getTRangeRefinedByDuration (duration, comp) {    // 期間長の関係に基づく更新
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByDuration(this, duration, comp);
+        this._pBegin = a._pBegin;
+        this._rBegin = a._rBegin;
+        this._rEnd = a._rEnd;
+        this._pEnd = a._pEnd;
+    },
+
+    isReliableInterval: function isReliableInterval (t, sEdge, tEdge, interval, comp) {  // 端点間隔の確実関係の検証
+        return HuTime.TRangeAlgebra.isReliableInterval(this, t, sEdge, tEdge, interval, comp);
+    },
+    isPossibleInterval: function isPossibleInterval (t, sEdge, tEdge, interval, comp) {  // 端点間隔の可能関係の検証
+        return HuTime.TRangeAlgebra.isPossibleInterval(this, t, sEdge, tEdge, interval, comp);
+    },
+    getIntervalComp: function getIntervalComp (t, sEdge, tEdge, interval) {  // 端点間隔の関係の取得
+        return HuTime.TRangeAlgebra.getIntervalComp(this, t, sEdge, tEdge, interval);
+    },
+    refineByInterval: function refineByInterval (t, sEdge, tEdge, interval, comp) {     // 端点間隔の関係に基づく更新
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByInterval(this, t, sEdge, tEdge, interval, comp);
+        this._pBegin = a._pBegin;
+        this._rBegin = a._rBegin;
+        this._rEnd = a._rEnd;
+        this._pEnd = a._pEnd;
+    }
 };
 
 
