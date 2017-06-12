@@ -8426,10 +8426,7 @@ HuTime.TRange.prototype = {
     },
 
     // 代表値
-    _centralValue: {
-        writable: true,
-        value: Number.NaN
-    },
+    _centralValue: Number.NaN,
     get centralValue() {
         return this._centralValue;
     },
@@ -8437,11 +8434,13 @@ HuTime.TRange.prototype = {
     // 状態表示
     _isTotalPRangeOnly: true,   // 全可能期間のみの場合 true
     get isTotalPRangeOnly() {
-        return this._isTotalPRangeOnly;
+        //return this._isTotalPRangeOnly;
+        return isNaN(this._rBegin) && isNaN(this._rEnd);
     },
     _isNonRRange: true,         // 確実期間がない場合 true
-    get isNonRRangeOnly() {
-        return this._isNonRRange;
+    get isNonRRange() {
+        //return this._isNonRRange;
+        return isNaN(this._rBegin) || isNaN(this._rEnd) || this._rBegin > this._rEnd;
     },
 
     updateTRange: function() {      // 参照に基づいて、範囲の情報を更新する
@@ -8490,29 +8489,38 @@ HuTime.TRange.prototype = {
                 this._pEnd = Number.NaN;
             }
         }
-        this._updateRanges();   // 各範囲の更新
+        //this._updateRanges();   // 各範囲の更新
 
         // 代表値の設定
         // 確定範囲がある場合（両端とも無限大でない）
-        if (!isNaN(this._rRangeDuration) && isFinite(this._rRangeBegin) && isFinite(this._rRangeEnd))
-            this._centralValue = (this._rRangeBegin + this._rRangeEnd) / 2;
+        //if (!isNaN(this._rRangeDuration) && isFinite(this._rRangeBegin) && isFinite(this._rRangeEnd))
+        //    this._centralValue = (this._rRangeBegin + this._rRangeEnd) / 2;
+        if (isFinite(this._rBegin) && isFinite(this._rEnd))
+            this._centralValue = (this._rBegin + this._rEnd) / 2;
 
         // 前期可能範囲がある場合（確定範囲なし）
-        else if (!isNaN(this._antePRangeDuration) && isFinite(this._antePRangeEnd))
-            this._centralValue = this._antePRangeEnd;
+        //else if (!isNaN(this._antePRangeDuration) && isFinite(this._antePRangeEnd))
+        //    this._centralValue = this._antePRangeEnd;
+        else if (isFinite(this._pBegin) && isFinite(this._rBegin))
+            this._centralValue = this._rBegin;
 
         // 後期可能範囲がある場合（確定範囲、前期可能範囲なし）
-        else if (!isNaN(this._postPRangeDuration) && isFinite(this._postPRangeBegin))
-            this._centralValue = this._postPRangeBegin;
+        //else if (!isNaN(this._postPRangeDuration) && isFinite(this._postPRangeBegin))
+        //    this._centralValue = this._postPRangeBegin;
+        else if (isFinite(this._rEnd) && isFinite(this._pEnd))
+            this._centralValue = this._rEnd;
 
         // 全可能範囲のみ、かつ、両端とも無限大でない場合
-        else if (!isNaN(this._pRangeDuration) &&
-            isFinite(this._pBegin) && isFinite(this._pRangeEnd))
-            this._centralValue = (this._pRangeBegin + this._pRangeEnd) / 2;
+        //else if (!isNaN(this._pRangeDuration) &&
+        //    isFinite(this._pBegin) && isFinite(this._pRangeEnd))
+        //    this._centralValue = (this._pRangeBegin + this._pRangeEnd) / 2;
+        else if (isFinite(this._pBegin) && isFinite(this._pEnd))
+            this._centralValue = (this._pBegin + this._pEnd) / 2;
 
         else
             this._centralValue = Number.NaN
     },
+    /*
     _updateRanges: function () {    // 各範囲の更新
         // 全可能期間（前後可能期間および確実期間を含む）
         if (!isNaN(this._pBegin) && !isNaN(this._pEnd))     // 始点
@@ -8635,6 +8643,7 @@ HuTime.TRange.prototype = {
     get postPRangeDuration() {
         return this._postPRangeDuration;
     },
+    // */
 
     // 自身に関するTime Interval Algebra
     isReliableRelation: function isReliableRelation (t, relation) {     // 期間間の確実関係の検証
@@ -8723,7 +8732,7 @@ HuTime.TRangeLiteral = function TRangeLiteral(t) {
     this._rBegin = t;
     this._rEnd = t;
     this._pEnd = t;
-    this._updateRanges();
+    //this._updateRanges();
 };
 HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
     constructor: {
@@ -10967,9 +10976,11 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                         // 描画しないレコード（全可能期間のみや、確実期間の無いレコード）
                         if ((this.recordsets[i].hideTRangeTotalPRangeOnly &&    // 全可能期間のみのレコード
-                            this.recordsets[i].records[j].tRange._isTotalPRangeOnly) ||
+                            //this.recordsets[i].records[j].tRange._isTotalPRangeOnly) ||
+                            this.recordsets[i].records[j].tRange.isTotalPRangeOnly) ||
                             (this.recordsets[i].hideTRangeNonRRange &&          // 確実期間の無いレコード
-                            this.recordsets[i].records[j].tRange._isNonRRange) ||
+                            //this.recordsets[i].records[j].tRange._isNonRRange) ||
+                            this.recordsets[i].records[j].tRange.isNonRRange) ||
                             (this.recordsets[i].hideTRangeNonCentralValue &&       // 期間代表値のないレコード
                             isNaN(this.recordsets[i].records[j].tRange._centralValue)))
                             continue;
@@ -11010,12 +11021,16 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                         // 線を引かないレコード（自分が条件に当てはまるか、前のレコードが条件に当てはまる場合）
                         if (this.recordsets[i].hideLineNonRRange &&          // 確実期間の無いレコード
-                            (this.recordsets[i].records[j].tRange._isNonRRange ||
-                            this.recordsets[i].records[j - 1].tRange._isNonRRange))
+                            //(this.recordsets[i].records[j].tRange._isNonRRange ||
+                            //this.recordsets[i].records[j - 1].tRange._isNonRRange))
+                            (this.recordsets[i].records[j].tRange.isNonRRange ||
+                            this.recordsets[i].records[j - 1].tRange.isNonRRange))
                             continue;
                         if (this.recordsets[i].hideLineTotalPRangeOnly &&    // 全可能期間のみのレコード
-                            (this.recordsets[i].records[j].tRange._isTotalPRangeOnly ||
-                            this.recordsets[i].records[j - 1].tRange._isTotalPRangeOnly))
+                            //(this.recordsets[i].records[j].tRange._isTotalPRangeOnly ||
+                            //this.recordsets[i].records[j - 1].tRange._isTotalPRangeOnly))
+                            (this.recordsets[i].records[j].tRange.isTotalPRangeOnly ||
+                            this.recordsets[i].records[j - 1].tRange.isTotalPRangeOnly))
                             continue;
 
                         // 描画処理
@@ -11048,9 +11063,11 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                         // 非表示指定のレコード（レコードセット単位の指定）
                         if ((this.recordsets[i].hidePlotTotalPRangeOnly &&      // 全可能期間のみのレコード
-                            this.recordsets[i].records[j].tRange._isTotalPRangeOnly) ||
+                            //this.recordsets[i].records[j].tRange._isTotalPRangeOnly) ||
+                            this.recordsets[i].records[j].tRange.isTotalPRangeOnly) ||
                             (this.recordsets[i].hidePlotNonRRange &&            // 確実期間の無いレコード
-                            this.recordsets[i].records[j].tRange._isNonRRange))
+                            //this.recordsets[i].records[j].tRange._isNonRRange))
+                            this.recordsets[i].records[j].tRange.isNonRRange))
                             continue;
 
                         // レコードの描画処理
@@ -11207,10 +11224,14 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             // 可能範囲を確実範囲として描画する場合
             if (recordset.drawPRangeAsRRange && recordset._appliedItemShowPossibleTRange(itemName, record)) {
                 style.lineDash = [];        // 実線を指定（点線を解除）
+                //begin =     // 無限大は表示範囲に合わせて表示
+                //    tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
+                //end =
+                //    tRange._pRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pRangeEnd;
                 begin =     // 無限大は表示範囲に合わせて表示
-                    tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
+                    tRange._pBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pBegin;
                 end =
-                    tRange._pRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pRangeEnd;
+                    tRange._pEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pEnd;
                 bPos = new HuTime.TVPosition(begin, v);      // 始点のPositionオブジェクト
                 ePos = new HuTime.TVPosition(end, v);        // 終点のPositionオブジェクト
 
@@ -11226,12 +11247,17 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
             // 確実期間の表示
             if (layer.showReliableTRange && recordset._appliedItemShowReliableTRange(itemName, record)) {
-                if (!tRange._isNonRRange) {     // 確実期間がある場合は、実線で表示
+                //if (!tRange._isNonRRange) {     // 確実期間がある場合は、実線で表示
+                if (!tRange.isNonRRange) {     // 確実期間がある場合は、実線で表示
                     style.lineDash = [];        // 実線を指定（点線を解除）
+                    //begin =     // 無限大は表示範囲に合わせて表示
+                    //    tRange._rRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._rRangeBegin;
+                    //end =
+                    //    tRange._rRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._rRangeEnd;
                     begin =     // 無限大は表示範囲に合わせて表示
-                        tRange._rRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._rRangeBegin;
+                        tRange._rBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._rBegin;
                     end =
-                        tRange._rRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._rRangeEnd;
+                        tRange._rEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._rEnd;
                     bPos = new HuTime.TVPosition(begin, v);      // 始点のPositionオブジェクト
                     ePos = new HuTime.TVPosition(end, v);        // 終点のPositionオブジェクト
 
@@ -11247,14 +11273,21 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
             // 可能期間の表示
             if (layer.showPossibleTRange && recordset._appliedItemShowPossibleTRange(itemName, record)) {
-                if (!isNaN(tRange._pRangeDuration) && (    // 全可能範囲の描画
-                        (isNaN(tRange._rRangeDuration) &&                                 // 全可能期間のみの場合
-                        isNaN(tRange._antePRangeDuration) && isNaN(tRange._postPRangeDuration)) ||
-                        ((!layer.showReliableTRange || !recordset._appliedItemShowReliableTRange(itemName, record)) &&
-                        !isNaN(tRange._rRangeDuration))         // 確実期間が非表示の場合、全体を可能期間として描画
-                    )) {
-                    begin = tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
-                    end = tRange._pRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pRangeEnd;
+                //if (!isNaN(tRange._pRangeDuration) && (    // 全可能範囲の描画
+                //    (isNaN(tRange._rRangeDuration) &&                                 // 全可能期間のみの場合
+                //    isNaN(tRange._antePRangeDuration) && isNaN(tRange._postPRangeDuration)) ||
+                //    ((!layer.showReliableTRange || !recordset._appliedItemShowReliableTRange(itemName, record)) &&
+                //    !isNaN(tRange._rRangeDuration))         // 確実期間が非表示の場合、全体を可能期間として描画
+                //)) {
+                if (!isNaN(tRange._pEnd) && !isNaN(tRange._pBegin) && ( // 全可能範囲の描画
+                    (isNaN(tRange._rEnd) || isNaN(tRange._rBegin)) ||  // 全可能期間のみの場合
+                    ((!layer.showReliableTRange || !recordset._appliedItemShowReliableTRange(itemName, record)) &&
+                    (!isNaN(tRange._rEnd) && !isNaN(tRange._rBegin)))   // 確実期間が非表示の場合、全体を可能期間として描画
+                )) {
+                    //begin = tRange._pRangeBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pRangeBegin;
+                    //end = tRange._pRangeEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pRangeEnd;
+                    begin = tRange._pBegin == Number.NEGATIVE_INFINITY ? layer._minLyrT : tRange._pBegin;
+                    end = tRange._pEnd == Number.POSITIVE_INFINITY ? layer._maxLyrT : tRange._pEnd;
                     var center = (begin + end) / 2;     // 分けて描画するための中間点
 
                     // 始点・終点が破線の隙間に入らないようにするために、２つに分けて描画
@@ -11267,20 +11300,29 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 }
                 else {      // 前後の可能範囲を分けて表示する場合
                     style.lineDash = [5, 3];
-                    if (!isNaN(tRange._antePRangeDuration)) {   // 前期可能範囲
-                        begin = tRange._antePRangeBegin == Number.NEGATIVE_INFINITY ?
-                            layer._minLyrT : tRange._antePRangeBegin;
-                        end = tRange._antePRangeEnd == Number.POSITIVE_INFINITY ?
-                            layer._maxLyrT : tRange._antePRangeEnd;
+                    //if (!isNaN(tRange._antePRangeDuration)) {   // 前期可能範囲
+                    if (!isNaN(tRange._rBegin) && !isNaN(tRange._pBegin)) {   // 前期可能範囲
+                        //begin = tRange._antePRangeBegin == Number.NEGATIVE_INFINITY ?
+                        //    layer._minLyrT : tRange._antePRangeBegin;
+                        //end = tRange._antePRangeEnd == Number.POSITIVE_INFINITY ?
+                        //    layer._maxLyrT : tRange._antePRangeEnd;
+                        begin = tRange._pBegin == Number.NEGATIVE_INFINITY ?
+                            layer._minLyrT : tRange._pBegin;
+                        end = tRange._rBegin == Number.POSITIVE_INFINITY ?
+                            layer._maxLyrT : tRange._rBegin;
 
                         HuTime.Drawing.drawLine(style, layer,
                             [new HuTime.TVPosition(begin, v), new HuTime.TVPosition(end, v)], canvas);
                     }
-                    if (!isNaN(tRange._postPRangeDuration)) {   // 後期可能範囲
-                        begin = tRange._postPRangeBegin == Number.NEGATIVE_INFINITY ?
-                            layer._minLyrT : tRange._postPRangeBegin;
-                        end = tRange._postPRangeEnd == Number.POSITIVE_INFINITY ?
-                            layer._maxLyrT : tRange._postPRangeEnd;
+                    if (!isNaN(tRange._pEnd) || !isNaN(tRange._rEnd)) {   // 後期可能範囲
+                        //begin = tRange._postPRangeBegin == Number.NEGATIVE_INFINITY ?
+                        //    layer._minLyrT : tRange._postPRangeBegin;
+                        //end = tRange._postPRangeEnd == Number.POSITIVE_INFINITY ?
+                        //    layer._maxLyrT : tRange._postPRangeEnd;
+                        begin = tRange._rEnd == Number.NEGATIVE_INFINITY ?
+                            layer._minLyrT : tRange._rEnd;
+                        end = tRange._pEnd == Number.POSITIVE_INFINITY ?
+                            layer._maxLyrT : tRange._pEnd;
 
                         HuTime.Drawing.drawLine(style, layer,
                             [new HuTime.TVPosition(end, v), new HuTime.TVPosition(begin, v)], canvas);
@@ -11679,9 +11721,11 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // 描画しないレコード（全可能期間のみや、確実期間の無いレコード）
                 if ((this._sortedRecords[i].recordset.hideTRangeTotalPRangeOnly &&    // 全可能期間のみのレコード
-                    this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    //this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    this._sortedRecords[i].record.tRange.isTotalPRangeOnly) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonRRange &&          // 確実期間の無いレコード
-                    this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    //this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    this._sortedRecords[i].record.tRange.isNonRRange) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonCentralValue &&       // 期間代表値のないレコード
                     isNaN(this._sortedRecords[i].record.tRange._centralValue)))
                     continue;
@@ -11745,15 +11789,18 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
             // 可能範囲を確実範囲として描画する場合
             if (recordset.drawPRangeAsRRange) {
-                if (tRange._pRangeDuration * layer.lyrTResolution < 5) {
+                //if (tRange._pRangeDuration * layer.lyrTResolution < 5) {
+                if ((tRange._pEnd - tRange._pBegin) * layer.lyrTResolution < 5) {
                     // 表示幅が5px以下の場合は、丸で表示
                     HuTime.Drawing.drawCircle(style, layer,
                         new HuTime.TVPosition(tRange._centralValue, v - bandBreadth / 2),
                         bandBreadth * 0.75, canvas);
                 }
                 else {
-                    begin = tRange._pRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._pRangeBegin;
-                    end = tRange._pRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pRangeEnd;
+                    //begin = tRange._pRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._pRangeBegin;
+                    //end = tRange._pRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pRangeEnd;
+                    begin = tRange._pBegin < layer._minLyrT ? layer._minLyrT : tRange._pBegin;
+                    end = tRange._pEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pEnd;
                     HuTime.Drawing.drawRect(style, layer,
                         new HuTime.PositionFloor(new HuTime.TVPosition(begin, v)),
                         new HuTime.PositionFloor(new HuTime.TVPosition(end, v - bandBreadth)),
@@ -11764,16 +11811,19 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
             // 確実範囲の描画
             if (layer.showReliableTRange && recordset.showReliableTRange &&
-                !isNaN(tRange._rRangeDuration)) {
-                if (tRange._pRangeDuration * layer.lyrTResolution < 5) {
+                //!isNaN(tRange._rRangeDuration)) {
+                (!isNaN(tRange._rEnd) && !isNaN(tRange._rBegin))) {
+                if ((tRange._pEnd - tRange._pBegin) * layer.lyrTResolution < 5) {
                     // 表示幅が5px以下の場合は、丸で表示
                     HuTime.Drawing.drawCircle(style, layer,
                         new HuTime.TVPosition(tRange._centralValue, v - bandBreadth / 2),
                         bandBreadth * 0.75, canvas);
                 }
                 else {
-                    begin = tRange._rRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._rRangeBegin;
-                    end = tRange._rRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._rRangeEnd;
+                    //begin = tRange._rRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._rRangeBegin;
+                    //end = tRange._rRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._rRangeEnd;
+                    begin = tRange._rBegin < layer._minLyrT ? layer._minLyrT : tRange._rBegin;
+                    end = tRange._rEnd > layer._maxLyrT ? layer._maxLyrT : tRange._rEnd;
                     HuTime.Drawing.drawRect(style, layer,
                         new HuTime.PositionFloor(new HuTime.TVPosition(begin, v)),
                         new HuTime.PositionFloor(new HuTime.TVPosition(end, v - bandBreadth)),
@@ -11783,29 +11833,39 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
             // 可能期間の表示
             if (layer.showPossibleTRange && recordset.showPossibleTRange) {
-                if (!isNaN(tRange._pRangeDuration) && (    // 全可能範囲の描画
-                        (isNaN(tRange._rRangeDuration) &&                                   // 全可能期間のみの場合
-                        isNaN(tRange._antePRangeDuration) && isNaN(tRange._postPRangeDuration)) ||
-                        ((!layer.showReliableTRange || !recordset.showReliableTRange) &&    // 確実期間が非表示の場合
-                        !isNaN(tRange._rRangeDuration))                                     // 全体を可能期間として描画
-                    )) {
+                //if (!isNaN(tRange._pRangeDuration) && (    // 全可能範囲の描画
+                //    (isNaN(tRange._rRangeDuration) &&                                   // 全可能期間のみの場合
+                //   isNaN(tRange._antePRangeDuration) && isNaN(tRange._postPRangeDuration)) ||
+                //    ((!layer.showReliableTRange || !recordset.showReliableTRange) &&    // 確実期間が非表示の場合
+                //    !isNaN(tRange._rRangeDuration))                                     // 全体を可能期間として描画
+                //)) {
+                if (!isNaN(tRange._pEnd) && !isNaN(tRange._pBegin) && (    // 全可能範囲の描画
+                    (isNaN(tRange._rEnd) || isNaN(tRange._rBegin)) ||      // 全可能期間のみの場合
+                    ((!layer.showReliableTRange || !recordset.showReliableTRange) &&    // 確実期間が非表示の場合
+                        (!isNaN(tRange._rEnd) && !isNaN(tRange._rBegin)))             // 全体を可能期間として描画
+                )) {
 
-                    if (tRange._pRangeDuration == 0) {
+                    //if (tRange._pRangeDuration == 0) {
+                    if (tRange._pEnd - tRange._pBegin == 0) {
                         // 確実範囲の長さが0で可能範囲が無いの場合は、丸で表示
                         var lineWidthOriginal = style.lineWidth;
                         var fillColorOriginal = style.fillColor;
                         style.lineWidth = 2;
                         style.fillColor = null;
                         HuTime.Drawing.drawCircle(style, layer,
-                            new HuTime.TVPosition(tRange._pRangeBegin, v - bandBreadth / 2),
-                            bandBreadth * 0.75, canvas);
+                            //new HuTime.TVPosition(tRange._pRangeBegin, v - bandBreadth / 2),
+                            //bandBreadth * 0.75, canvas);
+                            new HuTime.TVPosition(tRange._pBegin, v - bandBreadth / 2),
+                                bandBreadth * 0.75, canvas);
                         style.lineWidth = lineWidthOriginal;
                         style.fillColor = fillColorOriginal;
                     }
                     else {
                         // 表示範囲に合わせる
-                        begin = tRange._pRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._pRangeBegin;
-                        end = tRange._pRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pRangeEnd;
+                        //begin = tRange._pRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._pRangeBegin;
+                        //end = tRange._pRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pRangeEnd;
+                        begin = tRange._pBegin < layer._minLyrT ? layer._minLyrT : tRange._pBegin;
+                        end = tRange._pEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pEnd;
                         var center = (begin + end) / 2;     // 全可能期間の真ん中の点
 
                         layer._setGradation(layer, style, center, begin);
@@ -11823,9 +11883,12 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                 }
                 else {  // 前期・後期可能範囲の描画
                     // 前期可能範囲の描画
-                    if (!isNaN(tRange._antePRangeDuration)) {
-                        begin = tRange._antePRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._antePRangeBegin;
-                        end = tRange._antePRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._antePRangeEnd;
+                    //if (!isNaN(tRange._antePRangeDuration)) {
+                    if (!isNaN(tRange._rBegin) && !isNaN(tRange._pBegin)) {
+                        //begin = tRange._antePRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._antePRangeBegin;
+                        //end = tRange._antePRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._antePRangeEnd;
+                        begin = tRange._pBegin < layer._minLyrT ? layer._minLyrT : tRange._pBegin;
+                        end = tRange._rBegin > layer._maxLyrT ? layer._maxLyrT : tRange._rBegin;
                         layer._setGradation(layer, style, end, begin);
                         HuTime.Drawing.drawRect(style, layer,
                             // 範囲（帯）の間に隙間ができることがあるので、座標を整数化する
@@ -11835,9 +11898,12 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                     }
 
                     // 後期可能範囲の描画
-                    if (!isNaN(tRange._postPRangeDuration)) {
-                        begin = tRange._postPRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._postPRangeBegin;
-                        end = tRange._postPRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._postPRangeEnd;
+                    //if (!isNaN(tRange._postPRangeDuration)) {
+                    if (!isNaN(tRange._pEnd) && !isNaN(tRange._rEnd)) {
+                        //begin = tRange._postPRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._postPRangeBegin;
+                        //end = tRange._postPRangeEnd > layer._maxLyrT ? layer._maxLyrT : tRange._postPRangeEnd;
+                        begin = tRange._rEnd < layer._minLyrT ? layer._minLyrT : tRange._rEnd;
+                        end = tRange._pEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pEnd;
                         layer._setGradation(layer, style, begin, end);
                         HuTime.Drawing.drawRect(style, layer,
                             new HuTime.PositionFloor(new HuTime.TVPosition(begin, v)),
@@ -11871,17 +11937,22 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
             var begin, end;
             var labelPos;
 
-            if (!isNaN(tRange._rRangeBegin)) {   // 確実範囲がある場合（始点）
-                begin = tRange._rRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._rRangeBegin;
+            //if (!isNaN(tRange._rRangeBegin)) {   // 確実範囲がある場合（始点）
+            if (!isNaN(tRange._rBegin)) {   // 確実範囲がある場合（始点）
+                //begin = tRange._rRangeBegin < layer._minLyrT ? layer._minLyrT : tRange._rRangeBegin;
+                begin = tRange._rBegin < layer._minLyrT ? layer._minLyrT : tRange._rBegin;
                 labelPos = new HuTime.RelativeTVPosition(
                     new HuTime.TVPosition(begin, v - bandBreadth / 2), labelOffsetT, labelOffsetV);
             }
-            else if (!isNaN(tRange._postPRangeDuration) && tRange._postPRangeDuration > 0) {   // 後期可能期間がある場合（始点）
+            //else if (!isNaN(tRange._postPRangeDuration) && tRange._postPRangeDuration > 0) {   // 後期可能期間がある場合（始点）
+            else if (!isNaN(tRange._pEnd) && !isNaN(tRange._rEnd)
+                && tRange._pEnd - tRange._rEnd > 0) {   // 後期可能期間がある場合（始点）
                 begin = tRange._centralValue < layer._minLyrT ? layer._minLyrT : tRange._centralValue;
                 labelPos = new HuTime.RelativeTVPosition(
                     new HuTime.TVPosition(begin, v - bandBreadth / 2), labelOffsetT, labelOffsetV);
             }
-            else if (!isNaN(tRange._antePRangeDuration) && tRange._antePRangeDuration > 0) {   // 前期可能期間がある場合（終点）
+            else if (!isNaN(tRange._rBegin) && !isNaN(tRange._pBegin)
+                && tRange._rBegin - tRange._pBegin > 0) {   // 前期可能期間がある場合（終点）
                 begin = tRange._centralValue > layer._maxLyrT ? layer._maxLyrT : tRange._centralValue;
                 var ctx = canvas.getContext('2d');
                 ctx.font = style.font;
@@ -11890,7 +11961,8 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                     - ctx.measureText(label).width - labelOffsetT, labelOffsetV);
                 // （ラベルを回転させた場合に左端を基準にするため「擬似的」な右寄せ）
             }
-            else if (!isNaN(tRange._pRangeDuration)) {   // 全可能期間がある場合（表示範囲の中心）
+            //else if (!isNaN(tRange._pRangeDuration)) {   // 全可能期間がある場合（表示範囲の中心）
+            else if (!isNaN(tRange._pEnd) && !isNaN(tRange._pBegin)) {   // 全可能期間がある場合（表示範囲の中心）
                 begin = tRange._pBegin < layer._minLyrT ? layer._minLyrT : tRange._pBegin;
                 end = tRange._pEnd > layer._maxLyrT ? layer._maxLyrT : tRange._pEnd;
                 labelPos = new HuTime.RelativeTVPosition(
@@ -11959,7 +12031,8 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                 eventV >= vPos - bandBreadth && eventV <= vPos)
                 return true;    // 帯内
 
-            if (record.tRange._pRangeDuration * this._lyrTResolution >= 5)
+            //if (record.tRange._pRangeDuration * this._lyrTResolution >= 5)
+            if ((record.tRange._pEnd - record.tRange._pBegin) * this._lyrTResolution >= 5)
                 return false;   // 点表示対象でない場合
 
             if (eventT >= record.tRange._pBegin - bandBreadth / 3 / this._lyrTResolution &&
@@ -11988,9 +12061,11 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // 描画しないレコード（全可能期間のみや、確実期間の無いレコード）
                 if ((this._sortedRecords[i].recordset.hideTRangeTotalPRangeOnly &&    // 全可能期間のみのレコード
-                    this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    //this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    this._sortedRecords[i].record.tRange.isTotalPRangeOnly) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonRRange &&          // 確実期間の無いレコード
-                    this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    //this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    this._sortedRecords[i].record.tRange.isNonRRange) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonCentralValue &&       // 期間代表値のないレコード
                     isNaN(this._sortedRecords[i].record.tRange._centralValue)))
                     continue;
@@ -12054,9 +12129,11 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // 描画しないレコード（全可能期間のみや、確実期間の無いレコード）
                 if ((this._sortedRecords[i].recordset.hideTRangeTotalPRangeOnly &&    // 全可能期間のみのレコード
-                    this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    //this._sortedRecords[i].record.tRange._isTotalPRangeOnly) ||
+                    this._sortedRecords[i].record.tRange.isTotalPRangeOnly) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonRRange &&          // 確実期間の無いレコード
-                    this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    //this._sortedRecords[i].record.tRange._isNonRRange) ||
+                    this._sortedRecords[i].record.tRange.isNonRRange) ||
                     (this._sortedRecords[i].recordset.hideTRangeNonCentralValue &&       // 期間代表値のないレコード
                     isNaN(this._sortedRecords[i].record.tRange._centralValue)))
                     continue;
@@ -12303,13 +12380,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var barWidth;   // 棒の幅（実際にはplotWidthの値）
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = tRangePrev._rRangeEnd;
-                    end = tRange._rRangeBegin;
+                    //begin = tRangePrev._rRangeEnd;
+                    //end = tRange._rRangeBegin;
+                    begin = tRangePrev._rEnd;
+                    end = tRange._rBegin;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = tRangePrev._pRangeEnd;
-                    end = tRange._pRangeBegin;
+                    //begin = tRangePrev._pRangeEnd;
+                    //end = tRange._pRangeBegin;
+                    begin = tRangePrev._pEnd;
+                    end = tRange._pBegin;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
@@ -12368,13 +12449,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var barWidth;
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = tRange._rRangeBegin;
-                    end = tRange._rRangeEnd;
+                    //begin = tRange._rRangeBegin;
+                    //end = tRange._rRangeEnd;
+                    begin = tRange._rBegin;
+                    end = tRange._rEnd;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = tRange._pRangeBegin;
-                    end = tRange._pRangeEnd;
+                    //begin = tRange._pRangeBegin;
+                    //end = tRange._pRangeEnd;
+                    begin = tRange._pBegin;
+                    end = tRange._pEnd;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
@@ -12434,13 +12519,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var begin, end;
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = record.tRange._rRangeBegin;
-                    end = record.tRange._rRangeEnd;
+                    //begin = record.tRange._rRangeBegin;
+                    //end = record.tRange._rRangeEnd;
+                    begin = record.tRange._rBegin;
+                    end = record.tRange._rEnd;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = record.tRange._pRangeBegin;
-                    end = record.tRange._pRangeEnd;
+                    //begin = record.tRange._pRangeBegin;
+                    //end = record.tRange._pRangeEnd;
+                    begin = record.tRange._pBegin;
+                    end = record.tRange._pEnd;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）

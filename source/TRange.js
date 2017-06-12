@@ -752,10 +752,7 @@ HuTime.TRange.prototype = {
     },
 
     // 代表値
-    _centralValue: {
-        writable: true,
-        value: Number.NaN
-    },
+    _centralValue: Number.NaN,
     get centralValue() {
         return this._centralValue;
     },
@@ -763,11 +760,13 @@ HuTime.TRange.prototype = {
     // 状態表示
     _isTotalPRangeOnly: true,   // 全可能期間のみの場合 true
     get isTotalPRangeOnly() {
-        return this._isTotalPRangeOnly;
+        //return this._isTotalPRangeOnly;
+        return isNaN(this._rBegin) && isNaN(this._rEnd);
     },
     _isNonRRange: true,         // 確実期間がない場合 true
-    get isNonRRangeOnly() {
-        return this._isNonRRange;
+    get isNonRRange() {
+        //return this._isNonRRange;
+        return isNaN(this._rBegin) || isNaN(this._rEnd) || this._rBegin > this._rEnd;
     },
 
     updateTRange: function() {      // 参照に基づいて、範囲の情報を更新する
@@ -816,29 +815,38 @@ HuTime.TRange.prototype = {
                 this._pEnd = Number.NaN;
             }
         }
-        this._updateRanges();   // 各範囲の更新
+        //this._updateRanges();   // 各範囲の更新
 
         // 代表値の設定
         // 確定範囲がある場合（両端とも無限大でない）
-        if (!isNaN(this._rRangeDuration) && isFinite(this._rRangeBegin) && isFinite(this._rRangeEnd))
-            this._centralValue = (this._rRangeBegin + this._rRangeEnd) / 2;
+        //if (!isNaN(this._rRangeDuration) && isFinite(this._rRangeBegin) && isFinite(this._rRangeEnd))
+        //    this._centralValue = (this._rRangeBegin + this._rRangeEnd) / 2;
+        if (isFinite(this._rBegin) && isFinite(this._rEnd))
+            this._centralValue = (this._rBegin + this._rEnd) / 2;
 
         // 前期可能範囲がある場合（確定範囲なし）
-        else if (!isNaN(this._antePRangeDuration) && isFinite(this._antePRangeEnd))
-            this._centralValue = this._antePRangeEnd;
+        //else if (!isNaN(this._antePRangeDuration) && isFinite(this._antePRangeEnd))
+        //    this._centralValue = this._antePRangeEnd;
+        else if (isFinite(this._pBegin) && isFinite(this._rBegin))
+            this._centralValue = this._rBegin;
 
         // 後期可能範囲がある場合（確定範囲、前期可能範囲なし）
-        else if (!isNaN(this._postPRangeDuration) && isFinite(this._postPRangeBegin))
-            this._centralValue = this._postPRangeBegin;
+        //else if (!isNaN(this._postPRangeDuration) && isFinite(this._postPRangeBegin))
+        //    this._centralValue = this._postPRangeBegin;
+        else if (isFinite(this._rEnd) && isFinite(this._pEnd))
+            this._centralValue = this._rEnd;
 
         // 全可能範囲のみ、かつ、両端とも無限大でない場合
-        else if (!isNaN(this._pRangeDuration) &&
-            isFinite(this._pBegin) && isFinite(this._pRangeEnd))
-            this._centralValue = (this._pRangeBegin + this._pRangeEnd) / 2;
+        //else if (!isNaN(this._pRangeDuration) &&
+        //    isFinite(this._pBegin) && isFinite(this._pRangeEnd))
+        //    this._centralValue = (this._pRangeBegin + this._pRangeEnd) / 2;
+        else if (isFinite(this._pBegin) && isFinite(this._pEnd))
+            this._centralValue = (this._pBegin + this._pEnd) / 2;
 
         else
             this._centralValue = Number.NaN
     },
+    /*
     _updateRanges: function () {    // 各範囲の更新
         // 全可能期間（前後可能期間および確実期間を含む）
         if (!isNaN(this._pBegin) && !isNaN(this._pEnd))     // 始点
@@ -961,6 +969,7 @@ HuTime.TRange.prototype = {
     get postPRangeDuration() {
         return this._postPRangeDuration;
     },
+    // */
 
     // 自身に関するTime Interval Algebra
     isReliableRelation: function isReliableRelation (t, relation) {     // 期間間の確実関係の検証
@@ -1049,7 +1058,7 @@ HuTime.TRangeLiteral = function TRangeLiteral(t) {
     this._rBegin = t;
     this._rEnd = t;
     this._pEnd = t;
-    this._updateRanges();
+    //this._updateRanges();
 };
 HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
     constructor: {
