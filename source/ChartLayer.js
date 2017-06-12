@@ -232,13 +232,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var barWidth;   // 棒の幅（実際にはplotWidthの値）
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = tRangePrev._rRangeEnd;
-                    end = tRange._rRangeBegin;
+                    //begin = tRangePrev._rRangeEnd;
+                    //end = tRange._rRangeBegin;
+                    begin = tRangePrev._rEnd;
+                    end = tRange._rBegin;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = tRangePrev._pRangeEnd;
-                    end = tRange._pRangeBegin;
+                    //begin = tRangePrev._pRangeEnd;
+                    //end = tRange._pRangeBegin;
+                    begin = tRangePrev._pEnd;
+                    end = tRange._pBegin;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
@@ -297,13 +301,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var barWidth;
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = tRange._rRangeBegin;
-                    end = tRange._rRangeEnd;
+                    //begin = tRange._rRangeBegin;
+                    //end = tRange._rRangeEnd;
+                    begin = tRange._rBegin;
+                    end = tRange._rEnd;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = tRange._pRangeBegin;
-                    end = tRange._pRangeEnd;
+                    //begin = tRange._pRangeBegin;
+                    //end = tRange._pRangeEnd;
+                    begin = tRange._pBegin;
+                    end = tRange._pEnd;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
@@ -363,13 +371,17 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             var begin, end;
             switch (recordset.plotWidthType) {
                 case 0:     // 確実範囲に基づく
-                    begin = record.tRange._rRangeBegin;
-                    end = record.tRange._rRangeEnd;
+                    //begin = record.tRange._rRangeBegin;
+                    //end = record.tRange._rRangeEnd;
+                    begin = record.tRange._rBegin;
+                    end = record.tRange._rEnd;
                     break;
 
                 case 1:     // 可能範囲に基づく
-                    begin = record.tRange._pRangeBegin;
-                    end = record.tRange._pRangeEnd;
+                    //begin = record.tRange._pRangeBegin;
+                    //end = record.tRange._pRangeEnd;
+                    begin = record.tRange._pBegin;
+                    end = record.tRange._pEnd;
                     break;
 
                 case 2:     // t値固定（centralValueが無いレコードは、前の段階ではじかれている）
