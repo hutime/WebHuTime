@@ -39,7 +39,7 @@ HuTime.TRangeAlgebra = {
     // 期間間の確実関係の検証（relationは単独の関係のみ）
     isReliableRelation: function isReliableRelation (s, t, relation) {
         if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange))
-            return false;
+            return null;
 
         // a, bのセット（逆関係の場合は入れ替え）
         var a, b;
@@ -53,106 +53,206 @@ HuTime.TRangeAlgebra = {
             b = s;
         }
 
+        // 確実範囲の設定（nullの場合は可能範囲を超えないという条件から求める）
+        var aRb, aRe, bRb, bRe;
+
         // 評価
         switch (relation) {
             case HuTime.TRangeAlgebra.Relation.Before:
+                if (a._pEnd == null || b._pBegin == null)
+                    return null;
                 return a._pEnd < b._pBegin;
             case HuTime.TRangeAlgebra.Relation.During:
-                return a._pBegin > b._rBegin && a._pEnd < b._rEnd;
+                if (a._pBegin == null || a._pEnd == null
+                    || (bRb = b._rBegin == null ? b._pEnd : b._rBegin) == null
+                    || (bRe = b._rEnd == null ? b._pBegin : b._rEnd) == null)
+                    return null;
+                return a._pBegin > bRb && a._pEnd < bRe;
             case HuTime.TRangeAlgebra.Relation.Overlaps:
-                return a._rBegin < b._pBegin && a._rEnd > b._rBegin && a._pEnd < b._rEnd;
+                if (b._pBegin == null || a._pEnd == null
+                    || (aRe = a._rEnd == null ? a._pBegin : a._rEnd) == null
+                    || (bRb = b._rBegin == null ? b._pEnd : b._rBegin) == null)
+                    return null;
+                aRb = a._rBegin == null ? a._pEnd : a._rBegin;
+                bRe = b._rEnd == null ? b._pBegin : b._rEnd;
+                return aRb < b._pBegin && aRe > bRb && a._pEnd < bRe;
             case HuTime.TRangeAlgebra.Relation.Meets:
-                return a._rEnd == a._pEnd && a._pEnd == b._pBegin && b._pBegin == b._rBegin &&
-                    a._rBegin < b._pBegin && a._pEnd < b._rEnd;
+                if (a._pEnd == null || b._pBegin == null
+                    || (aRe = a._rEnd == null ? a._pBegin : a._rEnd) == null
+                    || (bRb = b._rBegin == null ? b._pEnd : b._rBegin) == null)
+                    return null;
+                aRb = a._rBegin == null ? a._pEnd : a._rBegin;
+                bRe = b._rEnd == null ? b._pBegin : b._rEnd;
+                return aRe == a._pEnd && a._pEnd == b._pBegin && b._pBegin == bRb && aRb < b._pBegin && a._pEnd < bRe;
             case HuTime.TRangeAlgebra.Relation.Starts:
-                return a._pBegin == a._rBegin && a._rBegin == b._pBegin && b._pBegin == b._rBegin && a._pEnd < b._rEnd;
+                if (a._pBegin == null || a._pEnd == null || b._pBegin == null
+                    || (bRb = b._rBegin == null ? b._pEnd : b._rBegin) == null
+                    || (bRe = b._rEnd == null ? b._pBegin : b._rEnd) == null)
+                    return null;
+                aRb = a._rBegin == null ? a._pEnd : a._rBegin;
+                return a._pBegin == aRb && aRb == b._pBegin && b._pBegin == bRb && a._pEnd < bRe;
             case HuTime.TRangeAlgebra.Relation.Finishes:
-                return a._pBegin > b._rBegin && a._rEnd == a._pEnd && a._pEnd == b._rEnd && b._rEnd == b._pEnd;
+                if (a._pBegin == null || a._pEnd == null || b._pEnd == null
+                    || (bRe = b._rEnd == null ? b._pBegin : b._rEnd) == null)
+                    return null;
+                aRe = a._rEnd == null ? a._pBegin : a._rEnd;
+                bRb = b._rBegin == null ? b._pEnd : b._rBegin;
+                return a._pBegin > bRb && aRe == a._pEnd && a._pEnd == bRe && bRe == b._pEnd;
             case HuTime.TRangeAlgebra.Relation.Equals:
-                return a._pBegin == a._rBegin && a._rBegin == b._pBegin && b._pBegin == b._rBegin &&
-                    a._rEnd == a._pEnd && a._pEnd == b._rEnd && b._rEnd == b._pEnd;
+                if (a._pBegin == null || a._pEnd == null || b._pBegin == null || b._pEnd == null)
+                    return null;
+                aRb = a._rBegin == null ? a._pEnd : a._rBegin;
+                aRe = a._rEnd == null ? a._pBegin : a._rEnd;
+                bRb = b._rBegin == null ? b._pEnd : b._rBegin;
+                bRe = b._rEnd == null ? b._pBegin : b._rEnd;
+                return a._pBegin == aRb && aRb == b._pBegin && b._pBegin == bRb &&
+                    aRe == a._pEnd && a._pEnd == bRe && bRe == b._pEnd;
             default:
-                return false;   // relationに複数の値や負の値を指定した場合
+                return null;   // relationに複数の値や負の値を指定した場合
         }
     },
 
     // 期間間の可能関係の検証（relationは複数の関係を設定可）
     isPossibleRelation: function isPossibleRelation (s, t, relation) {
         if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange) ||
-            !isFinite(relation) || (relation & HuTime.TRangeAlgebra.Relation.MASK) != 0)
-            return false;
+            relation <= 0 || relation >= 65536|| (relation & HuTime.TRangeAlgebra.Relation.MASK) != 0)
+            return null;
 
-        if ((relation & HuTime.TRangeAlgebra.Relation.Before) != 0
-            && (s._rEnd >= t._rBegin))
+        // 確実範囲の設定（nullの場合は可能範囲を超えないという条件から求める）
+        var sRb = s._rBegin == null ? s._pEnd : s._rBegin;
+        var sRe = s._rEnd == null ? s._pBegin : s._rEnd;
+        var tRb = t._rBegin == null ? t._pEnd : t._rBegin;
+        var tRe = t._rEnd == null ? t._pBegin : t._rEnd;
+
+        if ((relation & HuTime.TRangeAlgebra.Relation.Before) != 0) {
+            if (sRe ==null || tRb == null)
+                return null;
+            if (sRe >= tRb)
                 return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.After) != 0
-            && (t._rEnd >= s._rBegin))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.During) != 0
-            && (s._rBegin <= t._pBegin || s._rEnd >= t._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Contains) != 0
-            && (t._rBegin <= s._pBegin || t._rEnd >= s._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Overlaps) != 0
-            && (s._pBegin >= t._rBegin || s._pEnd <= t._pBegin || s._rEnd >= t._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.OverlappedBy) != 0
-            && (t._pBegin >= s._rBegin || t._pEnd <= s._pBegin || t._rEnd >= s._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Meets) != 0
-            && (s._rEnd > t._rBegin || s._pEnd < t._pBegin || s._rEnd >= t._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.MetBy) != 0
-            && (t._rEnd > s._rBegin || t._pEnd < s._pBegin || t._rEnd >= s._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Starts) != 0
-            && (s._pBegin > t._rBegin || s._rBegin < t._pBegin || s._rEnd >= t._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.StartedBy) != 0
-            && (t._pBegin > s._rBegin || t._rBegin < s._pBegin || t._rEnd >= s._pEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Finishes) != 0
-            && (s._rBegin <= t._pBegin || s._rEnd > t._pEnd || s._pEnd < t._rEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.FinishedBy) != 0
-            && (t._rBegin <= s._pBegin || t._rEnd > s._pEnd || t._pEnd < s._rEnd))
-            return false;
-        if ((relation & HuTime.TRangeAlgebra.Relation.Equals) != 0
-            && (s._pBegin > t._rBegin || s._rBegin < t._pBegin || s._rEnd > t._pEnd || s._pEnd < t._rEnd))
-            return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.After) != 0) {
+            if (tRe == null || sRb == null)
+                return null;
+            if (tRe >= sRb)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.During) != 0) {
+            if(t._pBegin == null|| t._pEnd == null || sRb == null || sRe == null)
+                return null;
+            if(sRb <= t._pBegin || sRe >= t._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Contains) != 0) {
+            if (s._pBegin == null || s._pEnd == null || tRb == null || tRe == null)
+                return null;
+            if (tRb <= s._pBegin || tRe >= s._pEnd)
+               return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Overlaps) != 0) {
+            if (s._pBegin == null || s._pEnd == null || t._pBegin == null || t._pEnd == null)
+                return null;
+            if (s._pBegin >= tRb || s._pEnd <= t._pBegin || sRe >= t._pEnd)
+               return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.OverlappedBy) != 0) {
+            if (s._pBegin == null || s._pEnd == null || t._pBegin == null || t._pEnd == null)
+                return null;
+            if (t._pBegin >= s._rBegin || t._pEnd <= s._pBegin || t._rEnd >= s._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Meets) != 0) {
+            if (s._pEnd == null || t._pBegin == null || t._pEnd == null || sRe == null)
+                return null;
+            if (sRe > t._rBegin || s._pEnd < t._pBegin || sRe >= t._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.MetBy) != 0) {
+            if (s._pBegin == null || s._pEnd == null || t._pEnd == null || tRe == null)
+                return null;
+            if (tRe > sRb || t._pEnd < s._pBegin || t._rEnd >= s._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Starts) != 0) {
+            if (s._pBegin == null || t._pBegin == null || t._pEnd == null || sRb == null)
+                return null;
+            if (s._pBegin > tRb || sRb < t._pBegin || sRe >= t._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.StartedBy) != 0) {
+            if (s._pBegin == null || s._pEnd == null ||  t._pBegin == null || tRb == null)
+                return null;
+            if (t._pBegin > sRb || tRb < s._pBegin || tRe >= s._pEnd)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Finishes) != 0) {
+            if (s._pEnd == null || t._pBegin == null || t._pEnd == null || sRe == null)
+                return null;
+            if (sRb <= t._pBegin || sRe > t._pEnd || s._pEnd < tRe)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.FinishedBy) != 0) {
+            if (s._pBegin == null || s._pEnd == null || t._pEnd == null || tRe == null)
+                return null;
+            if (tRb <= s._pBegin || tRe > s._pEnd || t._pEnd < sRe)
+                return false;
+        }
+        if ((relation & HuTime.TRangeAlgebra.Relation.Equals) != 0) {
+            if (s._pBegin == null || s._pEnd == null|| t._pBegin == null || t._pEnd == null)
+                return null;
+            if (s._pBegin > tRb || sRb < t._pBegin || sRe > t._pEnd || s._pEnd < tRe)
+                return false;
+        }
         return true;
     },
 
     // 期間間の関係の取得（１つならreliable, 2つ以上ならpossible）
     getRelation: function getRelation (s, t) {
-        var relation = 0;
+        if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange))
+            return 0;
 
-        if ((s._rEnd < t._rBegin))
+        var sRb = s._rBegin == null ? s._pEnd : s._rBegin;
+        var sRe = s._rEnd == null ? s._pBegin : s._rEnd;
+        var tRb = t._rBegin == null ? t._pEnd : t._rBegin;
+        var tRe = t._rEnd == null ? t._pBegin : t._rEnd;
+        var relation = 0;
+        if (sRe != null && tRb != null
+            && sRe < tRb)
             relation += HuTime.TRangeAlgebra.Relation.Before;
-        if ((t._rEnd < s._rBegin))
+        if (tRe != null && sRb != null
+            && tRe < sRb)
             relation += HuTime.TRangeAlgebra.Relation.After;
-        if ((s._rBegin > t._pBegin && s._rEnd < t._pEnd))
+        if (sRb != null && t._pBegin != null && sRe != null && t._pEnd != null
+            && sRb > t._pBegin && sRe < t._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.During;
-        if ((t._rBegin > s._pBegin && t._rEnd < s._pEnd))
+        if (tRb != null && s._pBegin != null && tRe != null && s._pEnd != null
+            && tRb > s._pBegin && tRe < s._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.Contains;
-        if ((s._pBegin < t._rBegin && s._pEnd > t._pBegin && s._rEnd < t._pEnd))
+        if (s._pBegin != null && s._pEnd != null && t._pBegin != null && t._pEnd != null
+            && s._pBegin < tRb && s._pEnd > t._pBegin && sRe < t._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.Overlaps;
-        if ((t._pBegin < s._rBegin && t._pEnd > s._pBegin && t._rEnd < s._pEnd))
+        if (t._pBegin != null && t._pEnd != null && s._pBegin && s._pEnd != null
+            && t._pBegin < sRb && t._pEnd > s._pBegin && tRe < s._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.OverlappedBy;
-        if ((s._rEnd <= t._rBegin && s._pEnd >= t._pBegin && s._rEnd < t._pEnd))
+        if (sRe != null && s._pEnd != null && t._pBegin != null && t._pEnd != null
+            && sRe <= tRb && s._pEnd >= t._pBegin && sRe < t._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.Meets;
-        if ((t._rEnd <= s._rBegin && t._pEnd >= s._pBegin && t._rEnd < s._pEnd))
+        if (tRe != null && t._pEnd != null && s._pBegin != null && s._pEnd != null
+            && tRe <= sRb && t._pEnd >= s._pBegin && tRe < s._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.MetBy;
-        if ((s._pBegin <= t._rBegin && s._rBegin >= t._pBegin && s._rEnd < t._pEnd))
+        if (s._pBegin != null && sRb != null && t._pBegin != null && t._pEnd != null
+            && s._pBegin <= tRb && sRb >= t._pBegin && sRe < t._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.Starts;
-        if ((t._pBegin <= s._rBegin && t._rBegin >= s._pBegin && t._rEnd < s._pEnd))
+        if (t._pBegin != null && tRb != null && s._pBegin != null && s._pEnd != null
+            && t._pBegin <= sRb && tRb >= s._pBegin && tRe < s._pEnd)
             relation += HuTime.TRangeAlgebra.Relation.StartedBy;
-        if ((s._rBegin > t._pBegin && s._rEnd <= t._pEnd && s._pEnd >= t._rEnd))
+        if (t._pBegin != null && sRe != null && t._pEnd != null && s._pEnd != null
+            && sRb > t._pBegin && sRe <= t._pEnd && s._pEnd >= tRe)
             relation += HuTime.TRangeAlgebra.Relation.Finishes;
-        if ((t._rBegin > s._pBegin && t._rEnd <= s._pEnd && t._pEnd >= s._rEnd))
+        if (s._pBegin != null && tRe != null && s._pEnd != null && t._pEnd != null
+            && tRb > s._pBegin && tRe <= s._pEnd && t._pEnd >= sRe)
             relation += HuTime.TRangeAlgebra.Relation.FinishedBy;
-        if ((s._pBegin <= t._rBegin && s._rBegin >= t._pBegin && s._rEnd <= t._pEnd && s._pEnd >= t._rEnd))
+        if (s._pBegin != null && t._pBegin != null && t._pEnd != null && s._pEnd != null
+            && s._pBegin <= tRb && sRb >= t._pBegin && sRe <= t._pEnd && s._pEnd >= tRe)
             relation += HuTime.TRangeAlgebra.Relation.Equals;
 
         return relation;
@@ -161,192 +261,170 @@ HuTime.TRangeAlgebra = {
     // 期間間の関係に基づく更新（tとrelationに基づいて更新されたs）
     getTRangeRefinedByRelation: function getTRangeRefinedByRelation (s, t, relation) {
         if (!HuTime.TRangeAlgebra.isPossibleRelation(s, t, relation))
-            return s;   // 基になる関係が可能でなければ、更新なし
+            return s.clone();   // 基になる関係が可能でなければ、更新なし
 
-        var a = null;   // 結果
+        var a = new HuTime.TRange();   // 結果
+        var refine;
         if ((relation & HuTime.TRangeAlgebra.Relation.Before) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, t._rBegin);     // sRb > sPe を防止。以下同じ
-                a._rEnd = s._rEnd;
-                a._pEnd = Math.min(s._pEnd, t._rBegin);
-            }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));    //
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._rBegin));
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.After) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._rEnd);
-                a._rBegin = s._rBegin;
-                a._rEnd = Math.max(s._rEnd, t._rEnd);   //
-                a._pEnd = s._pEnd;
-            }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._rEnd));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));    //
+            if (t._rEnd != null) {
+                refine = s._pBegin == null ? t._rEnd : Math.max(s._pBegin, t._rEnd);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.During) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._pEnd);   //
-                a._rEnd = Math.max(s._rEnd, t._pBegin);     //
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._pEnd));  //
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._pBegin));      //
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Contains) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = s._pEnd;
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
             }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Overlaps) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._pBegin);
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
             }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._pBegin));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._pBegin != null) {
+                refine = s._rEnd == null ? t._pBegin : Math.max(s._rEnd, t._pBegin);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
+            }
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.OverlappedBy) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._pEnd);
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = s._pEnd;
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._pEnd));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
+            if (t._pEnd != null) {
+                refine = s._rBegin == null ? t._pEnd : Math.min(s._rBegin, t._pEnd);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
+            }
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Meets) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._pBegin);
-                a._pEnd = Math.min(s._pEnd, t._rBegin);
+            if (t._rBegin != null) {
+                refine = s._pEnd == null ? t._rBegin : Math.min(s._pEnd, t._rBegin);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._pBegin));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._rBegin));
+            if (t._pBegin != null) {
+                refine = s._rEnd == null ? t._pBegin : Math.max(s._rEnd, t._pBegin);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.MetBy) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._rEnd);
-                a._rBegin = Math.min(s._rBegin, t._pEnd);
-                a._rEnd = s._rEnd;
-                a._pEnd = Math.max(s._pEnd, t._pEnd);
+            if (t._rEnd != null) {
+                refine = s._pBegin == null ? t._rEnd : Math.max(s._pBegin, t._rEnd);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._rEnd));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._pEnd));
-                a._pEnd = Math.min(a._pEnd, Math.max(s._pEnd, t._pEnd));
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Starts) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._pBegin);     //
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._pBegin));  //
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
+            }
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.StartedBy) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = s._pEnd;
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
+            }
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Finishes) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._pEnd);   //
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._pEnd));  //
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
+            }
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.FinishedBy) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
             }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
+            }
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((relation & HuTime.TRangeAlgebra.Relation.Equals) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, t._pBegin);
-                a._rBegin = Math.min(s._rBegin, t._rBegin);
-                a._rEnd = Math.max(s._rEnd, t._rEnd);
-                a._pEnd = Math.min(s._pEnd, t._pEnd);
+            if (t._pBegin != null) {
+                refine = s._pBegin == null ? t._pBegin : Math.max(s._pBegin, t._pBegin);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, t._pBegin));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, t._rBegin));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, t._rEnd));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, t._pEnd));
+            if (t._rBegin != null) {
+                refine = s._rBegin == null ? t._rBegin : Math.min(s._rBegin, t._rBegin);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, refine);
+            }
+            if (t._rEnd != null) {
+                refine = s._rEnd == null ? t._rEnd : Math.max(s._rEnd, t._rEnd);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
+            }
+            if (t._pEnd != null) {
+                refine = s._pEnd == null ? t._pEnd : Math.min(s._pEnd, t._pEnd);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
+
+        if (a._rBegin == null || a._rBegin > a._pEnd)
+            a._rBegin = a._pEnd;
+        if (a._rEnd == null || a._rEnd < a._pBegin)
+            a._rEnd = a._pBegin;
+        a.setCentralValue();
         return a;
     },
 
@@ -354,54 +432,79 @@ HuTime.TRangeAlgebra = {
     // 期間長の確実関係の検証
     isReliableDuration: function isReliableDuration (s, duration, comp) {
         if (!(s instanceof HuTime.TRange) || !(duration instanceof HuTime.TDuration))
-            return false;
+            return null;
+        var sRb, sRe;
 
         switch (comp) {
             case HuTime.TRangeAlgebra.Comp.Shorter:
+                if (s._pEnd == null || s._pBegin == null)
+                    return null;
                 return s._pEnd - s._pBegin < duration._lower;
             case HuTime.TRangeAlgebra.Comp.Same:
-                return Math.max(s._rEnd - s._rBegin, 0) == s._pEnd - s._pBegin &&
+                if (s._pEnd == null || s._pBegin == null
+                    || (sRe = s._rEnd == null ? s._pBegin : s._rEnd) == null
+                    || (sRb = s._rBegin == null ? s._pEnd : s._rBegin)== null)
+                    return null;
+                return Math.max(sRe - sRb, 0) == s._pEnd - s._pBegin &&
                     s._pEnd - s._pBegin == duration._lower && duration._lower == duration._upper;
             case HuTime.TRangeAlgebra.Comp.Longer:
-                return Math.max(s._rEnd - s._rBegin, 0) > duration._upper;
+                if ((sRe = s._rEnd == null ? s._pBegin : s._rEnd) == null
+                    || (sRb = s._rBegin == null ? s._pEnd : s._rBegin)== null)
+                    return null;
+                return Math.max(sRe - sRb, 0) > duration._upper;
             default:
-                return false;
+                return null;    // compに複数の値や負の値を指定した場合
         }
     },
 
     // 期間長の可能関係の検証
     isPossibleDuration: function isPossibleDuration (s, duration, comp) {
         if (!(s instanceof HuTime.TRange) || !(duration instanceof HuTime.TDuration) ||
-            !isFinite(comp) || (comp & HuTime.TRangeAlgebra.Comp.MASK) != 0)
-            return false;
-        var min = Math.max(s._rEnd - s._rBegin, 0);
-        var max = s._pEnd - s._pBegin;
+            comp <= 0 || comp >= 65536 || (comp & HuTime.TRangeAlgebra.Comp.MASK) != 0)
+            return null;
 
-        if ((comp & HuTime.TRangeAlgebra.Comp.Shorter) != 0
-            && (min >= duration._upper))
-            return false;
-        if ((comp & HuTime.TRangeAlgebra.Comp.Same) != 0
-            && (max < duration._lower || min > duration._lower))
-            return false;
-        if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0
-            && (max <= duration._lower))
-            return false;
+        var sRe = s._rEnd == null ? s._pBegin : s._rEnd;
+        var sRb = s._rBegin == null ? s._pEnd : s._rBegin;
+        var min = sRe == null || sRb == null ? null : Math.max(s._rEnd - s._rBegin, 0);
+        var max = s._pEnd == null || s._pBegin == null ? null : s._pEnd - s._pBegin;
+
+        if ((comp & HuTime.TRangeAlgebra.Comp.Shorter) != 0) {
+            if (min == null)
+                return null;
+            if(min >= duration._upper)
+                return false;
+        }
+        if ((comp & HuTime.TRangeAlgebra.Comp.Same) != 0) {
+            if (max == null || min == null)
+                return null;
+            if (max < duration._lower || min > duration._lower)
+                return false;
+        }
+        if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0) {
+            if (max == null)
+                return null;
+            if (max <= duration._lower)
+                return false;
+        }
         return true;
     },
 
     // 期間長の関係の取得（１つならreliable, 2つ以上ならpossible）
     getDurationComp: function getDurationComp (s, duration) {
         if (!(s instanceof HuTime.TRange) || !(duration instanceof HuTime.TDuration))
-            return false;
-        var min = Math.max(s._rEnd - s._rBegin, 0);
-        var max = s._pEnd - s._pBegin;
+            return null;
+
+        var sRe = s._rEnd == null ? s._pBegin : s._rEnd;
+        var sRb = s._rBegin == null ? s._pEnd : s._rBegin;
+        var min = sRe == null || sRb == null ? null : Math.max(sRe - sRb, 0);
+        var max = s._pEnd == null || s._pBegin == null ? null : s._pEnd - s._pBegin;
         var comp = 0;
 
-        if ((min < duration._upper))
+        if (min != null && min < duration._upper)
             comp += HuTime.TRangeAlgebra.Comp.Shorter;
-        if ((min <= duration._upper && max >= duration._lower))
+        if (min != null && max != null && min <= duration._upper && max >= duration._lower)
             comp += HuTime.TRangeAlgebra.Comp.Same;
-        if ((max > duration._lower))
+        if (max != null && max > duration._lower)
             comp += HuTime.TRangeAlgebra.Comp.Longer;
         return comp;
     },
@@ -409,50 +512,53 @@ HuTime.TRangeAlgebra = {
     // 期間長の関係に基づく更新（durationとcompに基づいて更新されたs）
     getTRangeRefinedByDuration: function getTRangeRefinedByDuration (s, duration, comp) {
         if (!HuTime.TRangeAlgebra.isPossibleDuration(s, duration, comp))
-            return s;   // 基になる関係が可能でなければ、更新なし
+            return s.clone();   // 基になる関係が可能でなければ、更新なし
 
-        var a = null;
+        var a = new HuTime.TRange();
+        var refine;
+
+
         if ((comp & HuTime.TRangeAlgebra.Comp.Shorter) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, s._rEnd - duration._upper);
-                a._rBegin = s._rBegin;
-                a._rEnd = s._rEnd;
-                a._pEnd = Math.min(s._pEnd, s._rBegin + duration._upper);
+            if (s._rEnd != null) {
+            refine = s._pBegin == null ? s._rEnd - duration._upper : Math.max(s._pBegin, s._rEnd - duration._upper);
+            a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, s._rEnd - duration._upper));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, s._rBegin + duration._upper));
+            if (s._rBegin != null) {
+                refine = s._pEnd == null ? s._rBegin + duration._upper : Math.min(s._pEnd, s._rBegin + duration._upper);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((comp & HuTime.TRangeAlgebra.Comp.Same) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = Math.max(s._pBegin, s._rEnd - duration._upper);
-                a._rBegin = Math.min(s._rBegin, s._pEnd - duration._lower);
-                a._rEnd = Math.max(s._rEnd, s._pBegin + duration._lower);
-                a._pEnd = Math.min(s._pEnd, s._rBegin + duration._upper);
+            if (s._rEnd != null) {
+                refine = s._pBegin == null ? s._rEnd - duration._upper : Math.max(s._pBegin, s._rEnd - duration._upper);
+                a._pBegin = a._pBegin == null ? refine : Math.min(a._pBegin, refine);
             }
-            else {
-                a._pBegin = Math.min(a._pBegin, Math.max(s._pBegin, s._rEnd - duration._upper));
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, s._pEnd - duration._lower));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, s._pBegin + duration._lower));
-                a._pEnd = Math.max(a._pEnd, Math.min(s._pEnd, s._rBegin + duration._upper));
+            if (s._pEnd != null) {
+                refine = s._rBegin == null ? s._pEnd - duration._lower : Math.min(s._rBegin, s._pEnd - duration._lower);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, null);
+            }
+            if (s._pBegin != null) {
+                refine = s._rEnd == null ? s._pBegin + duration._lower : Math.max(s._rEnd, s._pBegin + duration._lower);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
+            }
+            if (s._rBegin != null) {
+                refine = s._pEnd == null ? s._rBegin + duration._upper : Math.min(s._pEnd, s._rBegin + duration._upper);
+                a._pEnd = a._pEnd == null ? refine : Math.max(a._pEnd, refine);
             }
         }
         if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                a._pBegin = s._pBegin;
-                a._rBegin = Math.min(s._rBegin, s._pEnd - duration._lower);
-                a._rEnd = Math.max(s._rEnd, s._pBegin + duration._lower);
-                a._pEnd = s._pEnd;
+            if (s._pEnd != null) {
+                refine = s._rBegin == null ? s._pEnd - duration._lower : Math.min(s._rBegin, s._pEnd - duration._lower);
+                a._rBegin = a._rBegin == null ? refine : Math.max(a._rBegin, null);
             }
-            else {
-                a._rBegin = Math.max(a._rBegin, Math.min(s._rBegin, s._pEnd - duration._lower));
-                a._rEnd = Math.min(a._rEnd, Math.max(s._rEnd, s._pBegin + duration._lower));
+            if (s._pBegin != null) {
+                refine = s._rEnd == null ? s._pBegin + duration._lower : Math.max(s._rEnd, s._pBegin + duration._lower);
+                a._rEnd = a._rEnd == null ? refine : Math.min(a._rEnd, refine);
             }
         }
+
+
+        a.setCentralValue();
         return a;
     },
 
@@ -460,7 +566,7 @@ HuTime.TRangeAlgebra = {
     // 端点間隔の確実関係の検証
     isReliableInterval: function isReliableInterval (s, t, sEdge, tEdge, interval, comp) {
         if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange) || !(interval instanceof HuTime.TDuration))
-            return false;
+            return null;
 
         var ab, ae, bb, be;
         if (sEdge == HuTime.TRangeAlgebra.Edge.Begin) {
@@ -472,7 +578,7 @@ HuTime.TRangeAlgebra = {
             ae = s._pEnd;
         }
         else
-            return false;
+            return null;
 
         if (tEdge == HuTime.TRangeAlgebra.Edge.Begin) {
             bb = t._pBegin;
@@ -483,7 +589,10 @@ HuTime.TRangeAlgebra = {
             be = t._pEnd;
         }
         else
-            return false;
+            return null;
+
+        if (ab == null || ae == null || bb == null || be == null)
+            return null;
 
         switch (comp) {
             case HuTime.TRangeAlgebra.Comp.Shorter:
@@ -494,15 +603,15 @@ HuTime.TRangeAlgebra = {
             case HuTime.TRangeAlgebra.Comp.Longer:
                 return Math.max(ab - be, bb - ae, 0) > interval._upper;
             default:
-                return false;
+                return null;
         }
     },
 
     // 端点間隔の可能関係の検証
     isPossibleInterval: function isPossibleInterval (s, t, sEdge, tEdge, interval, comp) {
         if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange) || !(interval instanceof HuTime.TDuration) ||
-            !isFinite(comp) || (comp & HuTime.TRangeAlgebra.Comp.MASK) != 0)
-            return false;
+            comp <= 0 || comp >= 65536 || (comp & HuTime.TRangeAlgebra.Comp.MASK) != 0)
+            return null;
 
         var ab, ae, bb, be;
         if (sEdge == HuTime.TRangeAlgebra.Edge.Begin) {
@@ -514,7 +623,7 @@ HuTime.TRangeAlgebra = {
             ae = s._pEnd;
         }
         else
-            return false;
+            return null;
 
         if (tEdge == HuTime.TRangeAlgebra.Edge.Begin) {
             bb = t._pBegin;
@@ -525,7 +634,10 @@ HuTime.TRangeAlgebra = {
             be = t._pEnd;
         }
         else
-            return false;
+            return null;
+
+        if (ab == null || ae == null || bb == null || be == null)
+            return null;
 
         var min = Math.max(ab - be, bb - ae, 0);
         var max = Math.max(ae - bb, be - ab);
@@ -545,7 +657,7 @@ HuTime.TRangeAlgebra = {
     // 端点間隔の関係の取得（１つならreliable, 2つ以上ならpossible）
     getIntervalComp: function getIntervalComp (s, t, sEdge, tEdge, interval) {
         if (!(s instanceof HuTime.TRange) || !(t instanceof HuTime.TRange) || !(interval instanceof HuTime.TDuration))
-            return 0;
+            return null;
 
         var ab, ae, bb, be;
         var comp = 0;
@@ -570,7 +682,10 @@ HuTime.TRangeAlgebra = {
             be = t._pEnd;
         }
         else
-            return 0;
+            return null;
+
+        if (ab == null || ae == null || bb == null || be == null)
+            return null;
 
         var min = Math.max(ab - be, bb - ae, 0);
         var max = Math.max(ae - bb, be - ab);
@@ -588,7 +703,7 @@ HuTime.TRangeAlgebra = {
     // 端点間隔の関係に基づく更新（t, intervalとcompに基づいて更新されたs）
     getTRangeRefinedByInterval: function getTRangeRefinedByInterval (s, t, sEdge, tEdge, interval, comp) {
         if (!HuTime.TRangeAlgebra.isPossibleInterval(s, t, sEdge, tEdge, interval, comp))
-            return s;   // 基になる関係が可能でなければ、更新なし
+            return s.clone();   // 基になる関係が可能でなければ、更新なし
 
         var ab, ae, bb, be;
         if (sEdge == HuTime.TRangeAlgebra.Edge.Begin) {
@@ -600,7 +715,7 @@ HuTime.TRangeAlgebra = {
             ae = s._pEnd;
         }
         else
-            return false;
+            return s.clone();
 
         if (tEdge == HuTime.TRangeAlgebra.Edge.Begin) {
             bb = t._pBegin;
@@ -611,60 +726,51 @@ HuTime.TRangeAlgebra = {
             be = t._pEnd;
         }
         else
-            return 0;
+            return s.clone();
 
-        var a = null;
-        var aab, aae;
+        var aab = null;
+        var aae = null;
+        var refine;
         if ((comp & HuTime.TRangeAlgebra.Comp.Shorter) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                aab = Math.max(ab, bb - interval._upper);
-                aae = Math.min(ae, be + interval._upper);
+            if (bb != null) {
+            refine = ab == null ? bb - interval._upper : Math.max(ab, bb - interval._upper);
+            aab = aab == null ? refine : Math.min(aab, refine);
             }
-            else {
-                aab = Math.min(aab, Math.max(ab, bb - interval._upper));
-                aae = Math.max(aae, Math.min(ae, be + interval._upper));
-            }
-        }
-        if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                if (ab > be - interval._lower)
-                    aab = Math.max(ab, bb + interval._lower);
-                else
-                    aab = Math.max(ab, bb - interval._upper);
-                if (ae < bb + interval._lower)
-                    aae = Math.min(ae, be - interval._lower);
-                else
-                    aae = Math.min(ae, be + interval._upper);
-            }
-            else {
-                if (ab > be - interval._lower)
-                    aab = Math.min(aab, Math.max(ab, bb + interval._lower));
-                else
-                    aab = Math.min(aab, Math.max(ab, bb - interval._upper));
-                if (ae < bb + interval._lower)
-                    aae = Math.max(aae, Math.min(ae, be - interval._lower));
-                else
-                    aae = Math.max(aae, Math.min(ae, be + interval._upper));
+            if (be != null) {
+                refine = ae == null ? be + interval._upper : Math.min(ae, be + interval._upper);
+                aae = aae == null ? refine : Math.max(aae, refine);
             }
         }
-        if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0) {
-            if (a == null) {
-                a = new HuTime.TRange();
-                if (ab > be - interval._lower)
-                    aab = Math.max(ab, bb + interval._lower);
-                if (ae < bb + interval._lower)
-                    aae = Math.min(ae, be - interval._lower);
+        if ((comp & HuTime.TRangeAlgebra.Comp.Same) != 0 && bb != null && be != null) {
+            if (ab > be - interval._lower) {
+                refine = ab ==null ? bb + interval._lower : Math.max(ab, bb + interval._lower);
+                aab = aab == null ? refine : Math.min(aab, refine);
             }
             else {
-                if (ab > be - interval._lower)
-                    aab = Math.min(aab, Math.max(ab, bb + interval._lower));
-                if (ae < bb + interval._lower)
-                    aae = Math.max(aae, Math.min(ae, be - interval._lower));
+                refine = ab == null ? bb - interval._upper : Math.max(ab, bb - interval._upper);
+                aab = aab == null ? refine : Math.min(aab, refine);
+            }
+            if (ae < bb + interval._lower) {
+                refine = ae == null ? be - interval._lower : Math.min(ae, be - interval._lower);
+                aae = aae == null ? refine : Math.max(aae, refine);
+            }
+            else {
+                refine = ae == null ? be + interval._upper : Math.min(ae, be + interval._upper);
+                aae = aae == null ? refine : Math.max(aae, refine);
+            }
+        }
+        if ((comp & HuTime.TRangeAlgebra.Comp.Longer) != 0 && bb != null && be != null) {
+            if (ab > be - interval._lower) {
+                refine = ab ==null ? bb + interval._lower : Math.max(ab, bb + interval._lower);
+                aab = aab == null ? refine : Math.min(aab, refine);
+            }
+            if (ae < bb + interval._lower) {
+                refine = ae == null ? be - interval._lower : Math.min(ae, be - interval._lower);
+                aae = aae == null ? refine : Math.max(aae, refine);
             }
         }
 
+        var a = new HuTime.TRange();
         if (sEdge == HuTime.TRangeAlgebra.Edge.Begin) {
             a._pBegin = aab;
             a._rBegin = aae;
@@ -686,21 +792,16 @@ Object.freeze(HuTime.TRangeAlgebra.Edge);
 
 // t値による範囲の長さ
 HuTime.TDuration = function(lower, upper) {
-    if (!isNaN(lower) && lower >= 0)
-        this._lower = lower;
-    else
+    if (isNaN(lower) || lower == null || lower < 0)
         this._lower = 0;
+    else
+        this._lower = lower;
 
-    if (upper == undefined) {
-        this._upper = this._lower;  // 1つしか指定されていない場合は同じ値を使う
-    }
+    if (isNaN(upper) || upper == null || upper < 0)
+        this._upper = this._lower;  // 1つしか指定されていない場合も含む
     else {
-        if (!isNaN(upper) && upper >= 0)
-            this._upper = upper;
-        else
-            this._upper = Number.POSITIVE_INFINITY;
-
-        if (lower > upper) {
+        this._upper = upper;
+        if (this._lower > this._upper) {
             var d = this._lower;
             this._lower = this._upper;
             this._upper = d;
@@ -790,13 +891,7 @@ HuTime.TRange.prototype = {
         return HuTime.TRangeAlgebra.getRelation(this, t);
     },
     refineByRelation: function getTRangeRefinedByRelation (t, relation) {       // 期間間の関係に基づく更新
-        var a = new HuTime.TRange();
-        a._pBegin = this._pBegin == null ? Number.NEGATIVE_INFINITY : this._pBegin;
-        a._rBegin = this._rBegin == null ? Number.POSITIVE_INFINITY : this._rBegin;
-        a._rEnd = this._rEnd == null ? Number.NEGATIVE_INFINITY : this._rEnd;
-        a._pEnd = this._pEnd == null ? Number.POSITIVE_INFINITY : this._pEnd;
-
-        a = HuTime.TRangeAlgebra.getTRangeRefinedByRelation(a, t, relation);
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByRelation(this, t, relation);
         this._pBegin = a._pBegin;
         this._rBegin = a._rBegin;
         this._rEnd = a._rEnd;
@@ -814,13 +909,7 @@ HuTime.TRange.prototype = {
         return HuTime.TRangeAlgebra.getDurationComp(this, duration);
     },
     refineByDuration: function getTRangeRefinedByDuration (duration, comp) {    // 期間長の関係に基づく更新
-        var a = new HuTime.TRange();
-        a._pBegin = this._pBegin == null ? Number.NEGATIVE_INFINITY : this._pBegin;
-        a._rBegin = this._rBegin == null ? Number.POSITIVE_INFINITY : this._rBegin;
-        a._rEnd = this._rEnd == null ? Number.NEGATIVE_INFINITY : this._rEnd;
-        a._pEnd = this._pEnd == null ? Number.POSITIVE_INFINITY : this._pEnd;
-
-        a = HuTime.TRangeAlgebra.getTRangeRefinedByDuration(a, duration, comp);
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByDuration(this, duration, comp);
         this._pBegin = a._pBegin;
         this._rBegin = a._rBegin;
         this._rEnd = a._rEnd;
@@ -838,18 +927,23 @@ HuTime.TRange.prototype = {
         return HuTime.TRangeAlgebra.getIntervalComp(this, t, sEdge, tEdge, interval);
     },
     refineByInterval: function refineByInterval (t, sEdge, tEdge, interval, comp) {     // 端点間隔の関係に基づく更新
-        var a = new HuTime.TRange();
-        a._pBegin = this._pBegin == null ? Number.NEGATIVE_INFINITY : this._pBegin;
-        a._rBegin = this._rBegin == null ? Number.POSITIVE_INFINITY : this._rBegin;
-        a._rEnd = this._rEnd == null ? Number.NEGATIVE_INFINITY : this._rEnd;
-        a._pEnd = this._pEnd == null ? Number.POSITIVE_INFINITY : this._pEnd;
-
-        a = HuTime.TRangeAlgebra.getTRangeRefinedByInterval(a, t, sEdge, tEdge, interval, comp);
+        var a = HuTime.TRangeAlgebra.getTRangeRefinedByInterval(this, t, sEdge, tEdge, interval, comp);
         this._pBegin = a._pBegin;
         this._rBegin = a._rBegin;
         this._rEnd = a._rEnd;
         this._pEnd = a._pEnd;
         this.setCentralValue();
+    },
+
+    // クローンの生成
+    clone: function clone () {
+        var a = new HuTime.TRange();
+        a._pBegin = this._pBegin;
+        a._rBegin = this._rBegin;
+        a._rEnd = this._rEnd;
+        a._pEnd = this._pEnd;
+        a._centralValue = this._centralValue;
+        return a;
     }
 };
 
@@ -858,16 +952,16 @@ HuTime.TRange.createFromBeginEnd = function (begin, end) {
     var tRange = new HuTime.TRange();
 
     if (begin instanceof HuTime.TRange) {   // TRangeで指定された場合
-        tRange._pBegin = Math.max(Number.NEGATIVE_INFINITY, begin._pBegin);
-        tRange._rBegin = Math.min(Number.POSITIVE_INFINITY, begin._pEnd);
+        tRange._pBegin = begin._pBegin;
+        tRange._rBegin = begin._pEnd;
     }
     else if(!isNaN(begin) && begin != null) {
         tRange._pBegin = begin;
         tRange._rBegin = begin;
     }
     if (end instanceof HuTime.TRange) {
-        tRange._rEnd = Math.max(Number.NEGATIVE_INFINITY, end._pBegin);
-        tRange._pEnd = Math.min(Number.POSITIVE_INFINITY, end._pEnd);
+        tRange._rEnd = end._pBegin;
+        tRange._pEnd = end._pEnd;
     }
     else if (!isNaN(end) && end != null) {
         tRange._rEnd = end;
@@ -878,19 +972,23 @@ HuTime.TRange.createFromBeginEnd = function (begin, end) {
     return tRange;
 };
 
-/*
-// リテラル値のTRange（リテラル値をTRangeと同様に扱うためのもの）
-HuTime.TRangeLiteral = function TRangeLiteral(t) {
-    HuTime.TRange.apply(this);
-    this._pBegin = t;
-    this._rBegin = t;
-    this._rEnd = t;
-    this._pEnd = t;
-    tRange.setCentralValue();
-};
-HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
-    constructor: {
-        value: HuTime.TRangeLiteral
+// １つの点（期間）を指定してTRangeを生成（t値またはTRangeを指定）
+HuTime.TRange.createFromDuring = function (during) {
+    var tRange = new HuTime.TRange();
+
+    if (during instanceof HuTime.TRange) {   // TRangeで指定された場合
+        tRange._pBegin =during._pBegin;
+        tRange._rBegin =during._pEnd;
+        tRange._rEnd =during._pBegin;
+        tRange._pEnd = during._pEnd;
     }
-});
-// */
+    else if(!isNaN(begin) && begin != null) {
+        tRange._pBegin = during;
+        tRange._rBegin = during;
+        tRange._rEnd = during;
+        tRange._pEnd = during;
+    }
+    tRange.setCentralValue();
+    return tRange;
+};
+
