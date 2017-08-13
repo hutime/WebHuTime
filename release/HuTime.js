@@ -1164,7 +1164,7 @@ HuTime.isoToJd = function isoToJd(iso, type) {
 
 // ISO8601表記からJDでの時間範囲を得る
 HuTime.isoToJdRange = function isoToJdRange(iso, type) {
-    var blocks = iso.toString().trim().split(["T"]);
+    var blocks = iso.trim().split(["T"]);
     if (blocks[0].length == 0)
         return [Number.NaN, Number.NaN];
     var date = blocks[0].trim();
@@ -1230,8 +1230,8 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
                 }
             }
             else {          // 年まで
-                bJd = HuTime.timeToJd(year, 1, 1, 0, 0, 0, type);
-                eJd = HuTime.timeToJd(year + 1, 1, 1, 0, 0, 0, type);
+                bJd = HuTime.timeToJd(year, month, day, 0, 0, 0, type);
+                bJd = HuTime.timeToJd(year + 1, month, day, 0, 0, 0, type);
             }
         }
         else {
@@ -10882,8 +10882,6 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // レコードの追加（スクロールにより表示位置が変わらないよう、範囲外も含めてすべて対象とする）
                 for (var j = 0; j < this.recordsets[i].records.length; ++j) {
-                    if (this.recordsets[i].records[j]._tRange == null)
-                        continue;   // 日付が取得できなかったなどでnullの場合
                     this._sortedRecords.push({
                             recordset: this.recordsets[i],
                             record: this.recordsets[i].records[j]
