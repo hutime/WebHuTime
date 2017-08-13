@@ -91,6 +91,8 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // レコードの追加（スクロールにより表示位置が変わらないよう、範囲外も含めてすべて対象とする）
                 for (var j = 0; j < this.recordsets[i].records.length; ++j) {
+                    if (this.recordsets[i].records[j]._tRange == null)
+                        continue;   // 日付が取得できなかったなどでnullの場合
                     this._sortedRecords.push({
                             recordset: this.recordsets[i],
                             record: this.recordsets[i].records[j]

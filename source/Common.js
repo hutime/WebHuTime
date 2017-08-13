@@ -630,7 +630,7 @@ HuTime.isoToJd = function isoToJd(iso, type) {
 
 // ISO8601表記からJDでの時間範囲を得る
 HuTime.isoToJdRange = function isoToJdRange(iso, type) {
-    var blocks = iso.trim().split(["T"]);
+    var blocks = iso.toString().trim().split(["T"]);
     if (blocks[0].length == 0)
         return [Number.NaN, Number.NaN];
     var date = blocks[0].trim();
@@ -696,8 +696,8 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
                 }
             }
             else {          // 年まで
-                bJd = HuTime.timeToJd(year, month, day, 0, 0, 0, type);
-                bJd = HuTime.timeToJd(year + 1, month, day, 0, 0, 0, type);
+                bJd = HuTime.timeToJd(year, 1, 1, 0, 0, 0, type);
+                eJd = HuTime.timeToJd(year + 1, 1, 1, 0, 0, 0, type);
             }
         }
         else {
