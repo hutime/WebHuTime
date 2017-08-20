@@ -10130,7 +10130,9 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 if (!this.recordsets[i].visible)
                     continue;
 
-                loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
+                if (this.recordsets[i]._reader && this.recordsets[i]._reader._stream)
+                    loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
+
                 // レコードのソート
                 if (!this.recordsets[i].disableSortRecords) {
                     this.recordsets[i].records.sort(function (record1, record2) {
