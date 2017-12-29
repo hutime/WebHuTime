@@ -998,7 +998,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                 // イベント発火
                 if (clickedRecords.length > 0) {
-                    newEv = new HuTime.Event("plotclick", this);
+                    //newEv = new HuTime.Event("plotclick", this);
+                    newEv = HuTime.MouseEvent.createFromDomEv(ev, "plotclick", this);
                     newEv.records = clickedRecords;
                     this._hutimeRoot._handleEvent(newEv);
                 }
