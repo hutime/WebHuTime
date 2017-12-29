@@ -10595,7 +10595,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                 // イベント発火
                 if (clickedRecords.length > 0) {
-                    newEv = new HuTime.Event("plotclick", this);
+                    //newEv = new HuTime.Event("plotclick", this);
+                    newEv = HuTime.MouseEvent.createFromDomEv(ev, "plotclick", this);
                     newEv.records = clickedRecords;
                     this._hutimeRoot._handleEvent(newEv);
                 }
@@ -11882,7 +11883,7 @@ HuTime.StreamBase.prototype = {
 HuTime.FileStream = function(source) {
     this.source = source;
     this._reader = new FileReader();
-    this.reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
+    this._reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
         this.loadState = "loadend";
         this.onloadend.apply(this)
     }.bind(this);
