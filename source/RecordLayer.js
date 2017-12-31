@@ -591,7 +591,6 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 this._isRecordsSorted = true;
         }
     },
-
     _drawRecordset: {               // レコードセットの描画
         value: function() {
             var i, j;     // レコードセット、レコードのカウンタ
@@ -1192,6 +1191,81 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 this.redraw();
             }
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.Layer.prototype.toJSON.apply(this);
+            json.recordsets = this.recordsets;
+            json.allowHighlight = this.allowHighlight;
+            json.highlightColor = this.highlightColor;
+            json.selectRecord = this.selectRecord;
+
+            json.showReliableTRange = this.showReliableTRange;
+            json.showPossibleTRange = this.showPossibleTRange;
+            json.showLine = this.showLine;
+            json.showPlot = this.showPlot;
+            json.showVScale = this.showVScale;
+            //json.vScales = this.vScales;
+            var a = this.vScales;
+            // /*
+            json.vScales = [];
+            for (var i = 0; i < this.vScales.length; ++i) {
+                json.vScales.push({});
+                for (var prop in this.vScales[i]) {
+                    if (prop != "layer")
+                        json.vScales[i][prop] = this.vScales[i][prop];
+                }
+            }
+            // */
+            json.showVScaleLine = this.showVScaleLine;
+            json.vScaleLine = this.vScaleLine;
+            json.vScaleLineStyle = this.vScaleLineStyle;
+            json.autoAdjustV = this.autoAdjustV;
+
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            var i;
+            this.recordsets = [];
+            for (i = 0; i < json.recordsets.length; ++i) {
+                this.appendRecordset(
+                    HuTime.RecordsetBase.createFromJSON(json.recordsets[i]));
+            }
+            this.loadRecordsets();
+            this.allowHighlight = json.allowHighlight;
+            this.highlightColor = json.highlightColor;
+            this.selectRecord = json.selectRecord;
+            this.showReliableTRange = json.showReliableTRange;
+            this.showPossibleTRange = json.showPossibleTRange;
+            this.showLine = json.showLine;
+            this.showPlot = json.showPlot;
+
+            this.showVScale = json.showVScale;
+            this.vScales.length = 0;
+            for (i = 0; i < json.vScales.length; ++i) {
+                this.vScales.push({});
+                this.vScales[i]["layer"] = this;
+                for (var prop in json.vScales[i]) {
+                    if (prop == "dataset")
+                        this.vScales[i][prop]
+                            = HuTime.ScaleDatasetBase.createFromJSON(json.vScales[i][prop]);
+                    else if (prop == "style")
+                        this.vScales[i][prop]
+                            = HuTime.ScaleStyleBase.createFromJSON(json.vScales[i][prop]);
+                    else
+                        this.vScales[i][prop] = json.vScales[i][prop];
+                }
+            }
+            this.showVScaleLine = json.showVScaleLine;
+            this.vScaleLine = json.vScaleLine;
+            this.vScaleLineStyle = HuTime.Style.createFromJSON(json.vScaleLineStyle);
+            this.autoAdjustV = json.autoAdjustV;
+        }
     }
+
 });
 

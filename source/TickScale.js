@@ -16,7 +16,7 @@ HuTime.Drawing.drawScale =  function(scaleStyle, layer, scalePos, scaleDataset, 
 };
 
 // **** 目盛の位置情報 ****
-HuTime.ScalePosition = function(positionBegin, positionEnd, valueBegin, valueEnd, layer) {
+HuTime.ScalePosition = function ScalePosition (positionBegin, positionEnd, valueBegin, valueEnd, layer) {
     if (!(positionBegin instanceof HuTime.PositionBase) || !(positionEnd instanceof HuTime.PositionBase) ||
         !isFinite(valueBegin) || valueBegin == null || !isFinite(valueEnd) || valueEnd == null)
         return;
@@ -119,19 +119,81 @@ HuTime.ScalePosition.prototype = {
             offset = 0;
         return (value - this.valueBegin) / this._dValue * this._dY + this._beginY
             - offset / this._scaleLength * this._dX;
+    },
+
+    toJSON: function toJSON () {
+        var json = {};
+        json.constructor = this.constructor.name;
+        json.positionBegin = this.positionBegin;
+        json.positionEnd = this.positionEnd;
+        json.beginX = this._beginX;
+        json.beginY = this._beginY;
+        json.endX = this._endX;
+        json.endY = this._endY;
+        json.dX = this._dX;
+        json.dY = this._dY;
+        json.scaleLength = this._scaleLength;
+        json.rotate = this._rotate;
+
+        json.valueBegin = this.valueBegin;
+        json.valueEnd = this.valueEnd;
+        json._dValue = this._dValue;
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+        this.positionBegin = HuTime.PositionBase.createFromJSON(json.positionBegin);
+        this.positionEnd = HuTime.PositionBase.createFromJSON(json.positionEnd);
+        this._beginX = json.beginX;
+        this._beginY = json.beginY;
+        this._endX = json.endX;
+        this._endY = json.endY;
+        this._dX = json.dX;
+        this._dY = json.dY;
+        this._scaleLength = json.scaleLength;
+        this._rotate = json.rotate;
+
+        this.valueBegin = json.valueBegin;
+        this.valueEnd = json.valueEnd;
+        this._dValue = json.dValue;
     }
+};
+HuTime.ScalePosition.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.ScalePosition();
+    obj.parseJSON(json);
+    return obj;
 };
 
 // **** 目盛の書式 ****
 // 目盛の書式の基底クラス
-HuTime.ScaleStyleBase = function() {
+HuTime.ScaleStyleBase = function ScaleStyleBase () {
 };
 HuTime.ScaleStyleBase.prototype = {
-    constructor: HuTime.ScaleStyleBase
+    constructor: HuTime.ScaleStyleBase,
+
+    toJSON: function toJSON () {
+        return {
+            constructor: this.constructor.name
+        };
+    },
+    parseJSON: function parseJSON (json) {
+    }
+};
+HuTime.ScaleStyleBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "TickScaleStyle":
+            return HuTime.TickScaleStyle.createFromJSON(json);
+
+        default:
+            return null;
+    }
 };
 
 // 目盛線による目盛の書式
-HuTime.TickScaleStyle = function() {
+HuTime.TickScaleStyle = function TickScaleStyle () {
     // 軸
     this.defaultAxisStyle = new HuTime.FigureStyle(null, "black", 1);
     this.axisStyle = this.defaultAxisStyle;
@@ -248,7 +310,6 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
     },
     ////////
 
-
     labelRotate: {          // ラベルの回転（nullなどの場合は、軸の方向）
         writable: true,
         value: null
@@ -296,12 +357,77 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
                 scalePos.cnvXYPosition(scaleData.value, offset, alignOffset),
                 scaleData.label, rotate, canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ScaleStyleBase.prototype.toJSON.apply(this);
+            json.axisStyle = this.axisStyle;
+            json.showAxis = this.showAxis;
+
+            json.tickStyle = this.tickStyle;
+            json.tickSize = this.tickSize;
+            json.tickPosition = this.tickPosition;
+            json.tickOffset = this.tickOffset;
+
+            json.labelStyle = this.labelStyle;
+            json.labelOffset = this.labelOffset;
+            json.labelAlignOffset = this.labelAlignOffset;
+
+            json.labelRotate = this.labelRotate;
+            json.labelOnTick = this.labelOnTick;
+            json.labelLineHeight = this.labelLineHeight;
+
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            var i;
+            HuTime.ScaleStyleBase.prototype.parseJSON.apply(this, arguments);
+            this.axisStyle = HuTime.Style.createFromJSON(json.axisStyle);
+            this.showAxis = json.showAxis;
+
+            if (json.tickStyle instanceof Array) {
+                this.tickStyle = [];
+                for (i = 0; i < json.tickStyle.length; ++i) {
+                    this.tickStyle.push(HuTime.Style.createFromJSON(json.tickStyle[i]));
+                }
+            }
+            else {
+                this.tickStyle = HuTime.Style.createFromJSON(json.tickStyle);
+            }
+            this.tickSize = json.tickSize;
+            this.tickPosition = json.tickPosition;
+            this.tickOffset = json.tickOffset;
+            if (json.labelStyle instanceof Array) {
+                this.labelStyle = [];
+                for (i = 0; i < json.labelStyle.length; ++i) {
+                    this.labelStyle.push(HuTime.Style.createFromJSON(json.labelStyle[i]));
+                }
+            }
+            else {
+                this.labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
+            }
+            this.labelOffset = json.labelOffset;
+            this.labelAlignOffset = json.labelAlignOffset;
+            this.labelRotate = json.labelRotate;
+            this.labelOnTick = json.labelOnTick;
+            this.labelLineHeight = json.labelLineHeight;
+        }
     }
 });
+HuTime.TickScaleStyle.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TickScaleStyle();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 目盛のデータ ****
 // 基底の目盛のデータセット
-HuTime.ScaleDatasetBase = function() {
+HuTime.ScaleDatasetBase = function ScaleDatasetBase () {
 };
 HuTime.ScaleDatasetBase.prototype = {
     constructor: HuTime.ScaleDatasetBase,
@@ -310,11 +436,33 @@ HuTime.ScaleDatasetBase.prototype = {
         // value: 目盛の値
         // level: 目盛のレベル
         // label: 目盛のラベル（無い場合は空文字）
+    },
+
+    toJSON: function toJSON () {
+        return {
+            constructor: this.constructor.name
+        };
+    },
+    parseJSON: function parseJSON (json) {
+    }
+};
+HuTime.ScaleDatasetBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "StandardScaleDataset":
+            return HuTime.StandardScaleDataset.createFromJSON(json);
+
+        case "ManualScaleDataset":
+            return HuTime.ManualScaleDataset.createFromJSON(json);
+
+        default:
+            return null;
     }
 };
 
 // 標準の目盛データ（値をそのまま出力）
-HuTime.StandardScaleDataset = function() {
+HuTime.StandardScaleDataset = function StandardScaleDataset () {
 };
 HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prototype,{
     constructor: {
@@ -433,11 +581,39 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
             }
             return data;
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ScaleDatasetBase.prototype.toJSON.apply(this);
+            json.minCnvTickInterval = this.minCnvTickInterval;
+            json.minLabeledLevel = this.minLabeledLevel;
+            json.adjustTickIntervalToLabel = this.adjustTickIntervalToLabel;
+            json.coefficientOfLabelSize = this.coefficientOfLabelSize;
+
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.ScaleDatasetBase.prototype.parseJSON.apply(this, arguments);
+            this.minCnvTickInterval = json.minCnvTickInterval;
+            this.minLabeledLevel = json.minLabeledLevel;
+            this.adjustTickIntervalToLabel = json.adjustTickIntervalToLabel;
+            this.coefficientOfLabelSize = json.coefficientOfLabelSize;
+        }
     }
 });
+HuTime.StandardScaleDataset.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.StandardScaleDataset();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // 手動設定によりデータセット
-HuTime.ManualScaleDataset = function() {
+HuTime.ManualScaleDataset = function ManualScaleDataset () {
     this._scaleData = [];
 };
 HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prototype, {
@@ -468,12 +644,30 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
         value: function(min, max, scalePos) {
             return this._scaleData;
         }
-    }
+    },
 
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ScaleDatasetBase.prototype.toJSON.apply(this);
+            return;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.ScaleDatasetBase.prototype.parseJSON.apply(this, arguments);
+        }
+    }
 });
+HuTime.ManualScaleDataset.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.ManualScaleDataset();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 目盛レイヤ ****
-HuTime.TickScaleLayer = function (vBreadth, vMarginTop, vMarginBottom, scaleStyle, scaleDataset) {
+HuTime.TickScaleLayer = function TickScaleLayer (vBreadth, vMarginTop, vMarginBottom, scaleStyle, scaleDataset) {
     HuTime.Layer.apply(this, arguments);
 
     // 目盛の書式
@@ -572,6 +766,31 @@ HuTime.TickScaleLayer.prototype = Object.create(HuTime.Layer.prototype, {
     mouseEventCapture: {
         writable: true,
         value: 0    //HuTime.EventCapture.None
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.Layer.prototype.toJSON.apply(this);
+            json.scaleDataset = this.scaleDataset;
+            json.scalePosition = this._scalePosition;
+            json.scaleStyle = this.scaleStyle;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.Layer.prototype.parseJSON.apply(this, arguments);
+            this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
+            this._scalePosition = HuTime.ScalePosition.createFromJSON(json.scalePosition);
+            this.scaleStyle = HuTime.ScaleStyleBase.createFromJSON(json.scaleStyle);
+        }
     }
 });
+HuTime.TickScaleLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TickScaleLayer();
+    obj.parseJSON(json);
+    return obj;
+};
 

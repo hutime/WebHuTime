@@ -595,7 +595,7 @@ HuTime.CalendarLabelFormat.prototype = {
 };
 
 // **** 暦スケールレイヤ ****
-HuTime.CalendarScaleLayer = function (vBreadth, vMarginTop, vMarginBottom, calendarId) {
+HuTime.CalendarScaleLayer = function CalendarScaleLayer (vBreadth, vMarginTop, vMarginBottom, calendarId) {
     // 目盛の書式
     var scaleStyle = new HuTime.TickScaleStyle();
     scaleStyle.labelOnTick = true;
@@ -708,5 +708,28 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
                 HuTime.Drawing.drawScale(this.scaleStyle, this, this._scalePosition,    // 既にロードされている場合は描画処理
                     this.scaleDataset.getScaleData(this._minLyrT, this._maxLyrT, this._scalePosition), this._canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.TickScaleLayer.prototype.toJSON.apply(this);
+            json.calendarId = this.calendarId;
+            json.calendarType = this.calendarType;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.TickScaleLayer.prototype.parseJSON.apply(this, arguments);
+            this.calendarId = json.calendarId;
+            this.calendarType = json.calendarType;
+        }
     }
 });
+HuTime.CalendarScaleLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.CalendarScaleLayer();
+    obj.parseJSON(json);
+    return obj;
+};

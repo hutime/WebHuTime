@@ -1,6 +1,6 @@
 
 // ******** ContainerBase (PanelCollection, Panel, Layer の基底クラス) ********
-HuTime.ContainerBase = function() {
+HuTime.ContainerBase = function ContainerBase () {
     this._contents = [];
     this._userEvents = [];
 };
@@ -600,11 +600,93 @@ HuTime.ContainerBase.prototype = {
             eventInfos.push(new HuTime.EventInfo("mousemove", addedEventInfos[0].target,
                 addedEventInfos[0].t, addedEventInfos[0].y));
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        var json = {
+            constructor: this.constructor.name,
+            id: this.id,
+            name: this.name,
+            style: {},
+            contents: this._contents,
+            tRotation: this._tRotation,
+            tDirection: this._tDirection,
+            tLength: this._tLength,
+            vBreadth: this._vBreadth,
+            vMarginTop: this._vMarginTop,
+            vMarginBottom: this._vMarginBottom,
+            vMarginForX: this._vMarginForX,
+
+            zIndex: this._element.style.zIndex,
+            visible: this._visible,
+            mouseEventCapture: this._mouseEventCapture
+        };
+
+        // styleの処理
+        for (var prop in this._element.style) {
+            if (this._element.style[prop] && this._element.style[prop] != "")
+                json.style[prop] = this._element.style[prop];
+        }
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+        this.id = json.id;
+        this.name = json.name;
+
+        this._tRotation = json.tRotation;
+        this._tDirection = json.tDirection;
+        this._tLength = json.tLength;
+        this._vBreadth = json.vBreadth;
+        this._vMarginTop = json.vMarginTop;
+        this._vMarginBottom = json.vMarginBottom;
+        this._vMarginForX = json.vMarginForX;
+
+        this._element.style.zIndex = json.zIndex;
+        this._visible = json.visible;
+        this._mouseEventCapture = json.mouseEventCapture;
+
+        // styleの処理
+        for (var prop in json.style) {
+            this._element.style[prop] = json.style[prop];
+        }
+    }
+};
+HuTime.ContainerBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "Layer":
+            return HuTime.Layer.createFromJSON(json);
+
+        case "LineChartLayer":
+            return HuTime.LineChartLayer.createFromJSON(json);
+
+        case "PlotChartLayer":
+            return HuTime.PlotChartLayer.createFromJSON(json);
+
+        case "BarChartLayer":
+            return HuTime.BarChartLayer.createFromJSON(json);
+
+        case "TLineLayer":
+            return HuTime.TLineLayer.createFromJSON(json);
+
+        case "TickScaleLayer":
+            return HuTime.TickScaleLayer.createFromJSON(json);
+
+        case "CalendarScaleLayer":
+            return HuTime.CalendarScaleLayer.createFromJSON(json);
+
+        case "TilePanel":
+            return HuTime.TilePanel.createFromJSON(json);
+
+        default:
+            return null;
     }
 };
 
 // ******** パネルコレクション ********
-HuTime.PanelCollection = function (vBreadth, tLength) {
+HuTime.PanelCollection = function PanelCollection (vBreadth, tLength) {
     HuTime.ContainerBase.apply(this, arguments);
 
     if (vBreadth != null && isFinite(vBreadth)) {
@@ -2101,8 +2183,49 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             domEv.preventDefault();
             return false;
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
+            json.tLengthMode = this._tLengthMode;
+            json.vBreadthMode = this._vBreadthMode;
+            json.vScrolled = this._vScrolled;
+            json.dragSensitivity = this.dragSensitivity;
+            json.vScrollable = this._vScrollable;
+            json._pinchDirection = this._pinchDirection;
+            json.wheelZoomRatio = this.wheelZoomRatio;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
+            this._tLengthMode = json.tLengthMode;
+            this._vBreadthMode = json.vBreadthMode;
+            this._vScrolled = json.vScrolled;
+            this.dragSensitivity = json.dragSensitivity;
+            this._vScrollable = json.vScrollable;
+            this._pinchDirection = json._pinchDirection;
+            this.wheelZoomRatio = json.wheelZoomRatio;
+
+            var content;
+            for (var i = 0; i < json.contents.length; ++i) {
+                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
+                if (content)
+                    this.appendContent(content);
+            }
+        }
     }
 });
+HuTime.PanelCollection.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.PanelCollection();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // ******** パネル（基底クラス）********
 HuTime.PanelBase = function () {
@@ -2163,7 +2286,7 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
 });
 
 // ******** タイルパネル ********
-HuTime.TilePanel = function (vBreadth) {
+HuTime.TilePanel = function TilePanel (vBreadth) {
     if (!isFinite(vBreadth) || vBreadth == null)
         this._vBreadth = this.vBreadthDefault;
     else
@@ -2404,8 +2527,42 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
                 return (y < this._currentVBreadth + this.panelBorderWidth / 2 + this._currentVXYOrigin &&
                 y >= this._currentVXYOrigin);
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
+            json.vBreadthTouchLoweLimit = this.vBreadthTouchLoweLimit;
+            json.vBreadthUpperLimit = this.vBreadthUpperLimit;
+            json.repositionable = this._repositionable;
+            json.resizable = this._resizable;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
+            this.vBreadthTouchLoweLimit = json.vBreadthTouchLoweLimit;
+            this.vBreadthUpperLimit = json.vBreadthUpperLimit;
+            this._repositionable = json._repositionable;
+            this._resizable = json._resizable;
+            var content;
+            for (var i = 0; i < json.contents.length; ++i) {
+                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
+                if (content)
+                    this.appendContent(content);
+            }
+        }
     }
 });
+HuTime.TilePanel.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TilePanel();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // ******** スライダ表示用パネル ********
 // マウス操作によるスライダの動作が他と異なるため、スライダを含むパネルであることをinstanceofで区別できるようにする
@@ -2600,7 +2757,7 @@ HuTime.PanelBorder.prototype = Object.create(HuTime.ContainerBase.prototype, {
 });
 
 // ******** レイヤ ********
-HuTime.Layer = function (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.Layer = function Layer (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     // vBreadth, vMarginTop, vMarginBottom: レイヤの表示位置関係（幅、上マージン、下マージン）
     // vTop, vBottom: レイヤのv軸関係（v軸->y軸の場合の上端、下端の値）
     HuTime.ContainerBase.apply(this, arguments);
@@ -2616,7 +2773,6 @@ HuTime.Layer = function (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
         this._vTop = vTop;
     if (isFinite(vBottom))
         this._vBottom = vBottom;
-
 
     this._element = document.createElement("div");
     this._element.style.overflow = "hidden";
@@ -2917,5 +3073,43 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
     _mouseEventCapture: {    // マウスイベントをキャプチャする範囲（0:なし, 1:子を除く, 2:子のみ, 3:全て）
         writable: true,
         value: 2    // オーバレイ用なので、既定値は子以外は透過させる設定にする
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
+            json.fixedLayer = this._fixedLayer;
+            if (this._vTop)
+                json.vTop = this._vTop;
+            if (this._vBottom)
+                json.vBottom = this._vBottom;
+            json.vForX = this._vForX;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
+            if (json.vTop)
+                this._vTop = json.vTop;
+            if (json.vBottom)
+                this._vBottom = json.vBottom;
+            this._fixedLayer = json.fixedLayer;
+            var content;
+            for (var i = 0; i < json.contents.length; ++i) {
+                content = HuTime.OnLayerObjectBase.createFromJSON(json.contents[i]);
+                if (content)
+                    this.appendContent(content);
+            }
+            this._vForX = json.vForX;
+        }
     }
 });
+HuTime.Layer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Layer();
+    obj.parseJSON(json);
+    return obj;
+};
