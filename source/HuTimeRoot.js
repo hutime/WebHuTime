@@ -1,8 +1,7 @@
 // ********************************
 // Web HuTime
-// Copyright (C) 2016-2017 Tatsuki Sekino.
+// Copyright (C) 2016-2018 Tatsuki Sekino.
 // ********************************
-
 
 // ******** WebHuTime本体 ********
 HuTime = function(elementId) {
@@ -530,5 +529,195 @@ HuTime.prototype = {
             this.isInTouchSeries = false;
 
         }
+    }
+};
+
+// JSON関係
+HuTime.JSON = {
+    // シリアライズ
+    stringify: function stringify (obj) {
+        return JSON.stringify(obj);
+    },
+
+    // デシリアライズ
+    parse: function parse (json) {
+        var obj;
+        if (typeof json === "string")
+            json = JSON.parse(json);
+
+        /*
+        if (json instanceof Array) {
+            obj = [];
+            for (var i = 0; i < json.length; ++i) {
+                obj.push(HuTime.JSON.parse(json[i]));
+            }
+            return obj;
+        }
+        // */
+
+        if (!json.constructor)
+            return json;
+
+        var constructor = eval("HuTime." + json.constructor);
+        if (constructor == undefined)
+            return json;
+
+        obj = new constructor();
+        obj.parseJSON(json);
+        return obj;
+
+        /*
+        switch (json.constructor) {
+            // HuTime.ContainerBase
+            case "TilePanel":
+                return HuTime.TilePanel.createFromJSON(json);
+
+            case "Layer":
+                return HuTime.Layer.createFromJSON(json);
+
+            case "LineChartLayer":
+                return HuTime.LineChartLayer.createFromJSON(json);
+
+            case "PlotChartLayer":
+                return HuTime.PlotChartLayer.createFromJSON(json);
+
+            case "BarChartLayer":
+                return HuTime.BarChartLayer.createFromJSON(json);
+
+            case "TLineLayer":
+                return HuTime.TLineLayer.createFromJSON(json);
+
+            case "CalendarScaleLayer":
+                return HuTime.CalendarScaleLayer.createFromJSON(json);
+
+            case "TickScaleLayer":
+                return HuTime.TickScaleLayer.createFromJSON(json);
+
+            // HuTime.StreamBase
+            case "FileStream":
+                return HuTime.FileStream.createFromJSON(json);
+
+            case "HttpStream":
+                return HuTime.HttpStream.createFromJSON(json);
+                
+            // HuTime.StreamReaderBase
+            case "TextReader":
+                return HuTime.TextReader.createFromJSON(json);
+
+            case "CsvReader":
+                return HuTime.CsvReader.createFromJSON(json);
+
+            case "TsvReader":
+                return HuTime.TsvReader.createFromJSON(json);
+
+            // HuTime.RecordSettingBase
+            case "RecordDataSetting":
+                return HuTime.RecordDataSetting.createFromJSON(json);
+
+            case "RecordTSetting":
+                return HuTime.RecordTSetting.createFromJSON(json);
+
+            case "RecordTCalendarSetting":
+                return HuTime.RecordTCalendarSetting.createFromJSON(json);
+
+            // HuTime.RecordSettings
+            case "RecordSettings":
+                return HuTime.RecordSettings.createFromJSON(json);
+
+            // HuTime.RecordsetBase
+            case "ChartRecordset":
+                return HuTime.ChartRecordset.createFromJSON(json);
+
+            case "CalendarChartRecordset":
+                return HuTime.CalendarChartRecordset.createFromJSON(json);
+
+            case "TLineRecordset":
+                return HuTime.TLineRecordset.createFromJSON(json);
+
+            case "CalendarTLineRecordset":
+                return HuTime.CalendarTLineRecordset.createFromJSON(json);
+
+            // HuTime.ScalePosition
+            case "ScalePosition":
+                return HuTime.ScalePosition.createFromJSON(json);
+
+            // HuTime.ScaleStyleBase
+            case "ScaleStyleBase":
+                return HuTime.ScaleStyleBase.createFromJSON(json);
+
+            // HuTime.PositionBase
+            case "TVPosition":
+                return HuTime.TVPosition.createFromJSON(json);
+
+            case "XYPosition":
+                return HuTime.XYPosition.createFromJSON(json);
+
+            case "RelativeTVPosition":
+                return HuTime.RelativeTVPosition.createFromJSON(json);
+
+            case "RelativeXYPosition":
+                return HuTime.RelativeXYPosition.createFromJSON(json);
+
+            case "PositionFloor":
+                return HuTime.PositionFloor.createFromJSON(json);
+
+            case "PositionCeil":
+                return HuTime.PositionCeil.createFromJSON(json);
+
+            case "PositionRound":
+                return HuTime.PositionRound.createFromJSON(json);
+
+            // HuTime.OnLayerObjectBase
+            case "Line":
+                return HuTime.Line.createFromJSON(json);
+
+            case "Polygon":
+                return HuTime.Polygon.createFromJSON(json);
+
+            case "Square":
+                return HuTime.Square.createFromJSON(json);
+
+            case "Rect":
+                return HuTime.Rect.createFromJSON(json);
+
+            case "Circle":
+                return HuTime.Circle.createFromJSON(json);
+
+            case "Arc":
+                return HuTime.Arc.createFromJSON(json);
+
+            case "Pie":
+                return HuTime.Pie.createFromJSON(json);
+
+            case "Triangle":
+                return HuTime.Triangle.createFromJSON(json);
+
+            case "Image":
+                return HuTime.Image.createFromJSON(json);
+
+            case "String":
+                return HuTime.String.createFromJSON(json);
+
+            // HuTime.Style
+            case "FigureStyle":
+                return HuTime.FigureStyle.createFromJSON(json);
+
+            case "StringStyle":
+                return HuTime.StringStyle.createFromJSON(json);
+
+            default:
+                return JSON.parse(json);
+        }
+        // */
+    },
+
+    // シリアライズデータの保存
+    save: function save (obj) {
+
+    },
+
+    // シリアライズデータの読み込み
+    load: function load (source) {
+
     }
 };

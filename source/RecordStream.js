@@ -22,11 +22,37 @@ HuTime.StreamBase.prototype = {
 
     readAll: function readAll() {           // 全ての読み込みデータを返す（基底クラスなのでnullを返す）
         return null;
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        var json = {};
+        json.constructor = this.constructor.name;
+        var element = document.createElement("a");
+        element.href = this._source;
+        json.source = element.href;     // フルパスを入力
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+    }
+};
+HuTime.StreamBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "HttpStream":
+            return HuTime.HttpStream.createFromJSON(json);
+
+        case "FileStream":
+            return HuTime.FileStream.createFromJSON(json);
+
+        default:
+            return null;
     }
 };
 
 // ローカルファイルからの読み込み
-HuTime.FileStream = function(source) {
+HuTime.FileStream = function FileStream (source) {
     this.source = source;
     this._reader = new FileReader();
     this._reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
@@ -77,11 +103,29 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             else
                 return null;
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            return HuTime.StreamBase.prototype.toJSON.apply(this);
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.StreamBase.prototype.parseJSON.apply(this, arguments);
+        }
     }
 });
+HuTime.FileStream.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.FileStream(json.source);
+    obj.parseJSON(json);
+    return obj;
+};
 
 // Web上からの読み込み
-HuTime.HttpStream = function(source) {
+HuTime.HttpStream = function HttpStream (source) {
     this.source = source;
     this._request = new XMLHttpRequest();
     this._request.onreadystatechange = function (e) {       // XMLHttpRequestの読み込み終了イベントに処理を設定
@@ -140,11 +184,29 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
                 return null;
             return this._request.responseText;
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            return HuTime.StreamBase.prototype.toJSON.apply(this);
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.StreamBase.prototype.parseJSON.apply(this, arguments);
+        }
     }
 });
+HuTime.HttpStream.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.HttpStream(json.source);
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** ファイルのタイプに応じた読み取り処理により、読み込んだデータを配列に展開 ****
-HuTime.StreamReaderBase = function(source) {
+HuTime.StreamReaderBase = function StreamReaderBase (source) {
     this.source = source;
 };
 HuTime.StreamReaderBase.prototype = {
@@ -193,11 +255,41 @@ HuTime.StreamReaderBase.prototype = {
         this.stream.load();
     },
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
-    _readRecordData: function() {}      // レコードセットの読み取り
+    _readRecordData: function() {},     // レコードセットの読み取り
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        var json = {};
+        json.constructor = this.constructor.name;
+        json.stream = this._stream;
+        json.source = this._source;
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+        this.stream = HuTime.StreamBase.createFromJSON(json.stream);
+        this.source = json.source;
+    }
+};
+HuTime.StreamReaderBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "CsvReader":
+            return HuTime.CsvReader.createFromJSON(json);
+
+        case "TsvReader":
+            return HuTime.TsvReader.createFromJSON(json);
+
+        case "TextReader":
+            return HuTime.TextReader.createFromJSON(json);
+
+        default:
+            return null;
+    }
 };
 
 // テキストファイル
-HuTime.TextReader = function(source, isTitleRow, delimiter) {
+HuTime.TextReader = function TextReader (source, isTitleRow, delimiter) {
     // isTitleRow: trueならば1行目はタイトル行, delimiter: 区切り文字
     HuTime.StreamReaderBase.apply(this, arguments);
     this.isTitleRow = isTitleRow;
@@ -342,11 +434,35 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             }
             return this._recordData;
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.StreamReaderBase.prototype.toJSON.apply(this);
+            json.isTitleRow = this.isTitleRow;
+            json.delimiter = this._delimiter;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.StreamReaderBase.prototype.parseJSON(this, arguments);
+            this._isTitleRow = json.isTitleRow;
+            this._delimiter = json.delimiter;
+        }
     }
 });
+HuTime.TextReader.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TextReader(json.source);
+    obj.parseJSON(json);
+    return obj;
+};
 
 // csvファイル（TextReaderの区切り記号を','に固定）
-HuTime.CsvReader = function(source, isTitleRow) {
+HuTime.CsvReader = function CsvReader (source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
@@ -364,9 +480,16 @@ HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         }
     }
 });
+HuTime.CsvReader.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.CsvReader(json.source);
+    obj.parseJSON(json);
+    return obj;
+};
 
 // tsvファイル（TextReaderの区切り記号を'\t'に固定）
-HuTime.TsvReader = function(source, isTitleRow) {
+HuTime.TsvReader = function TsvReader (source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
@@ -384,9 +507,16 @@ HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         }
     }
 });
+HuTime.TsvReader.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TsvReader(json.source);
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** Recordオブジェクト内のデータと読み込みデータの項目（列）との対応や生成方法を指定 ****
-HuTime.RecordSettingBase = function(itemName, getValue) {
+HuTime.RecordSettingBase = function RecordSettingBase (itemName, getValue) {
     if (getValue instanceof Function)
         this.getValue = getValue;
     else
@@ -411,11 +541,39 @@ HuTime.RecordSettingBase.prototype = {
             return null;    // 不正な項目名指定
 
         return streamRecord.value[itemIndex];
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        var json = {};
+        json.constructor = this.constructor.name;
+        json.itemName = this.itemName;
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+        this.itemName = json.itemName;
+    }
+};
+HuTime.RecordSettingBase.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "RecordDataSetting":
+            return HuTime.RecordDataSetting.createFromJSON(json);
+
+        case "RecordTSetting":
+            return HuTime.RecordTSetting.createFromJSON(json);
+
+        case "RecordTCalendarSetting":
+            return HuTime.RecordTCalendarSetting.createFromJSON(json);
+
+        default:
+            return null;
     }
 };
 
 // RecordDataの取得設定
-HuTime.RecordDataSetting = function(itemName, recordDataName, getValue) {
+HuTime.RecordDataSetting = function RecordDataSetting (itemName, recordDataName, getValue) {
     HuTime.RecordSettingBase.apply(this, [itemName, getValue]);
     this.itemName = itemName;
     if (recordDataName)
@@ -436,15 +594,36 @@ HuTime.RecordDataSetting.prototype = Object.create(HuTime.RecordSettingBase.prot
         value: null
     },
     getValueDefault: {
-        value: function(streamRecord) {
+        value: function (streamRecord) {
             return HuTime.RecordSettingBase.prototype.getValueBase.apply(
                 this, [streamRecord, this.itemName]);
         }
+    },
+
+    toJSON: {
+        value: function toJSON() {
+            var json = HuTime.RecordSettingBase.prototype.toJSON.apply(this);
+            json.recordDataName = this.recordDataName;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            HuTime.RecordSettingBase.prototype.parseJSON.apply(this, arguments);
+            this.recordDataName = json.recordDataName;
+        }
     }
 });
+HuTime.RecordDataSetting.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.RecordDataSetting();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // t値の取得設定
-HuTime.RecordTSetting = function(itemNameBegin, itemNameEnd, getValue) {
+HuTime.RecordTSetting = function RecordTSetting (itemNameBegin, itemNameEnd, getValue) {
     HuTime.RecordSettingBase.apply(this, [itemNameBegin, getValue]);
     this.itemNameBegin = itemNameBegin;
     if (itemNameEnd)
@@ -474,12 +653,34 @@ HuTime.RecordTSetting.prototype = Object.create(HuTime.RecordSettingBase.prototy
                 return null;
             return new HuTime.TRange.createFromBeginEnd(begin, end);
         }
+    },
+
+    toJSON: {
+        value: function toJSON() {
+            var json = HuTime.RecordSettingBase.prototype.toJSON.apply(this);
+            json.itemNameBegin = this.itemNameBegin;
+            json.itemNameEnd = this.itemNameEnd;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            HuTime.RecordSettingBase.prototype.parseJSON.apply(this, arguments);
+            this.itemNameBegin = json.itemNameBegin;
+            this.itemNameEnd = json.itemNameEnd;
+        }
     }
 });
-
+HuTime.RecordTSetting.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.RecordTSetting();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // t値の取得設定（暦データ）
-HuTime.RecordTCalendarSetting = function(itemNameBegin, itemNameEnd, getValue) {
+HuTime.RecordTCalendarSetting = function RecordTCalendarSetting (itemNameBegin, itemNameEnd, getValue) {
     HuTime.RecordTSetting.apply(this, arguments);
 };
 HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.prototype, {
@@ -503,11 +704,30 @@ HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.pr
             //    new HuTime.TRange.createFromBeginEnd(beginRange[0], beginRange[1]),
             //    new HuTime.TRange.createFromBeginEnd(endRange[0], endRange[1]));
         }
+    },
+
+    toJSON: {
+        value: function toJSON() {
+            var json = HuTime.RecordTSetting.prototype.toJSON.apply(this);
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            HuTime.RecordTSetting.prototype.parseJSON.apply(this, arguments);
+        }
     }
 });
+HuTime.RecordTCalendarSetting.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.RecordTCalendarSetting();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // 設定を収容するコンテナ
-HuTime.RecordSettings = function() {
+HuTime.RecordSettings = function RecordSettings () {
     this._dataSettings = [];
 };
 HuTime.RecordSettings.prototype = {
@@ -528,6 +748,28 @@ HuTime.RecordSettings.prototype = {
     },
     appendDataSetting: function appendSetting(setting) {
         this._dataSettings.push(setting);
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        var json = {};
+        json.constructor = this.constructor.name;
+        json.tSetting = this._tSetting;
+        json.dataSettings = this._dataSettings;
+        return json;
+    },
+    parseJSON: function parseJSON (json) {
+        if (json.tSetting)
+            this.tSetting = HuTime.RecordSettingBase.createFromJSON(json.tSetting);
+        for (var i = 0; i < json.dataSettings.length; ++i) {
+            this._dataSettings.push(HuTime.RecordSettingBase.createFromJSON(json.dataSettings[i]));
+        }
     }
 };
-
+HuTime.RecordSettings.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.RecordSettings();
+    obj.parseJSON(json);
+    return obj;
+};

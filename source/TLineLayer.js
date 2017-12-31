@@ -554,5 +554,44 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
             }
             return clickedRecords;
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            json.useBandStyle = this.useBandStyle;
+            json.plotInterval = this.plotInterval;
+            json.padding = this.padding;
+            json.showLabel = this.showLabel;
+            json.plotDirection = this.plotDirection;
+
+            json.showReliableTRange = this.showReliableTRange;
+            json.showPossibleTRange = this.showPossibleTRange;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+
+            this.useBandStyle = json.useBandStyle;
+            this.plotInterval = json.plotInterval;
+            this.padding = json.padding;
+            this.padding = json.padding;
+            this.showLabel = json.showLabel;
+            this.showLabel = json.showLabel;
+            this.plotDirection = json.plotDirection;
+
+            this.showReliableTRange = json.showReliableTRange;
+            this.showPossibleTRange = json.showPossibleTRange;
+        }
     }
 });
+HuTime.TLineLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.TLineLayer();
+    obj.parseJSON(json);
+    return obj;
+};

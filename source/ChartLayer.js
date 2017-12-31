@@ -1,6 +1,6 @@
 
 // **** 折れ線グラフ ****
-HuTime.LineChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.LineChartLayer = function LineChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.RecordLayerBase.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -99,11 +99,31 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
                     break;
             }
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+        }
     }
 });
+HuTime.LineChartLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.LineChartLayer();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** プロットチャート ****
-HuTime.PlotChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.PlotChartLayer = function PlotChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.LineChartLayer.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -118,11 +138,33 @@ HuTime.PlotChartLayer.prototype = Object.create(HuTime.LineChartLayer.prototype,
     defaultDrawLine: {          // 線（プロット間）の描画（何もしない処理に差し替え）
         value: function () {
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            json.showLine = this.showLine;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+            this.showLine = json.showLine;
+        }
     }
 });
+HuTime.PlotChartLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.PlotChartLayer();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 棒グラフ ****
-HuTime.BarChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.BarChartLayer = function BarChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.RecordLayerBase.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -492,11 +534,25 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             }
             return clickedRecords;
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+        }
     }
 });
-
-
-
-
-
-
+HuTime.BarChartLayer.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.BarChartLayer();
+    obj.parseJSON(json);
+    return obj;
+};

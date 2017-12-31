@@ -1,7 +1,7 @@
 
 // ******** レイヤ上の図形オブジェクト ********
 // レイヤ上の図形オブジェクトの基底クラス
-HuTime.OnLayerObjectBase = function (position) {
+HuTime.OnLayerObjectBase = function OnLayerObjectBase (position) {
     this.position = position;
     this._userEvents = [];
 };
@@ -112,12 +112,73 @@ HuTime.OnLayerObjectBase.prototype = {
                 }
             }
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        return {
+            constructor: this.constructor.name,
+            id: this.id,
+            name: this.name,
+            position: this.position,
+            rotate: this.rotate,
+            style: this.style,
+            zIndex: this.zIndex,
+            visible: this._visible
+        };
+    },
+    parseJSON: function parseJSON (json) {
+        this.id = json.id;
+        this.name = json.name;
+        this.position = HuTime.PositionBase.createFromJSON(json.position);
+        this.rotate = json.rotate;
+        this.style = HuTime.Style.createFromJSON(json.style);
+        this.zIndex = json.zIndex;
+        this._visible = json.visible;
+    }
+};
+HuTime.OnLayerObjectBase.createFromJSON = function createFromJSON (json ) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "Line":
+            return HuTime.Line.createFromJSON(json);
+
+        case "Polygon":
+            return HuTime.Polygon.createFromJSON(json);
+
+        case "Square":
+            return HuTime.Square.createFromJSON(json);
+
+        case "Rect":
+            return HuTime.Rect.createFromJSON(json);
+
+        case "Circle":
+            return HuTime.Circle.createFromJSON(json);
+
+        case "Arc":
+            return HuTime.Arc.createFromJSON(json);
+
+        case "Pie":
+            return HuTime.Pie.createFromJSON(json);
+
+        case "Triangle":
+            return HuTime.Triangle.createFromJSON(json);
+
+        case "Image":
+            return HuTime.Image.createFromJSON(json);
+
+        case "String":
+            return HuTime.String.createFromJSON(json);
+
+        default:
+            return null;
     }
 };
 
 // **** 線オブジェクト ****
-HuTime.Line = function (style, position) {
-    this.position = position;
+HuTime.Line = function Line (style, positions) {
+    this.position = positions;
     this.style = style;
     this._userEvents = [];
 };
@@ -135,11 +196,33 @@ HuTime.Line.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathLine(this.layer, this.position, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            this.position = [];
+            for (var i = 0; i < json.position.length; ++i) {
+                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
+            }
+        }
     }
 });
+HuTime.Line.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Line();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** ポリゴンオブジェクト ****
-HuTime.Polygon = function (style, position) {
+HuTime.Polygon = function Polygon (style, position) {
     this.position = position;
     this.style = style;
     this._userEvents = [];
@@ -158,11 +241,33 @@ HuTime.Polygon.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathPolygon(this.layer, this.position, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            this.position = [];
+            for (var i = 0; i < json.position.length; ++i) {
+                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
+            }
+        }
     }
 });
+HuTime.Polygon.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Polygon();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 正方形オブジェクト ****
-HuTime.Square = function (style, position, width, rotate) {
+HuTime.Square = function Square (style, position, width, rotate) {
     this.position = position;
     this.width = width;
     this.rotate = rotate;
@@ -187,11 +292,32 @@ HuTime.Square.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathSquare(this.layer, this.position, this.width, this.rotate, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.width = this.width;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.width = json.width;
+        }
     }
 });
+HuTime.Square.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Square();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 矩形オブジェクト ****
-HuTime.Rect = function (style, position1, position2, width, rotate) {
+HuTime.Rect = function Rect (style, position1, position2, width, rotate) {
     this.position = position1;
     this.position2 = position2;
     this.style = style;
@@ -216,12 +342,33 @@ HuTime.Rect.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathRect(this.layer, this.position, this.position2, this.rotate, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.position2 = this.position2;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.position2 = HuTime.PositionBase.createFromJSON(json.position2);
+        }
     }
 });
+HuTime.Rect.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Rect();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 円オブジェクト ****
-HuTime.Circle = function (style, position, width) {
-    this.position = position;
+HuTime.Circle = function Circle (style, positions, width) {
+    this.position = positions;
     this.width = width;
     this.style = style;
     this._userEvents = [];
@@ -244,11 +391,32 @@ HuTime.Circle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathCircle(this.layer, this.position, this.width, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.width = this.width;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.width = json.width;
+        }
     }
 });
+HuTime.Circle.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Circle();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 円弧オブジェクト ****
-HuTime.Arc = function (style, position, radius, startAngle, endAngle) {
+HuTime.Arc = function Arc (style, position, radius, startAngle, endAngle) {
     this.position = position;
     this.radius = radius;
     this.startAngle = startAngle;
@@ -283,11 +451,36 @@ HuTime.Arc.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathArc(this.layer, this.position, this.radius,
                 this.startAngle, this.endAngle, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.radius = this.radius;
+            json.startAngle = this.startAngle;
+            json.endAngle = this.endAngle;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.radius = json.radius;
+            this.startAngle = json.startAngle;
+            this.endAngle = json.endAngle;
+        }
     }
 });
+HuTime.Arc.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Arc();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 扇形オブジェクト ****
-HuTime.Pie = function (style, position, radius, startAngle, endAngle) {
+HuTime.Pie = function Pie (style, position, radius, startAngle, endAngle) {
     this.position = position;
     this.radius = radius;
     this.startAngle = startAngle;
@@ -322,11 +515,36 @@ HuTime.Pie.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathPie(this.layer, this.position, this.radius,
                 this.startAngle, this.endAngle, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.radius = this.radius;
+            json.startAngle = this.startAngle;
+            json.endAngle = this.endAngle;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.radius = json.radius;
+            this.startAngle = json.startAngle;
+            this.endAngle = json.endAngle;
+        }
     }
 });
+HuTime.Pie.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Pie();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 三角形オブジェクト ****
-HuTime.Triangle = function (style, position, width, rotate) {
+HuTime.Triangle = function Triangle (style, position, width, rotate) {
     this.position = position;
     this.width = width;
     this.style = style;
@@ -351,11 +569,32 @@ HuTime.Triangle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathTriangle(this.layer, this.position, this.width, this.rotate, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.width = this.width;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.width = json.width;
+        }
     }
 });
+HuTime.Triangle.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Triangle();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 画像オブジェクト ****
-HuTime.Image = function (style, position, src, width, height, rotate) {
+HuTime.Image = function Image (style, position, src, width, height, rotate) {
     this.position = position;
     this.src = src;
     this.width = width;
@@ -365,7 +604,7 @@ HuTime.Image = function (style, position, src, width, height, rotate) {
     this._userEvents = [];
 
     if (!width && !height) {    // 表示サイズが指定されていない場合は、画像読み込み後に画像サイズを設定する
-        var img = new Image();
+        var img = document.createElement("img");
         img.src = src;
         var setSize  = function(obj) {
             img.onload = function() {
@@ -403,11 +642,40 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathImage(
                 this.layer, this.position, this.src, this.width, this.height, this.rotate, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+
+            // 絶対パスのを出力
+            var elem = document.createElement("img");
+            elem.src = this.src;
+            json.src = elem.src;
+            json.width = this.width;
+            json.height = this.height;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.src = json.src;
+            this.width = json.width;
+            this.height = json.height;
+        }
     }
 });
+HuTime.Image.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.Image();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // **** 文字列オブジェクト ****
-HuTime.String = function (style, position, text, rotate) {
+HuTime.String = function String (style, position, text, rotate) {
     this.position = position;
     this.text = text;
     this.style = style;
@@ -432,8 +700,29 @@ HuTime.String.prototype = Object.create(HuTime.OnLayerObjectBase.prototype,{
         value: function() {
             return HuTime.Drawing.pathString(this.style, this.layer, this.position, this.text, this.rotate, this.canvas);
         }
+    },
+
+    toJSON: {
+        value: function toJSON () {
+            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
+            json.text = this.text;
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON(json) {
+            this.position = HuTime.PositionBase.createFromJSON(json.position);
+            this.text = json.text;
+        }
     }
 });
+HuTime.String.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.String();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // ******** 図形描画 ********
 HuTime.Drawing = {
@@ -646,20 +935,8 @@ HuTime.Drawing = {
     drawArc: function(style, layer, position, radius, startAngle, endAngle, canvas) {
         if (!style)
             style = new HuTime.FigureStyle();
-
-        var cnvX = position.cnvX(layer);
-        var cnvY = position.cnvY(layer);
-        var ctx;
-        if (canvas)
-            ctx = canvas.getContext('2d');
-        else
-            ctx = layer._canvas.getContext('2d');
-        ctx.beginPath();
-        ctx.arc(cnvX, cnvY, radius,
-            startAngle * HuTime.Drawing._constDegToRad, endAngle * HuTime.Drawing._constDegToRad);
-        ctx.globalAlpha = this.alpha;
-        style._applyLineStyle(ctx);
-        ctx.globalAlpha = alphaOld;
+        style.applyStyle(
+            HuTime.Drawing.pathArc(layer, position, radius, startAngle, endAngle, canvas));
     },
 
     // 扇形（positionは中心）
@@ -922,8 +1199,29 @@ HuTime.Drawing = {
     }
 };
 
+//  ******** 書式（JSON出力用） ********
+HuTime.Style = function Style () {
+};
+HuTime.Style.prototype = {
+    constructor: HuTime.Style
+};
+HuTime.Style.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    switch (json.constructor) {
+        case "FigureStyle":
+            return HuTime.FigureStyle.createFromJSON(json);
+
+        case "StringStyle":
+            return HuTime.StringStyle.createFromJSON(json);
+
+        default:
+            return null;
+    }
+};
+
 // ******** 図形の書式 ********
-HuTime.FigureStyle = function(fillColor, lineColor, lineWidth) {
+HuTime.FigureStyle = function FigureStyle (fillColor, lineColor, lineWidth) {
     if (fillColor != undefined)
         this.fillColor = fillColor;
     if (lineColor != undefined)         // 省略された場合は、既定値（null）になる
@@ -1020,11 +1318,37 @@ HuTime.FigureStyle.prototype = {
             ctx.lineWidth = this._lineWidth;
             ctx.stroke();
         }
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        return {
+            constructor: this.constructor.name,
+            lineWidth: this._lineWidth,
+            lineColor: this.lineColor,
+            lineDash: this._lineDash,
+            fillColor: this.fillColor,
+            alpha: this._alpha
+        };
+    },
+    parseJSON: function parseJSON (json) {
+        this._lineWidth = json.lineWidth;
+        this.lineColor = json.lineColor;
+        this._lineDash = json.lineDash;
+        this.fillColor = json.fillColor;
+        this._alpha = json.alpha;
     }
+};
+HuTime.FigureStyle.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.FigureStyle();
+    obj.parseJSON(json);
+    return obj;
 };
 
 // ******** 文字列の書式 ********
-HuTime.StringStyle = function(fontSize, fillColor, fontWeight, fontStyle, fontFamily) {
+HuTime.StringStyle = function StringStyle (fontSize, fillColor, fontWeight, fontStyle, fontFamily) {
     if (fontSize != undefined)
         this.fontSize = fontSize;
     if (fillColor != undefined)
@@ -1265,6 +1589,46 @@ HuTime.StringStyle.prototype = {
         }
 
         ctx.globalAlpha = alphaOld;
+    },
+
+    // **** JSON出力 ****
+    toJSON: function toJSON () {
+        return {
+            constructor: this.constructor.name,
+            fontSize: this._fontSize,
+            fontStyle: this._fontStyle,
+            fontWeight: this._fontWeight,
+            fontFamily: this._fontFamily,
+            fontVariant: this._fontVariant,
+            lineHeight: this._lineHeight,
+            textAlign: this._textAlign,
+            textBaseline: this._textBaseline,
+            fillColor: this._fillColor,
+            lineWidth: this._lineWidth,
+            alpha: this._alpha,
+            applyStyle: this._applyStyle
+        };
+    },
+    parseJSON: function parseJSON (json) {
+            this._fontSize = json.fontSize;
+            this._fontStyle = json.fontStyle;
+            this._fontWeight = json.fontWeight;
+            this._fontFamily = json.fontFamily;
+            this._fontVariant = json.fontVariant;
+            this._lineHeight = json.lineHeight;
+            this._textAlign = json.textAlign;
+            this._textBaseline = json.textBaseline;
+            this._fillColor = json.fillColor;
+            this._lineWidth = json.lineWidth;
+            this._alpha = json.alpha;
+            if (json.applyStyle)
+                this._applyStyle = json.applyStyle;
     }
 };
-
+HuTime.StringStyle.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.StringStyle();
+    obj.parseJSON(json);
+    return obj;
+};
