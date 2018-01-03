@@ -713,7 +713,14 @@ HuTime.JSON = {
 
     // シリアライズデータの保存
     save: function save (obj) {
-
+        var content =  JSON.stringify(obj);
+        var blob = new Blob([ content ], { "type" : "application/json" });
+        var elm = document.createElement("a");  // a要素を作って、一時的にbody要素直下に置く
+        document.body.appendChild(elm);
+        elm.href = window.URL.createObjectURL(blob);
+        elm.download="data.json";
+        elm.click();
+        document.body.removeChild(elm);
     },
 
     // シリアライズデータの読み込み
