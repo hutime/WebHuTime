@@ -721,13 +721,64 @@ HuTime.JSON = {
         elm.download="data.json";
         elm.click();
         document.body.removeChild(elm);
-    },
-
-    // シリアライズデータの読み込み
-    load: function load (source) {
-
     }
 };
+HuTime.JSON.Reader = function Reader (source) {
+    this.source = source;
+};
+HuTime.JSON.Reader.prototype = {
+    _stream: null,
+    get stream () {
+        return this._stream;
+    },
+    set stream (val) {
+        if (!(val instanceof HuTime.StreamBase))
+            return;
+        this._stream = val;
+        this._stream.onloadend = function () {
+            this._loadedObject = HuTime.JSON.parse(this._stream.readAll());
+            this.onloadend.apply(this);
+        }.bind(this);
+    },
+
+    _source: null,
+    get source () {
+        return this._source;
+    },
+    set source (val) {
+        if (typeof  val === "string" && val != "")
+            this.stream = new HuTime.HttpStream(val);
+        else if (val instanceof File)
+            this.stream = new HuTime.FileStream(val);
+        else if (val instanceof HuTime.StreamBase)
+            this.stream = val;
+        else
+            return;
+        this._source = val;
+    },
+
+    get loadState () {
+        return this._stream.loadState;
+    },
+
+    _loadedObject: null,
+    get loadedObject () {
+        if (this._stream.loadState == "loadend")
+            return this._loadedObject;
+        else
+            return null;
+    },
+
+    load: function load () {
+        this._stream.load();
+    },
+    onloadend: function onloadend () {}
+};
+
+
+
+
+
 // ブラウザ判定
 HuTime.userAgent = function () {
     var userAgent = window.navigator.userAgent.toLowerCase();
@@ -13843,8 +13894,8 @@ HuTime.StreamReaderBase.prototype = {
         return this._itemNames;
     },
 
-    load: function read() {     // 読み込み
-        this.stream.load();
+    load: function load () {     // 読み込み
+        this._stream.load();
     },
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
     _readRecordData: function() {},     // レコードセットの読み取り
