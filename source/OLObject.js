@@ -1321,22 +1321,54 @@ HuTime.FigureStyle.prototype = {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        constructor: function (json) {
+            json["constructor"] = "FigureStyle";
+        },
+        _lineWidth: "lineWidth",
+        lineWidth: null,
+        lineColor: "lineColor",
+        _lineDash: "lineDash",
+        lineDash: null,
+        fillColor: "fillColor",
+        _alpha: "alpha",
+        alpha: null,
+
+        _applyStyle: null,
+        applyStyle: null,
+        defaultApplyStyle: null,
+
+        _applyFillStyle: null,
+        applyFillStyle: null,
+        defaultApplyFillStyle: null,
+
+        _applyLineStyle: null,
+        applyLineStyle: null,
+        defaultApplyLineStyle: null,
+
+        _toJSONProperties: null,
+        _parseJSONProperties: null,
+        toJSON: null,
+        parseJSON: null
+    },
+    _parseJSONProperties: {
+        lineWidth: "_lineWidth",
+        lineDash: "_lineDash",
+        alpha: "_alpha"
+    },
     toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name,
-            lineWidth: this._lineWidth,
-            lineColor: this.lineColor,
-            lineDash: this._lineDash,
-            fillColor: this.fillColor,
-            alpha: this._alpha
+        var json = {
+            constructor: "FigureStyle"
         };
+        for (var prop in this) {
+            HuTime.JSON.stringifyProperty(prop, this, HuTime.FigureStyle.prototype, json);
+        }
+        return json;
     },
     parseJSON: function parseJSON (json) {
-        this._lineWidth = json.lineWidth;
-        this.lineColor = json.lineColor;
-        this._lineDash = json.lineDash;
-        this.fillColor = json.fillColor;
-        this._alpha = json.alpha;
+        for (var prop in json) {
+            HuTime.JSON.parseProperty(prop, this, HuTime.FigureStyle.prototype, json);
+        }
     }
 };
 HuTime.FigureStyle.createFromJSON = function createFromJSON (json) {
@@ -1592,37 +1624,77 @@ HuTime.StringStyle.prototype = {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        constructor: function (json) {
+            json["constructor"] = "StringStyle";
+        },
+        _fontSize: "fontSize",
+        fontSize: null,
+        _fontStyle: "fontStyle",
+        fontStyle: null,
+        _fontWeight: "fontWeight",
+        fontWeight: null,
+        _fontFamily: "fontFamily",
+        fontFamily: null,
+        _fontVariant: "fontVariant",
+        fontVariant: null,
+        _lineHeight: "lineHeight",
+        lineHeight: null,
+        font: null,
+
+        _textAlign: "textAlign",
+        textAlign: null,
+        _textBaseline: "textBaseline",
+        textBaseline: null,
+
+        _fillColor: "fillColor",
+        fillColor: null,
+        _lineWidth: "lineWidth",
+        lineWidth: null,
+        _lineColor: "lineColor",
+        lineColor: null,
+        _alpha: "alpha",
+        alpha: null,
+
+        _applyStyle: null,
+        applyStyle: null,
+        defaultApplyStyle: null,
+
+        _toJSONProperties: null,
+        _parseJSONProperties: null,
+        toJSON: null,
+        parseJSON: null
+    },
+    _parseJSONProperties: {
+        fontSize: "_fontSize",
+        fontStyle: "_fontStyle",
+        fontWeight: "_fontWeight",
+        fontFamily: "_fontFamily",
+        fontVariant: "_fontVariant",
+        lineHeight: "_lineHeight",
+
+        textAlign: "_textAlign",
+        textBaseline: "_textBaseline",
+
+        fillColor: "_fillColor",
+        lineWidth: "_lineWidth",
+        lineColor: "_lineColor",
+        alpha: "_alpha"
+    },
+
     toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name,
-            fontSize: this._fontSize,
-            fontStyle: this._fontStyle,
-            fontWeight: this._fontWeight,
-            fontFamily: this._fontFamily,
-            fontVariant: this._fontVariant,
-            lineHeight: this._lineHeight,
-            textAlign: this._textAlign,
-            textBaseline: this._textBaseline,
-            fillColor: this._fillColor,
-            lineWidth: this._lineWidth,
-            alpha: this._alpha,
-            applyStyle: this._applyStyle
+        var json = {
+            constructor: "StringStyle"
         };
+        for (var prop in this) {
+            HuTime.JSON.stringifyProperty(prop, this, HuTime.StringStyle.prototype, json);
+        }
+        return json;
     },
     parseJSON: function parseJSON (json) {
-            this._fontSize = json.fontSize;
-            this._fontStyle = json.fontStyle;
-            this._fontWeight = json.fontWeight;
-            this._fontFamily = json.fontFamily;
-            this._fontVariant = json.fontVariant;
-            this._lineHeight = json.lineHeight;
-            this._textAlign = json.textAlign;
-            this._textBaseline = json.textBaseline;
-            this._fillColor = json.fillColor;
-            this._lineWidth = json.lineWidth;
-            this._alpha = json.alpha;
-            if (json.applyStyle)
-                this._applyStyle = json.applyStyle;
+        for (var prop in json) {
+            HuTime.JSON.parseProperty(prop, this, HuTime.StringStyle.prototype, json);
+        }
     }
 };
 HuTime.StringStyle.createFromJSON = function createFromJSON (json) {

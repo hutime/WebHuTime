@@ -603,52 +603,145 @@ HuTime.ContainerBase.prototype = {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        id: "id",
+        name: "name",
+        _contents: function (obj) {
+            if (this._contents.length > 0)
+                obj["contents"] = this._contents;
+        },
+        contents: null,
+        _element: null,
+        element: null,
+        style: function (obj) {
+            obj["style"] = this._element.style.cssText;
+        },
+
+        _tRotation: "tRotation",
+        tRotation: null,
+        _tDirection: "tDirection",
+        tDirection: null,
+        displayMode: null,
+        _setDisplayMode: null,
+        _tLength: "tLength",
+        tLength: null,
+        _currentTXYOrigin: null,
+        currentTXYOrigin: null,
+        _currentTLength: null,
+        currentTLength: null,
+        _updateCurrentTLength: null,
+
+        vBreadthDefault: null,
+        _vBreadth: "vBreadth",
+        vBreadth: null,
+        _vMarginTop: "vMarginTop",
+        vMarginTop: null,
+        _vMarginBottom: "vMarginBottom",
+        vMarginBottom: null,
+        _vMarginForX: "vMarginForX",
+        vMarginForX: null,
+
+        _currentVXYOrigin: null,
+        currentVXYOrigin: null,
+        _currentVBreadth: null,
+        currentVBreadth: null,
+        _updateCurrentVBreadth: null,
+        _updateCurrentVXYOrigin: null,
+
+        zIndex: null,
+        _visible: "visible",
+        visible: null,
+
+        _parent: null,
+        parent: null,
+        _setParent: null,
+        _hutimeRoot: null,
+        hutimeRoot: null,
+        _setHutimeRoot: null,
+        _captureElement: null,
+        captureElement: null,
+        _setCaptureElement: null,
+
+        appendContent: null,
+        removeContent: null,
+        _contentsIndex: null,
+        contentIndex: null,
+
+        redraw: null,
+        _redrawBeforeChild: null,
+        _redrawContent: null,
+        _redrawAfterChild: null,
+        processBeforeRedraw: "processBeforeRedraw",
+        processAfterRedraw: "processAfterRedraw",
+        compZIndex: null,
+        clear: null,
+
+        _userEvents: function (obj) {
+            if (this._userEvents.length > 0)
+                obj["userEvents"] = this._userEvents;
+        },
+        addEventListener: null,
+        dispatchEvent: null,
+        _handleInnerEvent: null,
+        _handleInnerEventCapture: null,
+        _handleInnerEventBubbling: null,
+        _handleEvent: null,
+
+        _isMouseIn: null,
+        _mouseEventCapture: "mouseEventCapture",
+        mouseEventCapture: null,
+        _handleMouseEvent: null,
+        _handleMouseEventCapture: null,
+        _handleMouseEventBubbling: null,
+        isInsideXY: null,
+        _extractInnerTouchEvent: null,
+        _extractMouseEvent: null,
+        _addEventInfos: null,
+
+        _toJSONProperties: null,
+        _parseJSONProperties: null,
+        toJSON: null,
+        parseJSON: null
+    },
+    _parseJSONProperties: {
+        contents: function (json) {
+            var content;
+            for (var i = 0; i < json.contents.length; ++i) {
+                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
+                if (content)
+                    this.appendContent(content);
+            }
+        },
+        style: function (json) {
+            this._element.style.cssText = json.style;
+        },
+
+        tRotation: "_tRotation",
+        tDirection: "_tDirection",
+        tLength: "_tLength",
+
+        vBreadth: "_vBreadth",
+        vMarginTop:"_vMarginTop",
+        vMarginBottom:"_vMarginBottom",
+        vMarginForX:"_vMarginForX",
+
+        visible:"_visible",
+        userEvents: null,
+        mouseEventCapture:"_mouseEventCapture"
+    },
+
     toJSON: function toJSON () {
         var json = {
-            constructor: this.constructor.name,
-            id: this.id,
-            name: this.name,
-            style: {},
-            contents: this._contents,
-            tRotation: this._tRotation,
-            tDirection: this._tDirection,
-            tLength: this._tLength,
-            vBreadth: this._vBreadth,
-            vMarginTop: this._vMarginTop,
-            vMarginBottom: this._vMarginBottom,
-            vMarginForX: this._vMarginForX,
-
-            zIndex: this._element.style.zIndex,
-            visible: this._visible,
-            mouseEventCapture: this._mouseEventCapture
+            constructor: "ContainerBase"
         };
-
-        // styleの処理
-        for (var prop in this._element.style) {
-            if (this._element.style[prop] && this._element.style[prop] != "")
-                json.style[prop] = this._element.style[prop];
+        for (var prop in this) {
+            HuTime.JSON.stringifyProperty(prop, this, HuTime.ContainerBase.prototype, json);
         }
         return json;
     },
     parseJSON: function parseJSON (json) {
-        this.id = json.id;
-        this.name = json.name;
-
-        this._tRotation = json.tRotation;
-        this._tDirection = json.tDirection;
-        this._tLength = json.tLength;
-        this._vBreadth = json.vBreadth;
-        this._vMarginTop = json.vMarginTop;
-        this._vMarginBottom = json.vMarginBottom;
-        this._vMarginForX = json.vMarginForX;
-
-        this._element.style.zIndex = json.zIndex;
-        this._visible = json.visible;
-        this._mouseEventCapture = json.mouseEventCapture;
-
-        // styleの処理
-        for (var prop in json.style) {
-            this._element.style[prop] = json.style[prop];
+        for (var prop in json) {
+            HuTime.JSON.parseProperty(prop, this, HuTime.ContainerBase.prototype, json);
         }
     }
 };
@@ -2186,35 +2279,126 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype,
+            displayMode: null,
+            _tLengthDefault: "tLengthDefault",
+            tLengthDefault: null,
+            tLength: "tLength",
+            _tLengthMode: "tLengthMode",
+            tLengthMode: null,
+
+            _updateCurrentTLength: null,
+            _vBreadthMode: "vBreadthMode",
+            vBreadthMode: null,
+
+            _panelsVBreadth: "panelsVBreadth",
+            panelsVBreadth: null,
+            _vScrolled: null,
+            vScrolled: null,
+            _updatePanelsVBreadth: null,
+            _updateCurrentVXYOrigin: null,
+            _updateCurrentVBreadth: null,
+
+            panels: null,
+            appendContent: null,
+            removeContent: null,
+            appendPanel: null,
+            removePanel: null,
+
+            _redrawBeforeChild: null,
+            _setPanelVBreadth: null,
+            _drawHuTimeLogo: null,
+
+            _handleInnerEventBubbling: null,
+            _isDragging: null,
+            _isWheeling: null,
+            _panelBreadthChanging: null,
+            _panelOrderChanging: null,
+            _dragOriginPanel: null,
+            _dragOriginX: null,
+            _dragOriginY: null,
+            _dragDirection: null,
+            dragSensitivity: "dragSensitivity",
+            _preventClick: null,
+            _preventMouseEvent: null,
+            _vScrollable: "vScrollable",
+            vScrollable: null,
+
+            _handleMouseEventCapture: null,
+            _handleMouseEventBubbling: null,
+            _pinchDirection: "pinchSensitivity",
+            pinchSensitivity: null,
+            isInsideXY: null,
+            _extractInnerTouchEvent: null,
+
+            _pinchZoom: null,
+            wheelZoomRatio: "wheelZoomRatio",
+            _wheelZoom: null,
+
+            _startTMove: null,
+            _progressTMove: null,
+            _endTMove: null,
+            _tSwipeAnimationTimer: null,
+            _tSwipeAnimationX: null,
+            _tSwipeAnimationY: null,
+            _tSwipeAnimationDelta: null,
+            _tSwipeAnimationOrigin: null,
+
+            _progressVScroll: null,
+            _endVScroll: null,
+            scrollTilePanels: null,
+
+            _panelOrderChangingZIndex: null,
+            _panelOrderChangingOpacity: null,
+            _startPanelOrderChange: null,
+            _progressPanelOrderChange: null,
+            _endPanelOrderChange: null,
+            changePanelOrder: null,
+
+            _captureElementExtension: null,
+            _startPanelBreadthChange: null,
+            _progressPanelBreadthChange: null,
+            _endPanelBreadthChange: null,
+            _mouseTimer: null,
+            _handleTimeout: null,
+            _handleCaptureMouseEvent: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype,
+            constructor: null,
+            tLengthDefault: "_tLengthDefault",
+            tLengthMode: "_tLengthMode",
+            vBreadthMode: "_vBreadthMode",
+            panelsVBreadth: "_panelsVBreadth",
+            vScrollable: "_vScrollable",
+            pinchSensitivity: "_pinchDirection"
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
-            json.tLengthMode = this._tLengthMode;
-            json.vBreadthMode = this._vBreadthMode;
-            json.vScrolled = this._vScrolled;
-            json.dragSensitivity = this.dragSensitivity;
-            json.vScrollable = this._vScrollable;
-            json._pinchDirection = this._pinchDirection;
-            json.wheelZoomRatio = this.wheelZoomRatio;
+            var json = {
+                constructor: "PanelCollection"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.PanelCollection.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
-            this._tLengthMode = json.tLengthMode;
-            this._vBreadthMode = json.vBreadthMode;
-            this._vScrolled = json.vScrolled;
-            this.dragSensitivity = json.dragSensitivity;
-            this._vScrollable = json.vScrollable;
-            this._pinchDirection = json._pinchDirection;
-            this.wheelZoomRatio = json.wheelZoomRatio;
-
-            var content;
-            for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
-                if (content)
-                    this.appendContent(content);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.PanelCollection.prototype, json);
             }
         }
     }
@@ -2281,6 +2465,29 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
         value: function (layer) {
             if (layer instanceof HuTime.Layer)
                 HuTime.ContainerBase.prototype.removeContent.apply(this, arguments);
+        }
+    },
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype,
+
+            tRatio: "tRatio",
+            minPnlT: null,
+            maxPnlT: null,
+
+            layers: null,
+            appendContent: null,
+            removeContent: null,
+            appendLayer: null,
+            removeLayer: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype
         }
     }
 });
@@ -2530,28 +2737,75 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.PanelBase.prototype,
+            _contents: function (obj) {
+                obj["contents"] = [];
+                for (var i = 0; i < this._contents.length; ++i) {
+                    if (this._contents[i].constructor.name != "PanelBorder")
+                        obj["contents"][i] = this._contents[i];
+                }
+            },
+            _panelBorder: null,
+            panelBorderWidth: "panelBorderWidth",
+
+            _vBreadth: "vBreadth",
+            vBreadth: null,
+
+            vBreadthTouchLoweLimit: "vBreadthTouchLoweLimit",
+            vBreadthUpperLimit: "vBreadthUpperLimit",
+            changeVBreadth: null,
+
+            _tilePanelVXYOrigin: null,
+            _updateCurrentVBreadth: null,
+            _updateCurrentVXYOrigin: null,
+            zIndex: null,
+            visible: null,
+
+            _repositionable: "repositionable",
+            repositionable: null,
+            _resizable: "resizable",
+            resizable: null,
+
+            _upperPanelIndex: null,
+            upperPanel: null,
+            _lowerPanelIndex: null,
+            lowerPanel: null,
+
+            isInsideXY: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.PanelBase.prototype,
+
+            vBreadth: "_vBreadth",
+            repositionable: "_repositionable",
+            resizable: "_resizable"
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
-            json.vBreadthTouchLoweLimit = this.vBreadthTouchLoweLimit;
-            json.vBreadthUpperLimit = this.vBreadthUpperLimit;
-            json.repositionable = this._repositionable;
-            json.resizable = this._resizable;
+            var json = {
+                constructor: "TilePanel"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.TilePanel.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
-            this.vBreadthTouchLoweLimit = json.vBreadthTouchLoweLimit;
-            this.vBreadthUpperLimit = json.vBreadthUpperLimit;
-            this._repositionable = json._repositionable;
-            this._resizable = json._resizable;
-            var content;
-            for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
-                if (content)
-                    this.appendContent(content);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.TilePanel.prototype, json);
             }
         }
     }
@@ -2678,7 +2932,7 @@ HuTime.OverlayPanel.prototype = Object.create(HuTime.PanelBase.prototype, {
 });
 
 // ******** パネル境界 ********
-HuTime.PanelBorder = function (panel) {
+HuTime.PanelBorder = function PanelBorder (panel) {
     HuTime.ContainerBase.apply(this);
     if (panel instanceof HuTime.TilePanel)
         this._panel = panel;
@@ -3076,33 +3330,82 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype,
+
+            _fixedLayer: "fixedLayer",
+            fixedLayer: null,
+            _canvas: null,
+            canvas: null,
+
+            _minLyrT: null,
+            minLyrT: null,
+            _maxLyrT: null,
+            maxLyrT: null,
+            _lyrTResolution: null,
+            lyrTResolution: null,
+            _setT: null,
+            getXYFromT: null,
+            getTFromXY: null,
+
+            _vTop: "vTop",
+            vTop: null,
+            _vBottom: "vBottom",
+            vBottom: null,
+            _lyrVResolution: null,
+            lyrVResolution: null,
+            _setV: null,
+            _vForX: "vForX",
+            vForX: null,
+
+            getXYFromV: null,
+            getVFromXY: null,
+
+            objects: null,
+            appendContent: null,
+            removeContent: null,
+            appendObject: null,
+            removeObject: null,
+
+            clear: null,
+            _redrawBeforeChild: null,
+
+            _handleInnerEventBubbling: null,
+            _mouseEventCapture: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ContainerBase.prototype,
+            fixedLayer: "_fixedLayer",
+            vTop: "_vTop",
+            vBottom: "_vBottom",
+            vForX: "_vForX"
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ContainerBase.prototype.toJSON.apply(this);
-            json.fixedLayer = this._fixedLayer;
-            if (this._vTop)
-                json.vTop = this._vTop;
-            if (this._vBottom)
-                json.vBottom = this._vBottom;
-            json.vForX = this._vForX;
+            var json = {
+                constructor: "Layer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.Layer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.ContainerBase.prototype.parseJSON.apply(this, arguments);
-            if (json.vTop)
-                this._vTop = json.vTop;
-            if (json.vBottom)
-                this._vBottom = json.vBottom;
-            this._fixedLayer = json.fixedLayer;
-            var content;
-            for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.OnLayerObjectBase.createFromJSON(json.contents[i]);
-                if (content)
-                    this.appendContent(content);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.Layer.prototype, json);
             }
-            this._vForX = json.vForX;
         }
     }
 });

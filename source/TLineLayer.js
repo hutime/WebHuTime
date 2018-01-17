@@ -557,8 +557,55 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype,
+            vForX: null,
+            appendRecordset: null,
+
+            useBandStyle: "useBandStyle",
+            plotInterval: "plotInterval",
+            padding: "padding",
+            showLabel: "showLabel",
+            plotDirection: "plotDirection",
+
+            showReliableTRange: "showReliableTRange",
+            showPossibleTRange: "showPossibleTRange",
+            showLine: null,
+            showPlot: null,
+
+            _sortedRecords: null,
+            _redrawBeforeChild: null,
+            _sortRecords: null,
+            _drawRecordset: null,
+            defaultDrawRange: null,
+            defaultDrawLabel: null,
+            _setGradation: null,
+
+            _isInPlot: null,
+            _drawHighlight: null,
+            _getClickedRecords: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype
+        }
+    },
     toJSON: {
         value: function toJSON () {
+            var json = {
+                constructor: "TLineLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.TLineLayer.prototype, json);
+            }
+            /*
             var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
             json.useBandStyle = this.useBandStyle;
             json.plotInterval = this.plotInterval;
@@ -568,11 +615,17 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
             json.showReliableTRange = this.showReliableTRange;
             json.showPossibleTRange = this.showPossibleTRange;
+            // */
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.TLineLayer.prototype, json);
+            }
+
+            /*
             HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
 
             this.useBandStyle = json.useBandStyle;
@@ -585,6 +638,7 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
             this.showReliableTRange = json.showReliableTRange;
             this.showPossibleTRange = json.showPossibleTRange;
+            // */
         }
     }
 });

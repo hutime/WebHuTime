@@ -525,8 +525,77 @@ HuTime.CalendarScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
         set: function(val) {
             this._calendarType = val;
         }
+    },
+
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype,
+
+            minCnvTickInterval: "minCnvTickInterval",
+            getScaleData: null,
+            _calendarId: "calendarId",
+            calendarId: null,
+            _labelFormat: null,
+            labelFormat: null,
+            _request: null,
+            _calendarData: null,
+            _min: null,
+            _max: null,
+            _interval: null,
+            _minTickInterval: null,
+
+            defaultGetScaleData: null,
+
+            loadScaleData: null,
+            loadEraScaleData: null,
+
+            onload: "onload",
+            ymdOnload: null,
+            eraOnload: null,
+
+            getDefaultCalendarData: null,
+            _calendarType: "calendarType",
+            calendarType: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype,
+            calendarId: "_calendarId",
+            calendarType: "_calendarType"
+        }
+    },
+    toJSON: {
+        value: function toJSON() {
+            var json = {
+                constructor: "CalendarScaleDataset"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
+            }
+            return json;
+        }
+    },
+    parseJSON: {
+        value: function parseJSON (json) {
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
+            }
+        }
     }
 });
+HuTime.CalendarScaleDataset.createFromJSON = function createFromJSON (json) {
+    if (typeof json === "string")
+        json = JSON.parse(json);
+    var obj = new HuTime.CalendarScaleDataset();
+    obj.parseJSON(json);
+    return obj;
+};
 
 // 暦目盛の書式
 HuTime.CalendarLabelFormat = function (dataset) {
@@ -710,19 +779,47 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
         }
     },
 
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.TickScaleLayer.prototype,
+
+            _scaleDataset: "scaleDataset",
+            scaleDataset:  null,
+            calendarId:  null,
+            calendarType:  null,
+            labelFormat: null,
+            processAfterRedraw: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.TickScaleLayer.prototype,
+            scaleDataset: function (json) {
+                this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
+            }
+        }
+    },
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.TickScaleLayer.prototype.toJSON.apply(this);
-            json.calendarId = this.calendarId;
-            json.calendarType = this.calendarType;
+            var json = {
+                constructor: "CalendarScaleLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.TickScaleLayer.prototype.parseJSON.apply(this, arguments);
-            this.calendarId = json.calendarId;
-            this.calendarType = json.calendarType;
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
+            }
         }
     }
 });

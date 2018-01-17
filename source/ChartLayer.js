@@ -12,8 +12,8 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
         value: function (recordset) {
             if (recordset instanceof HuTime.ChartRecordset) {
                 this.recordsets.push(recordset);
-                var onloadend = function(obj){      // データ読み込み後に再描画させる
-                    recordset.onloadend = function() {
+                var onloadend = function (obj) {      // データ読み込み後に再描画させる
+                    recordset.onloadend = function () {
                         obj.redraw();
                     }
                 }(this);
@@ -102,15 +102,41 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype,
+            appendRecordset: null,
+            defaultDrawLine: null,
+            defaultDrawPlot: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            var json = {
+                constructor: "LineChartLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.LineChartLayer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.LineChartLayer.prototype, json);
+            }
         }
     }
 });
@@ -141,17 +167,36 @@ HuTime.PlotChartLayer.prototype = Object.create(HuTime.LineChartLayer.prototype,
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype,
+
+            showLine: null,
+            defaultDrawLine: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
-            json.showLine = this.showLine;
+            var json = {
+                constructor: "PlotChartLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.PlotChartLayer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
-            this.showLine = json.showLine;
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.PlotChartLayer.prototype, json);
+            }
         }
     }
 });
@@ -537,15 +582,48 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
     },
 
     // **** JSON出力 ****
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype,
+
+            appendRecordset: null,
+            _drawRecordRange: null,
+            _drawRecordLine: null,
+            _drawRecordPlot: null,
+            defaultDrawLine: null,
+            defaultDrawPlot: null,
+
+            _isInPlot: null,
+            _drawHighlight: null,
+            _getClickedRecords: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.RecordLayerBase.prototype
+        }
+    },
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
+            var json = {
+                constructor: "BarChartLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.BarChartLayer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.BarChartLayer.prototype, json);
+            }
         }
     }
 });
