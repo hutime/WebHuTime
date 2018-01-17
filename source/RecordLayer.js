@@ -1194,78 +1194,156 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.Layer.prototype.toJSON.apply(this);
-            json.recordsets = this.recordsets;
-            json.allowHighlight = this.allowHighlight;
-            json.highlightColor = this.highlightColor;
-            json.selectRecord = this.selectRecord;
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.Layer.prototype,
+            fixedLayer: null,
 
-            json.showReliableTRange = this.showReliableTRange;
-            json.showPossibleTRange = this.showPossibleTRange;
-            json.showLine = this.showLine;
-            json.showPlot = this.showPlot;
-            json.showVScale = this.showVScale;
-            //json.vScales = this.vScales;
-            var a = this.vScales;
-            // /*
-            json.vScales = [];
-            for (var i = 0; i < this.vScales.length; ++i) {
-                json.vScales.push({});
-                for (var prop in this.vScales[i]) {
-                    if (prop != "layer")
-                        json.vScales[i][prop] = this.vScales[i][prop];
+            _vTop: "vTop",
+            _vBottom: "vBottom",
+            vTop: null,
+            vBottom: null,
+            _vForX: "vForX",
+
+            _syncInfoCanvas: null,
+            syncInfoCanvas: null,
+            _fixedInfoCanvas: null,
+            fixedInfoCanvas: null,
+            _systemCanvas: null,
+            systemCanvas: null,
+
+            recordsets: "recordsets",
+            appendRecordset: null,
+            removeRecordset: null,
+            updateRecordsets: null,
+            loadRecordsets: null,
+
+            allowHighlight: "allowHighlight",
+            highlightColor: "highlightColor",
+            selectRecord: "selectRecord",
+
+            showReliableTRange: "showReliableTRange",
+            showPossibleTRange: "showPossibleTRange",
+            showLine: "showLine",
+            showPlot: "showPlot",
+
+            showVScale: "showVScale",
+            vScales: function (json) {
+                json.vScales = [];
+                for (var i = 0; i < this.vScales.length; ++i) {
+                    json.vScales.push({});
+                    for (var prop in this.vScales[i]) {
+                        if (prop != "layer")
+                            json.vScales[i][prop] = this.vScales[i][prop];
+                    }
+                }
+            },
+            appendVScale: null,
+            removeVScale: null,
+            defaultUpdateVScaleStyle: null,
+            defaultUpdateVScaleDatasetConfig: null,
+
+            vScaleSide: null,
+            vScaleOffset: null,
+            vScaleBottom: null,
+            vScaleTop: null,
+            vScaleStyle: null,
+            vScaleDataset: null,
+
+            vScaleShowLegend: null,
+            vScaleLegend: null,
+            vScaleLegendOffset: null,
+            vScaleVisible: null,
+            vScaleUpdateStyle: null,
+            vScaleUpdateDatasetConfig: null,
+
+            showVScaleLine: "showVScaleLine",
+            vScaleLine: "vScaleLine",
+            vScaleLineStyle: "vScaleLineStyle",
+            defaultVScaleLineStyle: null,
+
+            _redrawBeforeChild: null,
+            _redrawContent: null,
+            _isRecordsSorted: null,
+
+            autoAdjustV: "autoAdjustV",
+            adjustV: null,
+
+            _sortRecords: null,
+            _drawRecordset: null,
+
+            _drawRecordRange: null,
+            _drawRecordLine: null,
+            _drawRecordPlot: null,
+
+            defaultDrawRange: null,
+            defaultDrawPlot: null,
+            defaultDrawLine: null,
+
+            _handleMouseEventBubbling: null,
+            _isInPlot: null,
+            _drawHighlight: null,
+            _getClickedRecords: null,
+            mouseEventCapture: "mouseEventCapture",
+            _handleInnerEventBubbling: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.Layer.prototype,
+            vTop: "_vTop",
+            vBottom: "_vBottom",
+            vForX: "_vForX",
+            recordsets: function (json) {
+                this.recordsets = [];
+                for (var i = 0; i < json.recordsets.length; ++i) {
+                    this.appendRecordset(
+                        HuTime.RecordsetBase.createFromJSON(json.recordsets[i]));
+                }
+                this.loadRecordsets();
+            },
+            vScales: function (json) {
+                this.vScales.length = 0;
+                for (var i = 0; i < json.vScales.length; ++i) {
+                    this.vScales.push({});
+                    this.vScales[i]["layer"] = this;
+                    for (var prop in json.vScales[i]) {
+                        if (prop == "dataset")
+                            this.vScales[i][prop]
+                                = HuTime.ScaleDatasetBase.createFromJSON(json.vScales[i][prop]);
+                        else if (prop == "style")
+                            this.vScales[i][prop]
+                                = HuTime.ScaleStyleBase.createFromJSON(json.vScales[i][prop]);
+                        else
+                            this.vScales[i][prop] = json.vScales[i][prop];
+                    }
                 }
             }
-            // */
-            json.showVScaleLine = this.showVScaleLine;
-            json.vScaleLine = this.vScaleLine;
-            json.vScaleLineStyle = this.vScaleLineStyle;
-            json.autoAdjustV = this.autoAdjustV;
+        }
+    },
 
+    toJSON: {
+        value: function toJSON () {
+            var json = {
+                constructor: "RecordLayerBase"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.RecordLayerBase.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            var i;
-            this.recordsets = [];
-            for (i = 0; i < json.recordsets.length; ++i) {
-                this.appendRecordset(
-                    HuTime.RecordsetBase.createFromJSON(json.recordsets[i]));
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.RecordLayerBase.prototype, json);
             }
-            this.loadRecordsets();
-            this.allowHighlight = json.allowHighlight;
-            this.highlightColor = json.highlightColor;
-            this.selectRecord = json.selectRecord;
-            this.showReliableTRange = json.showReliableTRange;
-            this.showPossibleTRange = json.showPossibleTRange;
-            this.showLine = json.showLine;
-            this.showPlot = json.showPlot;
-
-            this.showVScale = json.showVScale;
-            this.vScales.length = 0;
-            for (i = 0; i < json.vScales.length; ++i) {
-                this.vScales.push({});
-                this.vScales[i]["layer"] = this;
-                for (var prop in json.vScales[i]) {
-                    if (prop == "dataset")
-                        this.vScales[i][prop]
-                            = HuTime.ScaleDatasetBase.createFromJSON(json.vScales[i][prop]);
-                    else if (prop == "style")
-                        this.vScales[i][prop]
-                            = HuTime.ScaleStyleBase.createFromJSON(json.vScales[i][prop]);
-                    else
-                        this.vScales[i][prop] = json.vScales[i][prop];
-                }
-            }
-            this.showVScaleLine = json.showVScaleLine;
-            this.vScaleLine = json.vScaleLine;
-            this.vScaleLineStyle = HuTime.Style.createFromJSON(json.vScaleLineStyle);
-            this.autoAdjustV = json.autoAdjustV;
         }
     }
-
 });
 

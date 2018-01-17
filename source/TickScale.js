@@ -121,40 +121,64 @@ HuTime.ScalePosition.prototype = {
             - offset / this._scaleLength * this._dX;
     },
 
-    toJSON: function toJSON () {
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.positionBegin = this.positionBegin;
-        json.positionEnd = this.positionEnd;
-        json.beginX = this._beginX;
-        json.beginY = this._beginY;
-        json.endX = this._endX;
-        json.endY = this._endY;
-        json.dX = this._dX;
-        json.dY = this._dY;
-        json.scaleLength = this._scaleLength;
-        json.rotate = this._rotate;
+    _toJSONProperties: {
+        layer: null,
+        positionBegin: "positionBegin",
+        positionEnd: "positionEnd",
+        _beginX: null,
+        beginX: null,
+        _beginY: null,
+        beginY: null,
+        _endX: null,
+        endX: null,
+        _endY: null,
+        endY: null,
+        _dX: null,
+        dX: null,
+        _dY: null,
+        dY: null,
+        _scaleLength: null,
+        scaleLength: null,
+        _rotate: null,
+        rotate: null,
 
-        json.valueBegin = this.valueBegin;
-        json.valueEnd = this.valueEnd;
-        json._dValue = this._dValue;
+        valueBegin: "valueBegin",
+        valueEnd: "valueEnd",
+        _dValue: null,
+        dValue: null,
+
+        update: null,
+        cnvXYPosition: null,
+        cnvX: null,
+        cnvY: null,
+
+        _toJSONProperties: null,
+        _parseJSONProperties: null,
+        toJSON: null,
+        parseJSON: null
+    },
+    _parseJSONProperties: {
+        positionBegin: function (json) {
+            this.positionBegin = HuTime.PositionBase.createFromJSON(json.positionBegin);
+        },
+        positionEnd: function (json) {
+            this.positionEnd = HuTime.PositionBase.createFromJSON(json.positionEnd);
+        }
+    },
+
+    toJSON: function toJSON () {
+        var json = {
+            constructor: "ScalePosition"
+        };
+        for (var prop in this) {
+            HuTime.JSON.stringifyProperty(prop, this, HuTime.ScalePosition.prototype, json);
+        }
         return json;
     },
     parseJSON: function parseJSON (json) {
-        this.positionBegin = HuTime.PositionBase.createFromJSON(json.positionBegin);
-        this.positionEnd = HuTime.PositionBase.createFromJSON(json.positionEnd);
-        this._beginX = json.beginX;
-        this._beginY = json.beginY;
-        this._endX = json.endX;
-        this._endY = json.endY;
-        this._dX = json.dX;
-        this._dY = json.dY;
-        this._scaleLength = json.scaleLength;
-        this._rotate = json.rotate;
-
-        this.valueBegin = json.valueBegin;
-        this.valueEnd = json.valueEnd;
-        this._dValue = json.dValue;
+        for (var prop in json) {
+            HuTime.JSON.parseProperty(prop, this, HuTime.ScalePosition.prototype, json);
+        }
     }
 };
 HuTime.ScalePosition.createFromJSON = function createFromJSON (json) {
@@ -172,6 +196,10 @@ HuTime.ScaleStyleBase = function ScaleStyleBase () {
 HuTime.ScaleStyleBase.prototype = {
     constructor: HuTime.ScaleStyleBase,
 
+    _toJSONProperties: {
+    },
+    _parseJSONProperties: {
+    },
     toJSON: function toJSON () {
         return {
             constructor: this.constructor.name
@@ -359,61 +387,89 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
         }
     },
 
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleStyleBase.prototype,
+
+            axisStyle: "axisStyle",
+            defaultAxisStyle: null,
+            showAxis: "showAxis",
+
+            tickStyle: "tickStyle",
+            defaultTickStyle: null,
+            tickSize: "tickSize",
+            defaultTickSize: null,
+            tickPosition: "tickPosition",
+            tickOffset: "tickOffset",
+            applyScaleStyle: null,
+            defaultApplyScaleStyle: null,
+
+            labelStyle: "labelStyle",
+            defaultLabelStyle: null,
+            labelOffset: "labelOffset",
+
+            labelAlignOffset: "labelAlignOffset",
+
+            labelRotate: "labelRotate",
+            labelOnTick: "labelOnTick",
+            labelLineHeight: "labelLineHeight",
+            applyLabelStyle: null,
+            defaultApplyLabelStyle: null,
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleStyleBase.prototype,
+            axisStyle: function (json) {
+                this.axisStyle = HuTime.Style.createFromJSON(json.axisStyle);
+            },
+
+            tickStyle: function (json) {
+                if (json.tickStyle instanceof Array) {
+                    this.tickStyle = [];
+                    for (var i = 0; i < json.tickStyle.length; ++i) {
+                        this.tickStyle.push(HuTime.Style.createFromJSON(json.tickStyle[i]));
+                    }
+                }
+                else {
+                    this.tickStyle = HuTime.Style.createFromJSON(json.tickStyle);
+                }
+            },
+            labelStyle: function (json) {
+                if (json.labelStyle instanceof Array) {
+                    this.labelStyle = [];
+                    for (var i = 0; i < json.labelStyle.length; ++i) {
+                        this.labelStyle.push(HuTime.Style.createFromJSON(json.labelStyle[i]));
+                    }
+                }
+                else {
+                    this.labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
+                }
+            }
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ScaleStyleBase.prototype.toJSON.apply(this);
-            json.axisStyle = this.axisStyle;
-            json.showAxis = this.showAxis;
-
-            json.tickStyle = this.tickStyle;
-            json.tickSize = this.tickSize;
-            json.tickPosition = this.tickPosition;
-            json.tickOffset = this.tickOffset;
-
-            json.labelStyle = this.labelStyle;
-            json.labelOffset = this.labelOffset;
-            json.labelAlignOffset = this.labelAlignOffset;
-
-            json.labelRotate = this.labelRotate;
-            json.labelOnTick = this.labelOnTick;
-            json.labelLineHeight = this.labelLineHeight;
-
+            var json = {
+                constructor: "TickScaleStyle"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.TickScaleStyle.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            var i;
-            HuTime.ScaleStyleBase.prototype.parseJSON.apply(this, arguments);
-            this.axisStyle = HuTime.Style.createFromJSON(json.axisStyle);
-            this.showAxis = json.showAxis;
-
-            if (json.tickStyle instanceof Array) {
-                this.tickStyle = [];
-                for (i = 0; i < json.tickStyle.length; ++i) {
-                    this.tickStyle.push(HuTime.Style.createFromJSON(json.tickStyle[i]));
-                }
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.TickScaleStyle.prototype, json);
             }
-            else {
-                this.tickStyle = HuTime.Style.createFromJSON(json.tickStyle);
-            }
-            this.tickSize = json.tickSize;
-            this.tickPosition = json.tickPosition;
-            this.tickOffset = json.tickOffset;
-            if (json.labelStyle instanceof Array) {
-                this.labelStyle = [];
-                for (i = 0; i < json.labelStyle.length; ++i) {
-                    this.labelStyle.push(HuTime.Style.createFromJSON(json.labelStyle[i]));
-                }
-            }
-            else {
-                this.labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
-            }
-            this.labelOffset = json.labelOffset;
-            this.labelAlignOffset = json.labelAlignOffset;
-            this.labelRotate = json.labelRotate;
-            this.labelOnTick = json.labelOnTick;
-            this.labelLineHeight = json.labelLineHeight;
         }
     }
 });
@@ -438,10 +494,24 @@ HuTime.ScaleDatasetBase.prototype = {
         // label: 目盛のラベル（無い場合は空文字）
     },
 
+    _toJSONProperties: {
+        getScaleData: null,
+
+        _toJSONProperties: null,
+        _parseJSONProperties: null,
+        toJSON: null,
+        parseJSON: null
+    },
+    _parseJSONProperties: {
+    },
     toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name
+        var json = {
+            constructor: "ManualScaleDataset"
         };
+        for (var prop in this) {
+            HuTime.JSON.stringifyProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
+        }
+        return json;
     },
     parseJSON: function parseJSON (json) {
     }
@@ -582,25 +652,42 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
             return data;
         }
     },
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype,
 
+            minCnvTickInterval: "minCnvTickInterval",
+            minLabeledLevel: "minLabeledLevel",
+            adjustTickIntervalToLabel: "adjustTickIntervalToLabel",
+            coefficientOfLabelSize: "coefficientOfLabelSize",
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype
+        }
+    },
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ScaleDatasetBase.prototype.toJSON.apply(this);
-            json.minCnvTickInterval = this.minCnvTickInterval;
-            json.minLabeledLevel = this.minLabeledLevel;
-            json.adjustTickIntervalToLabel = this.adjustTickIntervalToLabel;
-            json.coefficientOfLabelSize = this.coefficientOfLabelSize;
-
+            var json = {
+                constructor: "StandardScaleDataset"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.ScaleDatasetBase.prototype.parseJSON.apply(this, arguments);
-            this.minCnvTickInterval = json.minCnvTickInterval;
-            this.minLabeledLevel = json.minLabeledLevel;
-            this.adjustTickIntervalToLabel = json.adjustTickIntervalToLabel;
-            this.coefficientOfLabelSize = json.coefficientOfLabelSize;
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
+            }
         }
     }
 });
@@ -645,16 +732,41 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
             return this._scaleData;
         }
     },
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype,
+            _scaleData: "scaleData",
+            scaleData: null,
+            appendScaleData: null,
+            getScaleData: null,
 
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.ScaleDatasetBase.prototype
+        }
+    },
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.ScaleDatasetBase.prototype.toJSON.apply(this);
-            return;
+            var json = {
+                constructor: "ManualScaleDataset"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.ManualScaleDataset.prototype, json);
+            }
+            return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.ScaleDatasetBase.prototype.parseJSON.apply(this, arguments);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.ManualScaleDataset.prototype, json);
+            }
         }
     }
 });
@@ -768,21 +880,54 @@ HuTime.TickScaleLayer.prototype = Object.create(HuTime.Layer.prototype, {
         value: 0    //HuTime.EventCapture.None
     },
 
+    _toJSONProperties: {
+        value: {
+            parentPrototype: HuTime.Layer.prototype,
+            scaleDataset: "scaleDataset",
+            _scalePosition: "scalePosition",
+            scaleStyle: "scaleStyle",
+
+            processAfterRedraw: null,
+            _handleInnerEventBubbling: null,
+            mouseEventCapture: "mouseEventCapture",
+
+            _toJSONProperties: null,
+            _parseJSONProperties: null,
+            toJSON: null,
+            parseJSON: null
+        }
+    },
+    _parseJSONProperties: {
+        value: {
+            parentPrototype: HuTime.Layer.prototype,
+            scaleDataset: function (json) {
+                this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
+            },
+            scalePosition: function (json) {
+                this._scalePosition = HuTime.ScalePosition.createFromJSON(json.scalePosition);
+            },
+            scaleStyle: function (json) {
+                this.scaleStyle = HuTime.ScaleStyleBase.createFromJSON(json.scaleStyle);
+            }
+        }
+    },
+
     toJSON: {
         value: function toJSON () {
-            var json = HuTime.Layer.prototype.toJSON.apply(this);
-            json.scaleDataset = this.scaleDataset;
-            json.scalePosition = this._scalePosition;
-            json.scaleStyle = this.scaleStyle;
+            var json = {
+                constructor: "TickScaleLayer"
+            };
+            for (var prop in this) {
+                HuTime.JSON.stringifyProperty(prop, this, HuTime.TickScaleLayer.prototype, json);
+            }
             return json;
         }
     },
     parseJSON: {
         value: function parseJSON (json) {
-            HuTime.Layer.prototype.parseJSON.apply(this, arguments);
-            this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
-            this._scalePosition = HuTime.ScalePosition.createFromJSON(json.scalePosition);
-            this.scaleStyle = HuTime.ScaleStyleBase.createFromJSON(json.scaleStyle);
+            for (var prop in json) {
+                HuTime.JSON.parseProperty(prop, this, HuTime.TickScaleLayer.prototype, json);
+            }
         }
     }
 });
@@ -793,4 +938,3 @@ HuTime.TickScaleLayer.createFromJSON = function createFromJSON (json) {
     obj.parseJSON(json);
     return obj;
 };
-
