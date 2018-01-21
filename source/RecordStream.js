@@ -345,6 +345,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             var loadedData = this.stream.readAll();
             var length = loadedData.length;
             var isEnclosed = false;
+            var NLCode = HuTime.checkNewLineCode(loadedData);   // 改行コード
 
             recordId = 0;
             while (pos < length) {
@@ -385,10 +386,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                     if (posNext < 0)
                         posNext = length;   // 区切りが見つからない場合は最後ファイル末尾を設定
 
-                    posIndexOf = loadedData.indexOf("\r", pos);    // レコード区切り
-                    if (posIndexOf >= 0 && posIndexOf < posNext)
-                        posNext = posIndexOf;
-                    posIndexOf = loadedData.indexOf("\r", pos);
+                    posIndexOf = loadedData.indexOf(NLCode, pos);      // レコード区切り
                     if (posIndexOf >= 0 && posIndexOf < posNext)
                         posNext = posIndexOf;
 
@@ -409,14 +407,8 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
 
                     if (loadedData[posNext] != this._delimiter)
                         break;      // データ項目区切りでない場合は、レコード末端（次のレコードへ）
-                    pos = posNext + 1;
+                    pos = posNext + this._delimiter.length;
                 }
-                pos = loadedData.indexOf("\r", pos);    // レコード区切り
-                if (pos < 0)
-                    pos = length - 1;
-                posIndexOf = loadedData.indexOf("\n", pos);
-                if (posIndexOf > pos)
-                    pos = posIndexOf;
 
                 if (isTitleRow)
                     isTitleRow = false;  // falseに設定し、以降の処理をデータ行として処理
@@ -425,7 +417,9 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                         maxItemCount = this._recordData[recordId].value.length;
                     ++recordId;
                 }
-                ++pos;
+
+                pos = loadedData.indexOf(NLCode, pos);    // レコード区切り
+                pos += NLCode.length;
             }
 
             // 項目名の不足分を列番号で補完

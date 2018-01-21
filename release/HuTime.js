@@ -1246,6 +1246,52 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
     return [bJd, eJd];
 };
 
+// 改行コードのチェック（引用符を考慮）
+HuTime.checkNewLineCode =  function checkNewLineCode (text) {
+    var pos = 0;        // 現在の探索開始位置
+    var posNLCode;      // 改行コードの位置
+    var posQuotation;   // 引用符の位置
+    var NLCodes = [ "\r\n", "\r", "\n"];
+    var NLCode;
+    var countQuotation;
+
+    while (pos < text.length) {
+        for (var i = 0; i < NLCodes.length; ++i) {  // 改行コードを探索
+            posNLCode = text.indexOf(NLCodes[i], pos);
+            if (posNLCode >= 0) {
+                NLCode = NLCodes[i];
+                break;
+            }
+        }
+        if (i >= NLCodes.length)    // 改行コードが見つからない場合
+            return null;
+
+        countQuotation = 0;
+        posQuotation = pos;
+        while (posQuotation < posNLCode) {
+            posQuotation = text.indexOf("\"", posQuotation);
+            if (posQuotation > posNLCode || posQuotation < 0)
+                break;
+
+            // 引用符内のエスケープされた引用符'""'は、結局、偶数個になるのでチェックしない
+            ++countQuotation;
+            ++posQuotation;
+        }
+        if (countQuotation % 2 == 0)
+            return NLCode;   // 見つかった改行コードは引用符外
+
+        // 見つかった改行コードは引用符内（引用の末端を探し、次の改行を探索）
+        pos = posNLCode + NLCode.length;
+        while (pos < text.length) {
+            pos = text.indexOf("\"", pos);
+             if (pos == text.length || text.substr(pos, 2) != "\"\"")    // 引用内のエスケープされた引用符'""'では無い
+                break;
+            pos += 2;
+        }
+        pos += NLCode.length;
+    }
+    return null;
+};
 
 // JSON関係
 HuTime.JSON = {
@@ -14855,6 +14901,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             var loadedData = this.stream.readAll();
             var length = loadedData.length;
             var isEnclosed = false;
+            var NLCode = HuTime.checkNewLineCode(loadedData);   // 改行コード
 
             recordId = 0;
             while (pos < length) {
@@ -14895,10 +14942,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                     if (posNext < 0)
                         posNext = length;   // 区切りが見つからない場合は最後ファイル末尾を設定
 
-                    posIndexOf = loadedData.indexOf("\r", pos);    // レコード区切り
-                    if (posIndexOf >= 0 && posIndexOf < posNext)
-                        posNext = posIndexOf;
-                    posIndexOf = loadedData.indexOf("\r", pos);
+                    posIndexOf = loadedData.indexOf(NLCode, pos);      // レコード区切り
                     if (posIndexOf >= 0 && posIndexOf < posNext)
                         posNext = posIndexOf;
 
@@ -14919,14 +14963,8 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
 
                     if (loadedData[posNext] != this._delimiter)
                         break;      // データ項目区切りでない場合は、レコード末端（次のレコードへ）
-                    pos = posNext + 1;
+                    pos = posNext + this._delimiter.length;
                 }
-                pos = loadedData.indexOf("\r", pos);    // レコード区切り
-                if (pos < 0)
-                    pos = length - 1;
-                posIndexOf = loadedData.indexOf("\n", pos);
-                if (posIndexOf > pos)
-                    pos = posIndexOf;
 
                 if (isTitleRow)
                     isTitleRow = false;  // falseに設定し、以降の処理をデータ行として処理
@@ -14935,7 +14973,9 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                         maxItemCount = this._recordData[recordId].value.length;
                     ++recordId;
                 }
-                ++pos;
+
+                pos = loadedData.indexOf(NLCode, pos);    // レコード区切り
+                pos += NLCode.length;
             }
 
             // 項目名の不足分を列番号で補完

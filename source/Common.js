@@ -708,3 +708,49 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
     return [bJd, eJd];
 };
 
+// 改行コードのチェック（引用符を考慮）
+HuTime.checkNewLineCode =  function checkNewLineCode (text) {
+    var pos = 0;        // 現在の探索開始位置
+    var posNLCode;      // 改行コードの位置
+    var posQuotation;   // 引用符の位置
+    var NLCodes = [ "\r\n", "\r", "\n"];
+    var NLCode;
+    var countQuotation;
+
+    while (pos < text.length) {
+        for (var i = 0; i < NLCodes.length; ++i) {  // 改行コードを探索
+            posNLCode = text.indexOf(NLCodes[i], pos);
+            if (posNLCode >= 0) {
+                NLCode = NLCodes[i];
+                break;
+            }
+        }
+        if (i >= NLCodes.length)    // 改行コードが見つからない場合
+            return null;
+
+        countQuotation = 0;
+        posQuotation = pos;
+        while (posQuotation < posNLCode) {
+            posQuotation = text.indexOf("\"", posQuotation);
+            if (posQuotation > posNLCode || posQuotation < 0)
+                break;
+
+            // 引用符内のエスケープされた引用符'""'は、結局、偶数個になるのでチェックしない
+            ++countQuotation;
+            ++posQuotation;
+        }
+        if (countQuotation % 2 == 0)
+            return NLCode;   // 見つかった改行コードは引用符外
+
+        // 見つかった改行コードは引用符内（引用の末端を探し、次の改行を探索）
+        pos = posNLCode + NLCode.length;
+        while (pos < text.length) {
+            pos = text.indexOf("\"", pos);
+             if (pos == text.length || text.substr(pos, 2) != "\"\"")    // 引用内のエスケープされた引用符'""'では無い
+                break;
+            pos += 2;
+        }
+        pos += NLCode.length;
+    }
+    return null;
+};
