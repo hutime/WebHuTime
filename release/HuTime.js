@@ -1292,225 +1292,150 @@ HuTime.checkNewLineCode =  function checkNewLineCode (text) {
     }
     return null;
 };
+/*
+ 残作業
+ ＊データごとJSON化するか、ソースをJSON化するかを指定
+// */
 
 // JSON関係
 HuTime.JSON = {
     // シリアライズ
     stringify: function stringify (obj) {
-        return JSON.stringify(obj);
-    },
+        if (typeof obj === "undefined")     // undefined
+            return undefined;
+        if (obj == null)                    // null
+            return null;
+        if (typeof obj === "function")      // function
+            return obj.toString();
 
-    stringifyProperty: function stringifyProperty(prop, obj, ptype, json) {
-        if (ptype._toJSONProperties.hasOwnProperty(prop)) {  // 自身のプロパティ変換定義
-            if (ptype._toJSONProperties[prop] == null)
-                return;
-            if (typeof ptype._toJSONProperties[prop] === "string") {
-                if (obj[prop] == ptype[prop])
-                    return;
-                json[ptype._toJSONProperties[prop]] = obj[prop];
+        var json;   // 出力結果の収容用
+        var p;      // 再帰によるHuTime.JSON.stringigyの結果収容用
+        if (obj instanceof Array) {         // Array
+            json = [];
+            for (var i = 0; i < obj.length; ++i) {
+                p = HuTime.JSON.stringify(obj[i]);
+                if (typeof p !== "undefined")
+                    json.push(p);
             }
-            else if (typeof ptype._toJSONProperties[prop] === "function") {
-                ptype._toJSONProperties[prop].apply(obj, [json]);
-            }
+            return json;
         }
-        else {
-            if (ptype._toJSONProperties.hasOwnProperty("parentPrototype"))
-                return HuTime.JSON.stringifyProperty(prop, obj, ptype._toJSONProperties.parentPrototype, json);
+        if (typeof obj === "object") {      // object（Arrayを含む）
+            json = {};
+            if ("_toJSONProperties" in obj) {   // JSONへの変換テーブルあり -> HuTime関係のオブジェクト
+                json["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructerの名前を保存
+                for (var prop in obj) {
+                    switch (prop) {     // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                        case "_toJSONProperties":
+                        case "_parseJSONProperties":
+                        case "toJSON":
+                            continue;
+                    }
 
-            json[prop] = obj[prop];
+                    if (prop in obj._toJSONProperties) {     // JSONへの変換定義がある場合
+                        if (obj._toJSONProperties[prop] == null)          // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._toJSONProperties[prop] === "string") {    // 出力名が指定されている場合
+                            if (obj[prop] == obj.__proto__[prop])   // 既定値と同じ場合は出力しない
+                                continue;
+
+                            p = HuTime.JSON.stringify(obj[prop]);
+                            if (typeof p !== "undefined")
+                                json[obj._toJSONProperties[prop]] = p;
+                        }
+                        else if (typeof obj._toJSONProperties[prop] === "function") {     // 出力関数が指定されている場合
+                            obj._toJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {  // JSONへの変換定義が無い場合
+                        if (prop in obj.__proto__)
+                            continue;     // プロトタイプで定義されているのにJSONへの変換定義なし －＞ 出力しない
+                        json[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
+                    }
+                }
+            }
+            else {          // HuTime関係以外のオブジェクト
+                for (var prop in obj) {
+                    json[prop] = HuTime.JSON.stringify(obj[prop]);
+                }
+            }
+            return json;
         }
+        return obj;     // 数値、文字列など
     },
 
     // デシリアライズ
     parse: function parse (json) {
+        var p;
         var obj;
-        if (typeof json === "string")
-            json = JSON.parse(json);
-
-        /*
-         if (json instanceof Array) {
-         obj = [];
-         for (var i = 0; i < json.length; ++i) {
-         obj.push(HuTime.JSON.parse(json[i]));
-         }
-         return obj;
-         }
-         // */
-
-        if (!json.constructor)
-            return json;
-
-        var constructor = eval("HuTime." + json.constructor);
-        if (constructor == undefined)
-            return json;
-
-        obj = new constructor();
-        obj.parseJSON(json);
-        return obj;
-
-        /*
-         switch (json.constructor) {
-         // HuTime.ContainerBase
-         case "TilePanel":
-         return HuTime.TilePanel.createFromJSON(json);
-
-         case "Layer":
-         return HuTime.Layer.createFromJSON(json);
-
-         case "LineChartLayer":
-         return HuTime.LineChartLayer.createFromJSON(json);
-
-         case "PlotChartLayer":
-         return HuTime.PlotChartLayer.createFromJSON(json);
-
-         case "BarChartLayer":
-         return HuTime.BarChartLayer.createFromJSON(json);
-
-         case "TLineLayer":
-         return HuTime.TLineLayer.createFromJSON(json);
-
-         case "CalendarScaleLayer":
-         return HuTime.CalendarScaleLayer.createFromJSON(json);
-
-         case "TickScaleLayer":
-         return HuTime.TickScaleLayer.createFromJSON(json);
-
-         // HuTime.StreamBase
-         case "FileStream":
-         return HuTime.FileStream.createFromJSON(json);
-
-         case "HttpStream":
-         return HuTime.HttpStream.createFromJSON(json);
-
-         // HuTime.StreamReaderBase
-         case "TextReader":
-         return HuTime.TextReader.createFromJSON(json);
-
-         case "CsvReader":
-         return HuTime.CsvReader.createFromJSON(json);
-
-         case "TsvReader":
-         return HuTime.TsvReader.createFromJSON(json);
-
-         // HuTime.RecordSettingBase
-         case "RecordDataSetting":
-         return HuTime.RecordDataSetting.createFromJSON(json);
-
-         case "RecordTSetting":
-         return HuTime.RecordTSetting.createFromJSON(json);
-
-         case "RecordTCalendarSetting":
-         return HuTime.RecordTCalendarSetting.createFromJSON(json);
-
-         // HuTime.RecordSettings
-         case "RecordSettings":
-         return HuTime.RecordSettings.createFromJSON(json);
-
-         // HuTime.RecordsetBase
-         case "ChartRecordset":
-         return HuTime.ChartRecordset.createFromJSON(json);
-
-         case "CalendarChartRecordset":
-         return HuTime.CalendarChartRecordset.createFromJSON(json);
-
-         case "TLineRecordset":
-         return HuTime.TLineRecordset.createFromJSON(json);
-
-         case "CalendarTLineRecordset":
-         return HuTime.CalendarTLineRecordset.createFromJSON(json);
-
-         // HuTime.ScalePosition
-         case "ScalePosition":
-         return HuTime.ScalePosition.createFromJSON(json);
-
-         // HuTime.ScaleStyleBase
-         case "ScaleStyleBase":
-         return HuTime.ScaleStyleBase.createFromJSON(json);
-
-         // HuTime.PositionBase
-         case "TVPosition":
-         return HuTime.TVPosition.createFromJSON(json);
-
-         case "XYPosition":
-         return HuTime.XYPosition.createFromJSON(json);
-
-         case "RelativeTVPosition":
-         return HuTime.RelativeTVPosition.createFromJSON(json);
-
-         case "RelativeXYPosition":
-         return HuTime.RelativeXYPosition.createFromJSON(json);
-
-         case "PositionFloor":
-         return HuTime.PositionFloor.createFromJSON(json);
-
-         case "PositionCeil":
-         return HuTime.PositionCeil.createFromJSON(json);
-
-         case "PositionRound":
-         return HuTime.PositionRound.createFromJSON(json);
-
-         // HuTime.OnLayerObjectBase
-         case "Line":
-         return HuTime.Line.createFromJSON(json);
-
-         case "Polygon":
-         return HuTime.Polygon.createFromJSON(json);
-
-         case "Square":
-         return HuTime.Square.createFromJSON(json);
-
-         case "Rect":
-         return HuTime.Rect.createFromJSON(json);
-
-         case "Circle":
-         return HuTime.Circle.createFromJSON(json);
-
-         case "Arc":
-         return HuTime.Arc.createFromJSON(json);
-
-         case "Pie":
-         return HuTime.Pie.createFromJSON(json);
-
-         case "Triangle":
-         return HuTime.Triangle.createFromJSON(json);
-
-         case "Image":
-         return HuTime.Image.createFromJSON(json);
-
-         case "String":
-         return HuTime.String.createFromJSON(json);
-
-         // HuTime.Style
-         case "FigureStyle":
-         return HuTime.FigureStyle.createFromJSON(json);
-
-         case "StringStyle":
-         return HuTime.StringStyle.createFromJSON(json);
-
-         default:
-         return JSON.parse(json);
-         }
-         // */
-    },
-
-    parseProperty: function parseProperty (prop, obj, ptype, json) {
-        if (prop == "constructor")
-            return;
-        if (ptype._parseJSONProperties.hasOwnProperty(prop)) {
-            if (ptype._parseJSONProperties[prop] == null)
-                return;
-            if (typeof ptype._parseJSONProperties[prop] === "string") {
-                obj[ptype._parseJSONProperties[prop]] = json[prop];
+        var prop;
+        if (typeof json === "string") {
+            try {           // jsonをいったん標準的な方法でparseseする
+                p = JSON.parse(json);
+                json = p;
             }
-            else if (typeof ptype._parseJSONProperties[prop] === "function") {
-                ptype._parseJSONProperties[prop].apply(obj, [json]);
+            catch (e) {     // JSONとしてパースできない（JSONでない生の値 -> そのまま）
             }
         }
-        else {
-            if (ptype._parseJSONProperties.hasOwnProperty("parentPrototype"))
-                return HuTime.JSON.parseProperty(prop, obj, ptype._parseJSONProperties.parentPrototype, json);
-            obj[prop] = json[prop];
+
+        if (typeof json === "undefined")
+            return undefined;
+        if (json == null)                   // null
+            return null;
+        if (json instanceof Array) {        // Array
+            obj = [];
+            for (var i = 0; i < json.length; ++i) {
+                obj.push(HuTime.JSON.parse(json[i]));
+            }
+            return obj;
         }
+        if (typeof json === "object") {     // オブジェクト一般
+            // オブジェクトの生成
+            if (typeof json.constructor === "string") {     // HuTime関係のオブジェクト
+                var constructor = eval("HuTime." + json.constructor);
+                if (constructor == undefined)
+                    obj = {};   // コンストラクタの取得失敗
+                else
+                    obj = new constructor();
+            }
+            else {      // HuTime関係以外のオブジェクト
+                obj = {};
+            }
+
+            // 各プロパティのデシリアライズ
+            if ("_parseJSONProperties" in obj) {    // 出力指定がある場合（HuTime関係のオブジェクト）
+                for (prop in json) {
+                    switch (prop) {             // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                            continue;
+                    }
+
+                    if (prop in obj._parseJSONProperties) {     // 出力指定がある場合
+                        if (obj._parseJSONProperties[prop] == null)   // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._parseJSONProperties[prop] === "string") {     // 出力方法が文字列指定
+                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(json[prop]);
+                        }
+                        else if (typeof obj._parseJSONProperties[prop] === "function") {  // 出力方法が関数指定
+                            obj._parseJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {      // 出力指定が無い場合は、プロパティ名をそのまま利用
+                        obj[prop] = HuTime.JSON.parse(json[prop]);
+                    }
+                }
+            }
+            else {      // 出力指定が無い場合（HuTime関係以外のオブジェクト）
+                for (var prop in json) {
+                    obj[prop] = HuTime.JSON.parse(json[prop]);
+                }
+            }
+
+            return obj;
+        }
+        if (typeof json === "string" && json.substr(0, 8) == "function")    // function
+            return eval("(" + json + ")");
+        return json;        // その他（数値、文字列など）
     },
 
     // シリアライズデータの保存
@@ -2186,106 +2111,34 @@ HuTime.ContainerBase.prototype = {
         name: "name",
         _contents: function (obj) {
             if (this._contents.length > 0)
-                obj["contents"] = this._contents;
+                obj["contents"] = HuTime.JSON.stringify(this._contents);
         },
-        contents: null,
-        _element: null,
-        element: null,
         style: function (obj) {
             obj["style"] = this._element.style.cssText;
         },
 
         _tRotation: "tRotation",
-        tRotation: null,
         _tDirection: "tDirection",
-        tDirection: null,
-        displayMode: null,
-        _setDisplayMode: null,
         _tLength: "tLength",
-        tLength: null,
-        _currentTXYOrigin: null,
-        currentTXYOrigin: null,
-        _currentTLength: null,
-        currentTLength: null,
-        _updateCurrentTLength: null,
-
-        vBreadthDefault: null,
         _vBreadth: "vBreadth",
-        vBreadth: null,
         _vMarginTop: "vMarginTop",
-        vMarginTop: null,
         _vMarginBottom: "vMarginBottom",
-        vMarginBottom: null,
         _vMarginForX: "vMarginForX",
-        vMarginForX: null,
-
-        _currentVXYOrigin: null,
-        currentVXYOrigin: null,
-        _currentVBreadth: null,
-        currentVBreadth: null,
-        _updateCurrentVBreadth: null,
-        _updateCurrentVXYOrigin: null,
-
-        zIndex: null,
         _visible: "visible",
-        visible: null,
-
-        _parent: null,
-        parent: null,
-        _setParent: null,
-        _hutimeRoot: null,
-        hutimeRoot: null,
-        _setHutimeRoot: null,
-        _captureElement: null,
-        captureElement: null,
-        _setCaptureElement: null,
-
-        appendContent: null,
-        removeContent: null,
-        _contentsIndex: null,
-        contentIndex: null,
-
-        redraw: null,
-        _redrawBeforeChild: null,
-        _redrawContent: null,
-        _redrawAfterChild: null,
         processBeforeRedraw: "processBeforeRedraw",
         processAfterRedraw: "processAfterRedraw",
-        compZIndex: null,
-        clear: null,
 
         _userEvents: function (obj) {
             if (this._userEvents.length > 0)
-                obj["userEvents"] = this._userEvents;
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
         },
-        addEventListener: null,
-        dispatchEvent: null,
-        _handleInnerEvent: null,
-        _handleInnerEventCapture: null,
-        _handleInnerEventBubbling: null,
-        _handleEvent: null,
-
-        _isMouseIn: null,
-        _mouseEventCapture: "mouseEventCapture",
-        mouseEventCapture: null,
-        _handleMouseEvent: null,
-        _handleMouseEventCapture: null,
-        _handleMouseEventBubbling: null,
-        isInsideXY: null,
-        _extractInnerTouchEvent: null,
-        _extractMouseEvent: null,
-        _addEventInfos: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _mouseEventCapture: "mouseEventCapture"
     },
     _parseJSONProperties: {
         contents: function (json) {
             var content;
             for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
+                content = HuTime.JSON.parse(json.contents[i]);
                 if (content)
                     this.appendContent(content);
             }
@@ -2307,53 +2160,9 @@ HuTime.ContainerBase.prototype = {
         userEvents: null,
         mouseEventCapture:"_mouseEventCapture"
     },
-
     toJSON: function toJSON () {
-        var json = {
-            constructor: "ContainerBase"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.ContainerBase.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
-    parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.ContainerBase.prototype, json);
-        }
-    }
-};
-HuTime.ContainerBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "Layer":
-            return HuTime.Layer.createFromJSON(json);
-
-        case "LineChartLayer":
-            return HuTime.LineChartLayer.createFromJSON(json);
-
-        case "PlotChartLayer":
-            return HuTime.PlotChartLayer.createFromJSON(json);
-
-        case "BarChartLayer":
-            return HuTime.BarChartLayer.createFromJSON(json);
-
-        case "TLineLayer":
-            return HuTime.TLineLayer.createFromJSON(json);
-
-        case "TickScaleLayer":
-            return HuTime.TickScaleLayer.createFromJSON(json);
-
-        case "CalendarScaleLayer":
-            return HuTime.CalendarScaleLayer.createFromJSON(json);
-
-        case "TilePanel":
-            return HuTime.TilePanel.createFromJSON(json);
-
-        default:
-            return null;
-    }
 };
 
 // ******** パネルコレクション ********
@@ -2410,15 +2219,15 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     // **** 書式 ****
     displayMode: {
-        get: function() {
+        get: function () {
             return this._tRotation * 2 + this._tDirection;
         },
-        set: function(val) {  // PanelCollectionでのみ設定可能
+        set: function (val) {  // PanelCollectionでのみ設定可能
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 3)
                 return;
             this._tDirection = val % 2;
             this._tRotation = (val - this._tDirection) / 2;
-            for (var i = this._contents.length; i--; ) {    // 子オブジェクトの値を変更
+            for (var i = this._contents.length; i--;) {    // 子オブジェクトの値を変更
                 this._setDisplayMode(this._tRotation, this._tDirection);
             }
         }
@@ -2428,19 +2237,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 600
     },
     tLengthDefault: {
-        get: function() {
+        get: function () {
             return this._tLengthDefault;
         },
-        set: function(val) {
+        set: function (val) {
             if (isFinite(val) && (typeof val) == "number")
                 this._tLengthDefault = val;
         }
     },
     tLength: {
-        get: function() {
+        get: function () {
             return this._tLength;
         },
-        set: function(val) {
+        set: function (val) {
             this._tLength = val;
             // 異常値は_updateCurrentTLengthで_tLengthDefaultに置き換えられる
         }
@@ -2450,7 +2259,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1    // 既定値：親要素に合わせる
     },
     tLengthMode: {
-        get: function() {
+        get: function () {
             return this._tLengthMode;
         },
         set: function (val) {
@@ -2461,7 +2270,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
 
     _updateCurrentTLength: {
-        value: function() {
+        value: function () {
             var isTLengthChanged = false;
             if (this.tLengthMode != 0) {
                 if (this._tRotation == 1) {
@@ -2478,8 +2287,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                         }
                     }
                 }
-                else
-                if (this._currentTLength != this._element.parentNode.clientWidth) {
+                else if (this._currentTLength != this._element.parentNode.clientWidth) {
                     isTLengthChanged = true;
                     this._currentTLength = this._element.parentNode.clientWidth;  // 現在の表示幅を使う
                 }
@@ -2511,10 +2319,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 2    // 既定値：内包するパネルに合わせる
     },
     vBreadthMode: {
-        get: function() {
+        get: function () {
             return this._vBreadthMode;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 2)
                 return;
             this._vBreadthMode = val;
@@ -2526,7 +2334,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     panelsVBreadth: {
-        get: function() {
+        get: function () {
             return this._panelsVBreadth;
         }
     },
@@ -2535,18 +2343,18 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     vScrolled: {
-        get: function() {
+        get: function () {
             return this._vScrolled;
         }
     },
     _updatePanelsVBreadth: {       // 内包するタイルパネルの幅の合計を設定（contentsのソート後に処理のこと）
-        value: function() {
+        value: function () {
             var i;
             var upperPanelIndex = null;  // タイルパネルでの上（左）のパネルの_contents配列内の位置（最上端用に初期値null）
 
             this._panelsVBreadth = 0;
             // パネルの位置設定と幅の取得
-            for (i = this._contents.length; i--; ) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
+            for (i = this._contents.length; i--;) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -2572,7 +2380,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     = (this.vBreadth != null && isFinite(this.vBreadth)) ? this.vBreadth : this.vBreadthDefault;
             }
             // タイルパネル以外の処理current値の更新（_panelsVBreadthが決まらないと決定できないため）
-            for (i = this._contents.length; i--; ) {
+            for (i = this._contents.length; i--;) {
                 if (!(this._contents[i] instanceof HuTime.TilePanel)) {   // タイルパネル以外（オーバレイパネル）
                     this._contents[i]._updateCurrentVXYOrigin();
                     this._contents[i]._updateCurrentVBreadth();
@@ -2581,12 +2389,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _updateCurrentVXYOrigin: {
-        value: function() {    // xy座標に変換されたContainerBaseの表示位置 (px)
+        value: function () {    // xy座標に変換されたContainerBaseの表示位置 (px)
             this._currentVXYOrigin = 0;   // 常に0
         }
     },
     _updateCurrentVBreadth: {
-        value: function() {
+        value: function () {
             this._updatePanelsVBreadth();      // 各パネルの位置決定と幅の合計値を取得
             switch (this.vBreadthMode) {
                 case 0:     // 固定モード
@@ -2599,8 +2407,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 case 1:     // 親要素に合わせる場合
                     if (this._tRotation == 1)
                         this._currentVBreadth = this._element.parentNode.clientWidth;
-                    else
-                    if (this._element.parentNode.style.height)
+                    else if (this._element.parentNode.style.height)
                         this._currentVBreadth = this._element.parentNode.clientHeight;
                     else
                         this._currentVBreadth = this.vBreadthDefault;
@@ -2664,11 +2471,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _setPanelVBreadth: {    // パネルの表示位置や大きさを反映させる
-        value: function() {
+        value: function () {
             this._updateCurrentVXYOrigin();
             this._updateCurrentVBreadth();
 
-            for (var i = this._contents.length; i--; ) {
+            for (var i = this._contents.length; i--;) {
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -2684,7 +2491,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _drawHuTimeLogo: {   // HuTimeのロゴを表示
-        value: function(x, y) {
+        value: function (x, y) {
             var ctx;
             ctx = this._captureElement.getContext('2d');
             ctx.fillStyle = "rgb(51, 51, 51)";
@@ -2752,10 +2559,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: true
     },
     vScrollable: {
-        get: function() {
+        get: function () {
             return this._vScrollable;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "boolean")
                 return;
             this._vScrollable = val;
@@ -3067,7 +2874,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginY;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){
+                            this._tSwipeAnimationTimer = setInterval(function (e) {
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneY;
                             }.bind(this, ev), 100);
                         }
@@ -3086,7 +2893,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginX;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){   // 移動量履歴の保存
+                            this._tSwipeAnimationTimer = setInterval(function (e) {   // 移動量履歴の保存
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneX;
                             }.bind(this, ev), 100);
                         }
@@ -3207,7 +3014,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 8
     },
     isInsideXY: {   // パネル幅変更時に_captureElementを変える場合があるため、_captureElementで領域を判断
-        value: function(x, y) {
+        value: function (x, y) {
             if (this._tRotation == 1)
                 return (x < this._captureElement.width && x >= 0);  // _currentVXYOriginは0で固定されているので参照省略
             else
@@ -3232,7 +3039,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 for (var i = 0; i < this._contents.length; ++i) {
                     if (this._contents[i]._visible) {
                         if (this._tRotation == 1)
-                            this._contents[i]._extractInnerTouchEvent(ev, eventX  - this._currentVXYOrigin, eventY);
+                            this._contents[i]._extractInnerTouchEvent(ev, eventX - this._currentVXYOrigin, eventY);
                         else
                             this._contents[i]._extractInnerTouchEvent(ev, eventX, eventY - this._currentVXYOrigin);
                     }
@@ -3246,7 +3053,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸 zoom **
     _pinchZoom: {
-        value: function _pinchZoom(ev, eventX, eventY, targetPanel){
+        value: function _pinchZoom(ev, eventX, eventY, targetPanel) {
 
             var currentTOne, currentTTwo;
             var newTPerXY, newMinT, newMaxT;
@@ -3291,9 +3098,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     newMinT = newTPerXY * this._currentTLength + newMaxT;
                     break;
             }
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -3301,9 +3108,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -3320,7 +3127,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0.02
     },
     _wheelZoom: {    // ホイールによるzoom操作
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var zoomDelta = this.wheelZoomRatio;
             zoomDelta *= ev.deltaY > 0 ? 1 : -1;
 
@@ -3351,9 +3158,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // マウスポインタの位置（currentT）を基準にZoomする（hutimeRootのx座標値を書き換える）
             var newMinT = zoomDelta * (this._hutimeRoot.minT - currentT) + this._hutimeRoot.minT;
             var newMaxT = zoomDelta * (this._hutimeRoot.maxT - currentT) + this._hutimeRoot.maxT;
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -3361,9 +3168,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -3378,13 +3185,13 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸移動 **
     _startTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveStartイベント）を発火
                 HuTime.InnerEvent.createWithT("tmovestart", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
         }
     },
     _progressTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var deltaT;
             switch (this.displayMode) {
                 case 0:
@@ -3419,11 +3226,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
-            else if(newMinT < this._hutimeRoot.minTLimit) {
+            else if (newMinT < this._hutimeRoot.minTLimit) {
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxT;
             }
-            else if(newMaxT > this._hutimeRoot.maxTLimit) {
+            else if (newMaxT > this._hutimeRoot.maxTLimit) {
                 newMinT = this._hutimeRoot.minT;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
@@ -3432,15 +3239,17 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 HuTime.InnerEvent.createWithT("tmove", this, newMinT, newMaxT));
 
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() { obj._handleTimeout("tmovestop", obj); },
+                    function () {
+                        obj._handleTimeout("tmovestop", obj);
+                    },
                     obj._hutimeRoot.mouseTimeOut);
             }(this);
         }
     },
     _endTMove: {     // t軸移動確定
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveEndイベント）を発火
                 HuTime.InnerEvent.createWithT("tmoveend", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
             this._dragDirection = null;     // ドラッグの方向を未決に戻す
@@ -3474,7 +3283,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** v軸移動 **
     _progressVScroll: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var vScrolledOld = this._vScrolled;     // 移動量を検出するため、前の値を保存
             if (this._tRotation == 1) {
                 this._vScrolled += ev._offsetX - this._dragOriginX;
@@ -3516,12 +3325,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endVScroll: {
-        value: function() {
+        value: function () {
             this.scrollTilePanels();
         }
     },
     scrollTilePanels: {
-        value: function(deltaV) {
+        value: function (deltaV) {
             if (!deltaV || !isFinite(deltaV))
                 return;     // deltaV = 0 の場合（!deltaV）も該当
 
@@ -3559,7 +3368,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1.0
     },
     _startPanelOrderChange: {    // 変更開始（対象のパネルの書式変更）（shift+mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (targetPanel.repositionable) {
                 if (ev instanceof HuTime.MouseEvent)
                     this._captureElement.style.cursor = "pointer";  // カーソル変更
@@ -3572,7 +3381,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelOrderChange: { // 変更中（shift+mousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var left = parseFloat(this._panelOrderChanging._element.style.left);
             var top = parseFloat(this._panelOrderChanging._element.style.top);
 
@@ -3580,7 +3389,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += eventX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += eventY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = eventX;
                 this._dragOriginY = eventY;
             }
@@ -3588,19 +3397,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += ev.originalEvent.offsetX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += ev.originalEvent.offsetY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = ev.originalEvent.offsetX;
                 this._dragOriginY = ev.originalEvent.offsetY;
             }
             clearTimeout(this._mouseTimer);
 
-            this._mouseTimer = setTimeout(function (){
+            this._mouseTimer = setTimeout(function () {
                 this._endPanelOrderChange(ev, eventX, eventY, this._panelOrderChanging);
             }.bind(this), this._hutimeRoot.mouseTimeOut * 4)
         }
     },
     _endPanelOrderChange: {      // 変更確定（入れ換えと対象のパネルの書式を戻す）（mouseup）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             clearTimeout(this._mouseTimer);
 
             // カーソルと移動元の書式を元に戻す
@@ -3631,7 +3440,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     changePanelOrder: {             // パネルの順序変更
-        value: function(source, target) {
+        value: function (source, target) {
             if (!source.repositionable || source === target)
                 return;
 
@@ -3684,7 +3493,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 50
     },
     _startPanelBreadthChange: {  // 変更開始（mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (!targetPanel._panelBorder)
                 return;
             this._panelBreadthChanging = targetPanel._panelBorder;    // パル幅変更中を設定
@@ -3693,7 +3502,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // 一時的にcaptureElementの幅を_captureElementExtensionだけ伸ばす
             if (this.vBreadthMode == 2) {
                 this._element.style.overflow = "visible";   // 伸ばした分を有効にするため、hiddenからvisibleに
-                if (this._tRotation == 1){
+                if (this._tRotation == 1) {
                     this._captureElement.width = this._currentVBreadth + this._captureElementExtension;
                     this._captureElement.style.width =
                         (this._currentVBreadth + this._captureElementExtension) + "px";
@@ -3711,7 +3520,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelBreadthChange: {   // 変更中（パネル境界をmousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var i;  // カウンタ
             var panel = this._panelBreadthChanging._panel;   // 幅を変更するパネル
             var layer;
@@ -3734,7 +3543,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginX = ev._offsetX;
                 panel._element.style.width = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -3766,7 +3575,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginY = ev._offsetY;
                 panel._element.style.height = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -3807,7 +3616,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endPanelBreadthChange: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._panelBreadthChanging._panel.changeVBreadth();   // パネル幅変更を確定、再描画
 
             // 「パネルの幅に合わせる」の場合に変更したcaptureElementの設定を基に戻す
@@ -3827,10 +3636,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     _mouseTimer: {
         writable: true,
-        value : null
+        value: null
     },
     _handleTimeout: {
-        value: function(type, obj) {
+        value: function (type, obj) {
             obj._hutimeRoot._handleInnerEvent(   // 内部イベントを発火
                 HuTime.InnerEvent.createWithT(type, obj, obj._hutimeRoot.minT, obj._hutimeRoot.maxT));
         }
@@ -3858,136 +3667,32 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            displayMode: null,
-            _tLengthDefault: "tLengthDefault",
-            tLengthDefault: null,
-            tLength: "tLength",
-            _tLengthMode: "tLengthMode",
-            tLengthMode: null,
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _tLengthDefault: { value: "tLengthDefault" },
+            tLength: { value: "tLength" },
+            _tLengthMode: { value: "tLengthMode" },
 
-            _updateCurrentTLength: null,
-            _vBreadthMode: "vBreadthMode",
-            vBreadthMode: null,
+            _vBreadthMode: { value: "vBreadthMode" },
 
-            _panelsVBreadth: "panelsVBreadth",
-            panelsVBreadth: null,
-            _vScrolled: null,
-            vScrolled: null,
-            _updatePanelsVBreadth: null,
-            _updateCurrentVXYOrigin: null,
-            _updateCurrentVBreadth: null,
+            _panelsVBreadth: { value: "panelsVBreadth" },
+            dragSensitivity: { value: "dragSensitivity" },
+            _vScrollable: { value: "vScrollable" },
 
-            panels: null,
-            appendContent: null,
-            removeContent: null,
-            appendPanel: null,
-            removePanel: null,
-
-            _redrawBeforeChild: null,
-            _setPanelVBreadth: null,
-            _drawHuTimeLogo: null,
-
-            _handleInnerEventBubbling: null,
-            _isDragging: null,
-            _isWheeling: null,
-            _panelBreadthChanging: null,
-            _panelOrderChanging: null,
-            _dragOriginPanel: null,
-            _dragOriginX: null,
-            _dragOriginY: null,
-            _dragDirection: null,
-            dragSensitivity: "dragSensitivity",
-            _preventClick: null,
-            _preventMouseEvent: null,
-            _vScrollable: "vScrollable",
-            vScrollable: null,
-
-            _handleMouseEventCapture: null,
-            _handleMouseEventBubbling: null,
-            _pinchDirection: "pinchSensitivity",
-            pinchSensitivity: null,
-            isInsideXY: null,
-            _extractInnerTouchEvent: null,
-
-            _pinchZoom: null,
-            wheelZoomRatio: "wheelZoomRatio",
-            _wheelZoom: null,
-
-            _startTMove: null,
-            _progressTMove: null,
-            _endTMove: null,
-            _tSwipeAnimationTimer: null,
-            _tSwipeAnimationX: null,
-            _tSwipeAnimationY: null,
-            _tSwipeAnimationDelta: null,
-            _tSwipeAnimationOrigin: null,
-
-            _progressVScroll: null,
-            _endVScroll: null,
-            scrollTilePanels: null,
-
-            _panelOrderChangingZIndex: null,
-            _panelOrderChangingOpacity: null,
-            _startPanelOrderChange: null,
-            _progressPanelOrderChange: null,
-            _endPanelOrderChange: null,
-            changePanelOrder: null,
-
-            _captureElementExtension: null,
-            _startPanelBreadthChange: null,
-            _progressPanelBreadthChange: null,
-            _endPanelBreadthChange: null,
-            _mouseTimer: null,
-            _handleTimeout: null,
-            _handleCaptureMouseEvent: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            _pinchDirection: { value: "pinchSensitivity" },
+            wheelZoomRatio: { value: "wheelZoomRatio"}
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            constructor: null,
-            tLengthDefault: "_tLengthDefault",
-            tLengthMode: "_tLengthMode",
-            vBreadthMode: "_vBreadthMode",
-            panelsVBreadth: "_panelsVBreadth",
-            vScrollable: "_vScrollable",
-            pinchSensitivity: "_pinchDirection"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "PanelCollection"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.PanelCollection.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.PanelCollection.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            tLengthDefault: { value: "_tLengthDefault" },
+            tLengthMode: { value: "_tLengthMode" },
+            vBreadthMode: { value: "_vBreadthMode" },
+            panelsVBreadth: { value: "_panelsVBreadth" },
+            vScrollable: { value: "_vScrollable" },
+            pinchSensitivity: { value: "_pinchDirection" }
+        })
     }
 });
-HuTime.PanelCollection.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PanelCollection();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** パネル（基底クラス）********
 HuTime.PanelBase = function () {
@@ -4045,28 +3750,15 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
                 HuTime.ContainerBase.prototype.removeContent.apply(this, arguments);
         }
     },
+
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-
-            tRatio: "tRatio",
-            minPnlT: null,
-            maxPnlT: null,
-
-            layers: null,
-            appendContent: null,
-            removeContent: null,
-            appendLayer: null,
-            removeLayer: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            tRatio: { value: "tRatio" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -4316,85 +4008,34 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.PanelBase.prototype,
-            _contents: function (obj) {
-                obj["contents"] = [];
-                for (var i = 0; i < this._contents.length; ++i) {
-                    if (this._contents[i].constructor.name != "PanelBorder")
-                        obj["contents"][i] = this._contents[i];
+        value: Object.create(HuTime.PanelBase.prototype._toJSONProperties, {
+            _contents: {
+                value: function (obj) {
+                    obj["contents"] = [];
+                    for (var i = 0; i < this._contents.length; ++i) {
+                        if (this._contents[i].constructor.name != "PanelBorder")
+                            obj["contents"][i] = this._contents[i];
+                    }
                 }
             },
-            _panelBorder: null,
-            panelBorderWidth: "panelBorderWidth",
+            panelBorderWidth: { value: "panelBorderWidth" },
+            _vBreadth: { value: "vBreadth" },
 
-            _vBreadth: "vBreadth",
-            vBreadth: null,
+            vBreadthTouchLoweLimit: { value: "vBreadthTouchLoweLimit" },
+            vBreadthUpperLimit: { value: "vBreadthUpperLimit" },
 
-            vBreadthTouchLoweLimit: "vBreadthTouchLoweLimit",
-            vBreadthUpperLimit: "vBreadthUpperLimit",
-            changeVBreadth: null,
-
-            _tilePanelVXYOrigin: null,
-            _updateCurrentVBreadth: null,
-            _updateCurrentVXYOrigin: null,
-            zIndex: null,
-            visible: null,
-
-            _repositionable: "repositionable",
-            repositionable: null,
-            _resizable: "resizable",
-            resizable: null,
-
-            _upperPanelIndex: null,
-            upperPanel: null,
-            _lowerPanelIndex: null,
-            lowerPanel: null,
-
-            isInsideXY: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            _repositionable: { value: "repositionable" },
+            _resizable: { value: "resizable" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.PanelBase.prototype,
-
-            vBreadth: "_vBreadth",
-            repositionable: "_repositionable",
-            resizable: "_resizable"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "TilePanel"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.TilePanel.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.TilePanel.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.PanelBase.prototype._parseJSONProperties, {
+            vBreadth: { value: "_vBreadth" },
+            repositionable: { value: "_repositionable" },
+            resizable: { value: "_resizable" }
+        })
     }
 });
-HuTime.TilePanel.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TilePanel();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** スライダ表示用パネル ********
 // マウス操作によるスライダの動作が他と異なるため、スライダを含むパネルであることをinstanceofで区別できるようにする
@@ -4909,91 +4550,22 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-
-            _fixedLayer: "fixedLayer",
-            fixedLayer: null,
-            _canvas: null,
-            canvas: null,
-
-            _minLyrT: null,
-            minLyrT: null,
-            _maxLyrT: null,
-            maxLyrT: null,
-            _lyrTResolution: null,
-            lyrTResolution: null,
-            _setT: null,
-            getXYFromT: null,
-            getTFromXY: null,
-
-            _vTop: "vTop",
-            vTop: null,
-            _vBottom: "vBottom",
-            vBottom: null,
-            _lyrVResolution: null,
-            lyrVResolution: null,
-            _setV: null,
-            _vForX: "vForX",
-            vForX: null,
-
-            getXYFromV: null,
-            getVFromXY: null,
-
-            objects: null,
-            appendContent: null,
-            removeContent: null,
-            appendObject: null,
-            removeObject: null,
-
-            clear: null,
-            _redrawBeforeChild: null,
-
-            _handleInnerEventBubbling: null,
-            _mouseEventCapture: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _fixedLayer: { value: "fixedLayer" },
+            _vTop: { value: "vTop" },
+            _vBottom: { value: "vBottom" },
+            _vForX: { value: "vForX"}
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            fixedLayer: "_fixedLayer",
-            vTop: "_vTop",
-            vBottom: "_vBottom",
-            vForX: "_vForX"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "Layer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.Layer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.Layer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            fixedLayer: { value: "_fixedLayer" },
+            vTop: { value: "_vTop" },
+            vBottom: { value: "_vBottom" },
+            vForX: { value: "_vForX" }
+        })
     }
 });
-HuTime.Layer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Layer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 座標の基底クラス ********
 HuTime.PositionBase = function PositionBase () {
@@ -5008,41 +4580,12 @@ HuTime.PositionBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name
-        };
+    _toJSONProperties: {
     },
-    parseJSON: function parseJSON (json) {
-    }
-};
-HuTime.PositionBase.createFromJSON = function createFromJSON (json ) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "TVPosition":
-            return HuTime.TVPosition.createFromJSON(json);
-
-        case "XYPosition":
-            return HuTime.XYPosition.createFromJSON(json);
-
-        case "RelativeTVPosition":
-            return HuTime.RelativeTVPosition.createFromJSON(json);
-
-        case "RelativeXYPosition":
-            return HuTime.RelativeXYPosition.createFromJSON(json);
-
-        case "PositionFloor":
-            return HuTime.PositionFloor.createFromJSON(json);
-
-        case "PositionCeil":
-            return HuTime.PositionCeil.createFromJSON(json);
-
-        case "PositionRound":
-            return HuTime.PositionRound.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -5125,29 +4668,17 @@ HuTime.TVPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.t = this._t;
-            obj.v = this._v;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _t: { value: "t" },
+            _v: { value: "v" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._t = json.t;
-            this._v = json.v;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TVPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TVPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** x-y座標系での絶対座標 ********
 HuTime.XYPosition = function XYPosition (x, y) {
@@ -5203,29 +4734,17 @@ HuTime.XYPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.x = this._x;
-            obj.y = this._y;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _x: { value: "x" },
+            _y: { value: "y" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._x = json.x;
-            this._y = json.y;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.XYPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.XYPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** t-v座標系での相対座標 ********
 // t値、v値の進む方向を正とした、基準座標からの相対位置（px単位）
@@ -5313,31 +4832,18 @@ HuTime.RelativeTVPosition.prototype = Object.create(HuTime.PositionBase.prototyp
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            obj.ofsT = this._ofsT;
-            obj.ofsV = this._ofsV;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsT: { value: "ofsT" },
+            _ofsV: { value: "ofsV" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-            this._ofsT = json.ofsT;
-            this._ofsV = json.ofsV;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RelativeTVPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RelativeTVPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** x-y座標系での相対座標 ********
 HuTime.RelativeXYPosition = function RelativeXYPosition (position, ofsX, ofsY) {
@@ -5404,31 +4910,18 @@ HuTime.RelativeXYPosition.prototype = Object.create(HuTime.PositionBase.prototyp
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            obj.ofsX = this._ofsX;
-            obj.ofsY = this._ofsY;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsX: { value: "ofsX" },
+            _ofsY: { value: "ofsY" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-            this._ofsX = json.ofsX;
-            this._ofsY = json.ofsY;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RelativeXYPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RelativeXYPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 座標の整数化 ********
 HuTime.PositionFloor = function PositionFloor (position) {
@@ -5467,27 +4960,21 @@ HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
-HuTime.PositionFloor.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionFloor();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PositionCeil = function PositionCeil (position) {
     this.position = position;
@@ -5525,27 +5012,21 @@ HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
-HuTime.PositionCeil.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionCeil();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PositionRound = function PositionRound (position) {
     this.position = position;
@@ -5583,27 +5064,16 @@ HuTime.PositionRound.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.PositionRound.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionRound();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 座標上の固定位置 ********
 HuTime.PositionConstant = {
@@ -5752,64 +5222,26 @@ HuTime.OnLayerObjectBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name,
-            id: this.id,
-            name: this.name,
-            position: this.position,
-            rotate: this.rotate,
-            style: this.style,
-            zIndex: this.zIndex,
-            visible: this._visible
-        };
+    _toJSONProperties: {
+        id: "id",
+        name: "name",
+        position: "position",
+        rotate: "rotate",
+        style: "style",
+        _visible: "visible",
+        processBeforeRedraw: "processBeforeRedraw",
+        processAfterRedraw: "processAfterRedraw",
+        _userEvents: function (obj) {
+            if (this._userEvents.length > 0)
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+        }
     },
-    parseJSON: function parseJSON (json) {
-        this.id = json.id;
-        this.name = json.name;
-        this.position = HuTime.PositionBase.createFromJSON(json.position);
-        this.rotate = json.rotate;
-        this.style = HuTime.Style.createFromJSON(json.style);
-        this.zIndex = json.zIndex;
-        this._visible = json.visible;
-    }
-};
-HuTime.OnLayerObjectBase.createFromJSON = function createFromJSON (json ) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "Line":
-            return HuTime.Line.createFromJSON(json);
-
-        case "Polygon":
-            return HuTime.Polygon.createFromJSON(json);
-
-        case "Square":
-            return HuTime.Square.createFromJSON(json);
-
-        case "Rect":
-            return HuTime.Rect.createFromJSON(json);
-
-        case "Circle":
-            return HuTime.Circle.createFromJSON(json);
-
-        case "Arc":
-            return HuTime.Arc.createFromJSON(json);
-
-        case "Pie":
-            return HuTime.Pie.createFromJSON(json);
-
-        case "Triangle":
-            return HuTime.Triangle.createFromJSON(json);
-
-        case "Image":
-            return HuTime.Image.createFromJSON(json);
-
-        case "String":
-            return HuTime.String.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+        visible: "_visible",
+        userEvents: null
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -5835,28 +5267,16 @@ HuTime.Line.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = [];
-            for (var i = 0; i < json.position.length; ++i) {
-                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
-            }
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Line.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Line();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** ポリゴンオブジェクト ****
 HuTime.Polygon = function Polygon (style, position) {
@@ -5880,28 +5300,16 @@ HuTime.Polygon.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = [];
-            for (var i = 0; i < json.position.length; ++i) {
-                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
-            }
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Polygon.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Polygon();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 正方形オブジェクト ****
 HuTime.Square = function Square (style, position, width, rotate) {
@@ -5931,30 +5339,19 @@ HuTime.Square.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Square.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Square();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 矩形オブジェクト ****
-HuTime.Rect = function Rect (style, position1, position2, width, rotate) {
+HuTime.Rect = function Rect (style, position1, position2, rotate) {
     this.position = position1;
     this.position2 = position2;
     this.style = style;
@@ -5981,27 +5378,16 @@ HuTime.Rect.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.position2 = this.position2;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position2: { value: "position2" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.position2 = HuTime.PositionBase.createFromJSON(json.position2);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Rect.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Rect();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 円オブジェクト ****
 HuTime.Circle = function Circle (style, positions, width) {
@@ -6030,27 +5416,16 @@ HuTime.Circle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Circle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Circle();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 円弧オブジェクト ****
 HuTime.Arc = function Arc (style, position, radius, startAngle, endAngle) {
@@ -6090,31 +5465,18 @@ HuTime.Arc.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.radius = this.radius;
-            json.startAngle = this.startAngle;
-            json.endAngle = this.endAngle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.radius = json.radius;
-            this.startAngle = json.startAngle;
-            this.endAngle = json.endAngle;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Arc.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Arc();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 扇形オブジェクト ****
 HuTime.Pie = function Pie (style, position, radius, startAngle, endAngle) {
@@ -6154,31 +5516,18 @@ HuTime.Pie.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.radius = this.radius;
-            json.startAngle = this.startAngle;
-            json.endAngle = this.endAngle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.radius = json.radius;
-            this.startAngle = json.startAngle;
-            this.endAngle = json.endAngle;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Pie.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Pie();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 三角形オブジェクト ****
 HuTime.Triangle = function Triangle (style, position, width, rotate) {
@@ -6208,27 +5557,16 @@ HuTime.Triangle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Triangle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Triangle();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 画像オブジェクト ****
 HuTime.Image = function Image (style, position, src, width, height, rotate) {
@@ -6281,35 +5619,25 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-
-            // 絶対パスのを出力
-            var elem = document.createElement("img");
-            elem.src = this.src;
-            json.src = elem.src;
-            json.width = this.width;
-            json.height = this.height;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            src: {
+                value: function (json) {
+                    // 絶対パスを出力
+                    var elem = document.createElement("img");
+                    elem.src = this.src;
+                    json.src = elem.src;
+                }
+            },
+            width: { value: "width" },
+            height: { value: "height" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.src = json.src;
-            this.width = json.width;
-            this.height = json.height;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Image.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Image();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 文字列オブジェクト ****
 HuTime.String = function String (style, position, text, rotate) {
@@ -6339,27 +5667,16 @@ HuTime.String.prototype = Object.create(HuTime.OnLayerObjectBase.prototype,{
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.text = this.text;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            text: { value: "text" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.text = json.text;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.String.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.String();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 図形描画 ********
 HuTime.Drawing = {
@@ -6836,27 +6153,6 @@ HuTime.Drawing = {
     }
 };
 
-//  ******** 書式（JSON出力用） ********
-HuTime.Style = function Style () {
-};
-HuTime.Style.prototype = {
-    constructor: HuTime.Style
-};
-HuTime.Style.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "FigureStyle":
-            return HuTime.FigureStyle.createFromJSON(json);
-
-        case "StringStyle":
-            return HuTime.StringStyle.createFromJSON(json);
-
-        default:
-            return null;
-    }
-};
-
 // ******** 図形の書式 ********
 HuTime.FigureStyle = function FigureStyle (fillColor, lineColor, lineWidth) {
     if (fillColor != undefined)
@@ -6959,34 +6255,11 @@ HuTime.FigureStyle.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        constructor: function (json) {
-            json["constructor"] = "FigureStyle";
-        },
         _lineWidth: "lineWidth",
-        lineWidth: null,
         lineColor: "lineColor",
         _lineDash: "lineDash",
-        lineDash: null,
         fillColor: "fillColor",
-        _alpha: "alpha",
-        alpha: null,
-
-        _applyStyle: null,
-        applyStyle: null,
-        defaultApplyStyle: null,
-
-        _applyFillStyle: null,
-        applyFillStyle: null,
-        defaultApplyFillStyle: null,
-
-        _applyLineStyle: null,
-        applyLineStyle: null,
-        defaultApplyLineStyle: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _alpha: "alpha"
     },
     _parseJSONProperties: {
         lineWidth: "_lineWidth",
@@ -6994,26 +6267,11 @@ HuTime.FigureStyle.prototype = {
         alpha: "_alpha"
     },
     toJSON: function toJSON () {
-        var json = {
-            constructor: "FigureStyle"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.FigureStyle.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
     parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.FigureStyle.prototype, json);
-        }
+        HuTime.JSON.parse(json, this);
     }
-};
-HuTime.FigureStyle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.FigureStyle();
-    obj.parseJSON(json);
-    return obj;
 };
 
 // ******** 文字列の書式 ********
@@ -7262,45 +6520,20 @@ HuTime.StringStyle.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        constructor: function (json) {
-            json["constructor"] = "StringStyle";
-        },
         _fontSize: "fontSize",
-        fontSize: null,
         _fontStyle: "fontStyle",
-        fontStyle: null,
         _fontWeight: "fontWeight",
-        fontWeight: null,
         _fontFamily: "fontFamily",
-        fontFamily: null,
         _fontVariant: "fontVariant",
-        fontVariant: null,
         _lineHeight: "lineHeight",
-        lineHeight: null,
-        font: null,
 
         _textAlign: "textAlign",
-        textAlign: null,
         _textBaseline: "textBaseline",
-        textBaseline: null,
 
         _fillColor: "fillColor",
-        fillColor: null,
         _lineWidth: "lineWidth",
-        lineWidth: null,
         _lineColor: "lineColor",
-        lineColor: null,
-        _alpha: "alpha",
-        alpha: null,
-
-        _applyStyle: null,
-        applyStyle: null,
-        defaultApplyStyle: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _alpha: "alpha"
     },
     _parseJSONProperties: {
         fontSize: "_fontSize",
@@ -7320,26 +6553,11 @@ HuTime.StringStyle.prototype = {
     },
 
     toJSON: function toJSON () {
-        var json = {
-            constructor: "StringStyle"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.StringStyle.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
     parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.StringStyle.prototype, json);
-        }
+        HuTime.JSON.parse(json, this);
     }
-};
-HuTime.StringStyle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.StringStyle();
-    obj.parseJSON(json);
-    return obj;
 };
 
 HuTime.Slider = function (vBreadth, vMarginTop, vMarginBottom) {
@@ -7977,71 +7195,16 @@ HuTime.ScalePosition.prototype = {
     },
 
     _toJSONProperties: {
-        layer: null,
         positionBegin: "positionBegin",
         positionEnd: "positionEnd",
-        _beginX: null,
-        beginX: null,
-        _beginY: null,
-        beginY: null,
-        _endX: null,
-        endX: null,
-        _endY: null,
-        endY: null,
-        _dX: null,
-        dX: null,
-        _dY: null,
-        dY: null,
-        _scaleLength: null,
-        scaleLength: null,
-        _rotate: null,
-        rotate: null,
-
         valueBegin: "valueBegin",
-        valueEnd: "valueEnd",
-        _dValue: null,
-        dValue: null,
-
-        update: null,
-        cnvXYPosition: null,
-        cnvX: null,
-        cnvY: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        valueEnd: "valueEnd"
     },
     _parseJSONProperties: {
-        positionBegin: function (json) {
-            this.positionBegin = HuTime.PositionBase.createFromJSON(json.positionBegin);
-        },
-        positionEnd: function (json) {
-            this.positionEnd = HuTime.PositionBase.createFromJSON(json.positionEnd);
-        }
     },
-
     toJSON: function toJSON () {
-        var json = {
-            constructor: "ScalePosition"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.ScalePosition.prototype, json);
-        }
-        return json;
-    },
-    parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.ScalePosition.prototype, json);
-        }
+        return HuTime.JSON.stringify(this);
     }
-};
-HuTime.ScalePosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.ScalePosition();
-    obj.parseJSON(json);
-    return obj;
 };
 
 // **** 目盛の書式 ****
@@ -8056,22 +7219,7 @@ HuTime.ScaleStyleBase.prototype = {
     _parseJSONProperties: {
     },
     toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name
-        };
-    },
-    parseJSON: function parseJSON (json) {
-    }
-};
-HuTime.ScaleStyleBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "TickScaleStyle":
-            return HuTime.TickScaleStyle.createFromJSON(json);
-
-        default:
-            return null;
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -8243,98 +7391,26 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleStyleBase.prototype,
-
-            axisStyle: "axisStyle",
-            defaultAxisStyle: null,
-            showAxis: "showAxis",
-
-            tickStyle: "tickStyle",
-            defaultTickStyle: null,
-            tickSize: "tickSize",
-            defaultTickSize: null,
-            tickPosition: "tickPosition",
-            tickOffset: "tickOffset",
-            applyScaleStyle: null,
-            defaultApplyScaleStyle: null,
-
-            labelStyle: "labelStyle",
-            defaultLabelStyle: null,
-            labelOffset: "labelOffset",
-
-            labelAlignOffset: "labelAlignOffset",
-
-            labelRotate: "labelRotate",
-            labelOnTick: "labelOnTick",
-            labelLineHeight: "labelLineHeight",
-            applyLabelStyle: null,
-            defaultApplyLabelStyle: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ScaleStyleBase.prototype._toJSONProperties, {
+            axisStyle: { value: "axisStyle" },
+            showAxis: { value: "showAxis" },
+            tickStyle: { value: "tickStyle" },
+            tickSize: { value: "tickSize" },
+            tickPosition: { value: "tickPosition" },
+            tickOffset: { value: "tickOffset" },
+            labelStyle: { value: "labelStyle" },
+            labelOffset: { value: "labelOffset" },
+            labelAlignOffset: { value: "labelAlignOffset" },
+            labelRotate: { value: "labelRotate" },
+            labelOnTick: { value: "labelOnTick" },
+            labelLineHeight: { value: "labelLineHeight" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleStyleBase.prototype,
-            axisStyle: function (json) {
-                this.axisStyle = HuTime.Style.createFromJSON(json.axisStyle);
-            },
-
-            tickStyle: function (json) {
-                if (json.tickStyle instanceof Array) {
-                    this.tickStyle = [];
-                    for (var i = 0; i < json.tickStyle.length; ++i) {
-                        this.tickStyle.push(HuTime.Style.createFromJSON(json.tickStyle[i]));
-                    }
-                }
-                else {
-                    this.tickStyle = HuTime.Style.createFromJSON(json.tickStyle);
-                }
-            },
-            labelStyle: function (json) {
-                if (json.labelStyle instanceof Array) {
-                    this.labelStyle = [];
-                    for (var i = 0; i < json.labelStyle.length; ++i) {
-                        this.labelStyle.push(HuTime.Style.createFromJSON(json.labelStyle[i]));
-                    }
-                }
-                else {
-                    this.labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
-                }
-            }
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "TickScaleStyle"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.TickScaleStyle.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.TickScaleStyle.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ScaleStyleBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TickScaleStyle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TickScaleStyle();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 目盛のデータ ****
 // 基底の目盛のデータセット
@@ -8350,39 +7426,11 @@ HuTime.ScaleDatasetBase.prototype = {
     },
 
     _toJSONProperties: {
-        getScaleData: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
     },
     _parseJSONProperties: {
     },
     toJSON: function toJSON () {
-        var json = {
-            constructor: "ManualScaleDataset"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
-        }
-        return json;
-    },
-    parseJSON: function parseJSON (json) {
-    }
-};
-HuTime.ScaleDatasetBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "StandardScaleDataset":
-            return HuTime.StandardScaleDataset.createFromJSON(json);
-
-        case "ManualScaleDataset":
-            return HuTime.ManualScaleDataset.createFromJSON(json);
-
-        default:
-            return null;
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -8508,51 +7556,18 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
         }
     },
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-
-            minCnvTickInterval: "minCnvTickInterval",
-            minLabeledLevel: "minLabeledLevel",
-            adjustTickIntervalToLabel: "adjustTickIntervalToLabel",
-            coefficientOfLabelSize: "coefficientOfLabelSize",
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            minCnvTickInterval: { value: "minCnvTickInterval" },
+            minLabeledLevel: { value: "minLabeledLevel" },
+            adjustTickIntervalToLabel: { value: "adjustTickIntervalToLabel" },
+            coefficientOfLabelSize: { value: "coefficientOfLabelSize" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "StandardScaleDataset"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.StandardScaleDataset.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.StandardScaleDataset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.StandardScaleDataset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 手動設定によりデータセット
 HuTime.ManualScaleDataset = function ManualScaleDataset () {
@@ -8588,50 +7603,15 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
         }
     },
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-            _scaleData: "scaleData",
-            scaleData: null,
-            appendScaleData: null,
-            getScaleData: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            _scaleData: { value: "scaleData" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "ManualScaleDataset"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.ManualScaleDataset.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.ManualScaleDataset.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.ManualScaleDataset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.ManualScaleDataset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 目盛レイヤ ****
 HuTime.TickScaleLayer = function TickScaleLayer (vBreadth, vMarginTop, vMarginBottom, scaleStyle, scaleDataset) {
@@ -8736,66 +7716,21 @@ HuTime.TickScaleLayer.prototype = Object.create(HuTime.Layer.prototype, {
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.Layer.prototype,
-            scaleDataset: "scaleDataset",
-            _scalePosition: "scalePosition",
-            scaleStyle: "scaleStyle",
-
-            processAfterRedraw: null,
-            _handleInnerEventBubbling: null,
-            mouseEventCapture: "mouseEventCapture",
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.Layer.prototype._toJSONProperties, {
+            scaleDataset: { value: "scaleDataset" },
+            _scalePosition: { value: "scalePosition" },
+            scaleStyle: { value: "scaleStyle" },
+            mouseEventCapture: { value: "mouseEventCapture" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.Layer.prototype,
-            scaleDataset: function (json) {
-                this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
-            },
-            scalePosition: function (json) {
-                this._scalePosition = HuTime.ScalePosition.createFromJSON(json.scalePosition);
-            },
-            scaleStyle: function (json) {
-                this.scaleStyle = HuTime.ScaleStyleBase.createFromJSON(json.scaleStyle);
-            }
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "TickScaleLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.TickScaleLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.TickScaleLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.Layer.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TickScaleLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TickScaleLayer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 目盛用カレンダーデータ
-HuTime.CalendarScaleDataset = function (calendarId) {
+HuTime.CalendarScaleDataset = function CalendarScaleDataset (calendarId) {
     this.getScaleData = this.defaultGetScaleData;
     if (calendarId)
         this.calendarId = calendarId;
@@ -9323,74 +8258,19 @@ HuTime.CalendarScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-
-            minCnvTickInterval: "minCnvTickInterval",
-            getScaleData: null,
-            _calendarId: "calendarId",
-            calendarId: null,
-            _labelFormat: null,
-            labelFormat: null,
-            _request: null,
-            _calendarData: null,
-            _min: null,
-            _max: null,
-            _interval: null,
-            _minTickInterval: null,
-
-            defaultGetScaleData: null,
-
-            loadScaleData: null,
-            loadEraScaleData: null,
-
-            onload: "onload",
-            ymdOnload: null,
-            eraOnload: null,
-
-            getDefaultCalendarData: null,
-            _calendarType: "calendarType",
-            calendarType: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            minCnvTickInterval: { value: "minCnvTickInterval" },
+            _calendarId: { value: "calendarId" },
+            //onload: { value: "onload" },
+            _calendarType: { value: "calendarType" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-            calendarId: "_calendarId",
-            calendarType: "_calendarType"
-        }
-    },
-    toJSON: {
-        value: function toJSON() {
-            var json = {
-                constructor: "CalendarScaleDataset"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+            calendarType: { value: "_calendarType" }
+        })
     }
 });
-HuTime.CalendarScaleDataset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarScaleDataset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 暦目盛の書式
 HuTime.CalendarLabelFormat = function (dataset) {
@@ -9575,56 +8455,16 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.TickScaleLayer.prototype,
-
-            _scaleDataset: "scaleDataset",
-            scaleDataset:  null,
-            calendarId:  null,
-            calendarType:  null,
-            labelFormat: null,
-            processAfterRedraw: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.TickScaleLayer.prototype._toJSONProperties, {
+            _scaleDataset: { value: "scaleDataset" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.TickScaleLayer.prototype,
-            scaleDataset: function (json) {
-                this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
-            }
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "CalendarScaleLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.TickScaleLayer.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.CalendarScaleLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarScaleLayer();
-    obj.parseJSON(json);
-    return obj;
-};
+
 // 範囲間の関係を示すデータ
 HuTime.TIntervalRelation = function(sub, rel, obj) {
     if (sub instanceof HuTime.TRange)
@@ -9956,19 +8796,19 @@ HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
 // レコードセットの基底クラス － 書式などの情報をレコードセットに埋め込む
 HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
     this.records = [];  // レコード配列の初期化
-    Object.defineProperty(this, "records", {writable: false});
+    //Object.defineProperty(this, "records", {writable: false});
 
     // t値範囲関係の初期設定
     this._itemShowReliableTRanges = {};
-    Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
     this.showReliableTRange = this._showReliableTRange;   // 初期値を設定
 
     this._itemShowPossibleTRanges = {};
-    Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
     this.showPossibleTRange = this._showPossibleTRange;   // 初期値を設定
 
     this._itemRangeStyles = {};
-    Object.defineProperty(this, "_itemRangeStyles", {writable: false});
+    //Object.defineProperty(this, "_itemRangeStyles", {writable: false});
     this.rangeStyle = this._rangeStyle;   // いったん初期値を設定する
 
     if (typeof source == "string" && source != "") {    // URLとしての入力
@@ -10089,7 +8929,6 @@ HuTime.RecordsetBase.prototype = {
         var record;
         var recordData;
         var itemData;
-        this.recordSettings._reader = this.reader;
         for (var i = 0; i < this.reader.recordData.length; ++i) {
             record = this.appendNewRecord(this.recordSettings._tSetting.getValue(this.reader.recordData[i]));
             for (var j = 0; j < this.recordSettings._dataSettings.length; ++j) {
@@ -10292,113 +9131,32 @@ HuTime.RecordsetBase.prototype = {
     drawRange: function (){},
 
     // **** JSON出力 ****
-    toJSON:  function toJSON() {
-        var prop;
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.visible = this.visible;
-        json.reader = this._reader;
-        json.recordSettings = this._recordSettings;
-        json.disableSortRecords = this.disableSortRecords;
-        json.showRecordset = this.showRecordset;
-
-        json.itemShowReliableTRanges = {};
-        for (prop in this._itemShowReliableTRanges) {
-            if (typeof this._itemShowReliableTRanges[prop] === "function")
-                json.itemShowReliableTRanges[prop] = this._itemShowReliableTRanges[prop].toString();
-            else
-                json.itemShowReliableTRanges[prop] = this._itemShowReliableTRanges[prop];
-        }
-        json.showReliableTRange = this._showReliableTRange;
-        json.itemShowPossibleTRanges = {};
-        for (prop in this._itemShowPossibleTRanges) {
-            if (typeof this._itemShowPossibleTRanges[prop] === "function")
-                json.itemShowPossibleTRanges[prop] = this._itemShowPossibleTRanges[prop].toString();
-            else
-                json.itemShowPossibleTRanges[prop] = this._itemShowPossibleTRanges[prop];
-        }
-        json.showPossibleTRange = this._showPossibleTRange;
-
-        json.hideTRangeNonRRange = this.hideTRangeNonRRange;
-        json.hideTRangeTotalPRangeOnly = this.hideTRangeTotalPRangeOnly;
-        json.hideTRangeNonCentralValue = this.hideTRangeNonCentralValue;
-        json.drawPRangeAsRRange = this.drawPRangeAsRRange;
-
-        json.itemRangeStyles = {};
-        for (prop in this._itemRangeStyles) {
-            if (typeof this._itemRangeStyles[prop] === "function")
-                json.itemRangeStyles[prop] = this._itemRangeStyles[prop].toString();
-            else
-                json.itemRangeStyles[prop] = this._itemRangeStyles[prop];
-        }
-        json.rangeStyle = this._rangeStyle;
-        json.rangeTickHeight = this._rangeTickHeight;
-
-        return json;
+    _toJSONProperties: {
+        visible: "visible",
+        _reader: "reader",
+        _recordSettings: "recordSettings",
+        disableSortRecords: "disableSortRecords",
+        showRecordset: "showRecordset",
+        _itemShowReliableTRanges: "itemShowReliableTRanges",
+        _showReliableTRange: "showReliableTRange",
+        _itemShowPossibleTRanges: "itemShowPossibleTRanges",
+        _showPossibleTRange: "showPossibleTRange",
+        hideTRangeNonRRange: "hideTRangeNonRRange",
+        hideTRangeTotalPRangeOnly: "hideTRangeTotalPRangeOnly",
+        hideTRangeNonCentralValue: "hideTRangeNonCentralValue",
+        drawPRangeAsRRange: "drawPRangeAsRRange",
+        _itemRangeStyles: "itemRangeStyles",
+        _rangeStyle: "rangeStyle",
+        _rangeTickHeight: "rangeTickHeight"
     },
-    parseJSON: function parseJSON (json) {
-        var prop;
-        this.visible = json.visible;
-        this.reader = HuTime.StreamReaderBase.createFromJSON(json.reader);
-
-        this._recordSettings = HuTime.RecordSettings.createFromJSON(json.recordSettings);
-        this.disableSortRecords = json.disableSortRecords;
-        this.showRecordset = json.showRecordset;
-
-        this._itemShowReliableTRanges = {};
-        for (prop in json.itemShowReliableTRanges) {
-            if (typeof json.itemShowReliableTRanges[prop] === "string"
-                && json.itemShowReliableTRanges[prop].substr(0, 8) == "function")
-                this._itemShowReliableTRanges[prop] = eval("(" + json.itemShowReliableTRanges[prop] + ")");
-            else
-                this._itemShowReliableTRanges[prop] = json.itemShowReliableTRanges[prop];
-        }
-        this._showReliableTRange = json.showReliableTRange;
-        this._itemShowPossibleTRanges = {};
-        for (prop in json.itemShowPossibleTRanges) {
-            if (typeof json.itemShowPossibleTRanges[prop] === "string"
-                && json.itemShowPossibleTRanges[prop].substr(0, 8) == "function")
-                this._itemShowPossibleTRanges[prop] = eval("(" + json.itemShowPossibleTRanges[prop] + ")");
-            else
-                this._itemShowPossibleTRanges[prop] = json.itemShowPossibleTRanges[prop];
-        }
-        this._showPossibleTRange = json.showPossibleTRange;
-
-        this.hideTRangeNonRRange = json.hideTRangeNonRRange;
-        this.hideTRangeTotalPRangeOnly = json.hideTRangeTotalPRangeOnly;
-        this.hideTRangeNonCentralValue = json.hideTRangeNonCentralValue;
-        this.drawPRangeAsRRange = json.drawPRangeAsRRange;
-
-        this._itemRangeStyles = {};
-        for (prop in json.itemRangeStyles) {
-            if (typeof json.itemRangeStyles[prop] === "string"
-                && json.itemRangeStyles[prop].substr(0, 8) == "function")
-                this._itemRangeStyles[prop] = eval("(" + json.itemRangeStyles[prop] + ")");
-            else
-                this._itemRangeStyles[prop] = HuTime.Style.createFromJSON(json.itemRangeStyles[prop]);
-        }
-        this._rangeStyle = json.rangeStyle;
-        this._rangeTickHeight = json.rangeTickHeight;
-    }
-};
-HuTime.RecordsetBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "ChartRecordset":
-            return HuTime.ChartRecordset.createFromJSON(json);
-
-        case "CalendarChartRecordset":
-            return HuTime.CalendarChartRecordset.createFromJSON(json);
-
-        case "TLineRecordset":
-            return HuTime.TLineRecordset.createFromJSON(json);
-
-        case "CalendarTLineRecordset":
-            return HuTime.CalendarTLineRecordset.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+        recordSettings: "_recordSettings",
+        itemShowReliableTRanges: "_itemShowReliableTRanges",
+        itemShowPossibleTRanges: "_itemShowPossibleTRanges",
+        itemRangeStyles: "_itemRangeStyles"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -10541,7 +9299,7 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // グラフ用の値関係の初期設定
     this._valueItems = [];
-    Object.defineProperty(this, "_valueItems", {writable: false});
+    //Object.defineProperty(this, "_valueItems", {writable: false});
 
     tBeginItem = this._validateItemName(tBeginItem);
     if (tBeginItem) {
@@ -10559,33 +9317,33 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // プロット関係の初期設定
     this._itemShowPlots = {};       // プロットの表示・非表示
-    Object.defineProperty(this, "_itemShowPlots", {writable: false});
+    //Object.defineProperty(this, "_itemShowPlots", {writable: false});
     this.showPlot = this.__proto__._showPlot;     // 初期値を設定
 
     this._itemPlotStyles = {};      // プロットの書式
-    Object.defineProperty(this, "_itemPlotStyles", {writable: false});
+    //Object.defineProperty(this, "_itemPlotStyles", {writable: false});
     this.plotStyle = this.__proto__._plotStyle;     // いったん初期値を設定
     this.plotStyle = plotStyle;
 
     this._itemPlotSymbols = {};     // プロットのシンボル
-    Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
+    //Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
     this.plotSymbol = this.__proto__._plotSymbol;     // 初期値を設定
 
     this._itemPlotWidths = {};      // プロットの大きさ
-    Object.defineProperty(this, "_itemPlotWidths", {writable: false});
+    //Object.defineProperty(this, "_itemPlotWidths", {writable: false});
     this.plotWidth = this.__proto__._plotWidth;
 
     this._itemPlotRotates = {};     // プロットの回転角
-    Object.defineProperty(this, "_itemPlotRotates", {writable: false});
+    //Object.defineProperty(this, "_itemPlotRotates", {writable: false});
     this.plotRotate = this.__proto__._plotRotate;
 
     // 線（プロット間の）関係の初期設定
     this._itemShowLines = {};       // 線の表示・非表示
-    Object.defineProperty(this, "_itemShowLines", {writable: false});
+    //Object.defineProperty(this, "_itemShowLines", {writable: false});
     this.showLine = this.__proto__._showLine;     // 初期値を設定
 
     this._itemLineStyles = {};      // 線の書式
-    Object.defineProperty(this, "_itemLineStyles", {writable: false});
+    //Object.defineProperty(this, "_itemLineStyles", {writable: false});
     this.lineStyle = this.__proto__._lineStyle;     // いったん初期値を設定
     this.lineStyle = lineStyle;
 };
@@ -11141,177 +9899,51 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var prop;
-            var json = HuTime.RecordsetBase.prototype.toJSON.apply(this);
-            json.selectRecord = this.selectRecord;
-            json.valueItems = this._valueItems;
-            json.showRecordsetPlot = this.showRecordsetPlot;
-            json.showRecordsetLine = this.showRecordsetLine;
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            selectRecord: { value: "selectRecord" },
+            _valueItems: { value: "valueItems" },
+            showRecordsetPlot: { value: "showRecordsetPlot" },
+            showRecordsetLine: { value: "showRecordsetLine" },
+            _itemShowPlots: { value: "itemShowPlots" },
+            _showPlot: { value: "showPlot" },
+            hidePlotNonRRange: { value: "hidePlotNonRRange" },
+            hidePlotTotalPRangeOnly: { value: "hidePlotTotalPRangeOnly" },
 
-            json.itemShowPlots = {};
-            for (prop in this._itemShowPlots) {
-                if (typeof this._itemShowPlots[prop] === "function")
-                    json.itemShowPlots[prop] = this._itemShowPlots[prop].toString();
-                else
-                    json.itemShowPlots[prop] = this._itemShowPlots[prop];
-            }
-            json.showPlot = this._showPlot;
-            json.hidePlotNonRRange = this.hidePlotNonRRange;
-            json.hidePlotTotalPRangeOnly = this.hidePlotTotalPRangeOnly;
-            json.itemPlotStyles = {};
-            for (prop in this._itemPlotStyles) {
-                if (typeof this._itemPlotStyles[prop] === "function")
-                    json.itemPlotStyles[prop] = this._itemPlotStyles[prop].toString();
-                else
-                    json.itemPlotStyles[prop] = this._itemPlotStyles[prop];
-            }
-            json.plotStyle = this._plotStyle;
-            json.itemPlotSymbols = {};
-            for (prop in this._itemPlotSymbols) {
-                if (typeof this._itemPlotSymbols[prop] === "function")
-                    json.itemPlotSymbols[prop] = this._itemPlotSymbols[prop].toString();
-                else
-                    json.itemPlotSymbols[prop] = this._itemPlotSymbols[prop];
-            }
-            json.plotSymbol = this._plotSymbol;
-            json.itemPlotWidths = {};
-            for (prop in this._itemPlotWidths) {
-                if (typeof this._itemPlotWidths[prop] === "function")
-                    json.itemPlotWidths[prop] = this._itemPlotWidths[prop].toString();
-                else
-                    json.itemPlotWidths[prop] = this._itemPlotWidths[prop];
-            }
-            json.plotWidth = this._plotWidth;
-            json.itemPlotRotates = {};
-            for (prop in this._itemPlotRotates) {
-                if (typeof this._itemPlotRotates[prop] === "function")
-                    json.itemPlotRotates[prop] = this._itemPlotRotates[prop].toString();
-                else
-                    json.itemPlotRotates[prop] = this._itemPlotRotates[prop];
-            }
-            json.plotRotate = this._plotRotate;
-            json.plotWidthType = this._plotWidthType;
+            _itemPlotStyles: { value: "itemPlotStyles" },
+            _plotStyle: { value: "plotStyle" },
+            _itemPlotSymbols: { value: "itemPlotSymbols" },
+            _plotSymbol: { value: "plotSymbol" },
+            _itemPlotWidths: { value: "itemPlotWidths" },
+            _plotWidth: { value: "plotWidth" },
+            _itemPlotRotates: { value: "itemPlotRotates" },
+            _plotRotate: { value: "plotRotate" },
+            _plotWidthType: { value: "plotWidthType" },
 
-            json.itemShowLines = {};
-            for (prop in this._itemShowLines) {
-                if (typeof this._itemShowLines[prop] === "function")
-                    json.itemShowLines[prop] = this._itemShowLines[prop].toString();
-                else
-                    json.itemShowLines[prop] = this._itemShowLines[prop];
-            }
-            json.showLine = this._showLine;
-            json.hideLineNonRRange = this.hideLineNonRRange;
-            json.hideLineTotalPRangeOnly = this.hideLineTotalPRangeOnly;
-            json.itemLineStyles = {};
-            for (prop in this._itemLineStyles) {
-                if (typeof this._itemLineStyles[prop] === "function")
-                    json.itemLineStyles[prop] = this._itemLineStyles[prop].toString();
-                else
-                    json.itemLineStyles[prop] = this._itemLineStyles[prop];
-            }
-            json.lineStyle = this._lineStyle;
-
-            return json;
-        }
+            _itemShowLines: { value: "itemShowLines" },
+            _showLine: { value: "showLine" },
+            hideLineNonRRange: { value: "hideLineNonRRange" },
+            hideLineTotalPRangeOnly: { value: "hideLineTotalPRangeOnly" },
+            _itemLineStyles: { value: "itemLineStyles" },
+            _lineStyle: { value: "lineStyle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.RecordsetBase.prototype.parseJSON.apply(this, arguments);
-            var i;
-            var prop;
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            valueItems: { value: "_valueItems" },
+            itemShowPlots: { value: "_itemShowPlots" },
+            itemPlotStyles: { value: "_itemPlotStyles" },
+            plotStyle: { value: "_plotStyle" },
+            itemPlotSymbols: { value: "_itemPlotSymbols" },
+            itemPlotWidths: { value: "_itemPlotWidths" },
+            itemPlotRotates: { value: "_itemPlotRotates" },
 
-            this.selectRecord = json.selectRecord;
-            this._valueItems = [];
-            for (i = 0; i < json.valueItems.length; ++i) {
-                if (typeof json.valueItems[i].order != "number" || !isFinite(json.valueItems[i].order))
-                    json.valueItems[i].order = Number.NaN;
-                this._valueItems.push(json.valueItems[i]);
-            }
-            this.showRecordsetPlot = json.showRecordsetPlot;
-            this.showRecordsetLine = json.showRecordsetLine;
-
-            this._itemShowPlots = {};
-            for (prop in json.itemShowPlots) {
-                if (typeof json.itemShowPlots[prop] === "string"
-                    && json.itemShowPlots[prop].substr(0, 8) == "function")
-                        this._itemShowPlots[prop] = eval("(" + json.itemShowPlots[prop] + ")");
-                else
-                    this._itemShowPlots[prop] = json.itemShowPlots[prop];
-            }
-            this._showPlot = json.showPlot;
-            this.hidePlotNonRRange = json.hidePlotNonRRange;
-            this.hidePlotTotalPRangeOnly = json.hidePlotTotalPRangeOnly;
-            this._itemPlotStyles = {};
-            for (prop in json.itemPlotStyles) {
-                if (typeof json.itemPlotStyles[prop] === "string"
-                    && json.itemPlotStyles[prop].substr(0, 8) == "function")
-                    this._itemPlotStyles[prop] = eval("(" + json.itemPlotStyles[prop] + ")");
-                else
-                    this._itemPlotStyles[prop] = HuTime.Style.createFromJSON(json.itemPlotStyles[prop]);
-            }
-            this._plotStyle = HuTime.Style.createFromJSON(json.plotStyle);
-            this._itemPlotSymbols = {};
-            for (prop in json.itemPlotSymbols) {
-                if (typeof json.itemPlotSymbols[prop] === "string"
-                    && json.itemPlotSymbols[prop].substr(0, 8) == "function")
-                    this._itemPlotSymbols[prop] = eval("(" + json.itemPlotSymbols[prop] + ")");
-                else
-                    this._itemPlotSymbols[prop] = json.itemPlotSymbols[prop];
-            }
-            this._plotSymbol = json.plotSymbol;
-            this._itemPlotWidths = {};
-            for (prop in json.itemPlotWidths) {
-                if (typeof json.itemPlotWidths[prop] === "string"
-                    && json.itemPlotWidths[prop].substr(0, 8) == "function")
-                    this._itemPlotWidths[prop] = eval("(" + json.itemPlotWidths[prop] + ")");
-                else
-                    this._itemPlotWidths[prop] = json.itemPlotWidths[prop];
-            }
-            this._plotWidth = json.plotWidth;
-            this._itemPlotRotates = {};
-            for (prop in json.itemPlotRotates) {
-                if (typeof json.itemPlotRotates[prop] === "string"
-                    && json.itemPlotRotates[prop].substr(0, 8) == "function")
-                    this._itemPlotRotates[prop] = eval("(" + json.itemPlotRotates[prop] + ")");
-                else
-                    this._itemPlotRotates[prop] = json.itemPlotRotates[prop];
-            }
-            this._plotRotate = json.plotRotate;
-            this._plotWidthType = json.plotWidthType;
-
-            this._itemShowLines = {};
-            for (prop in json.itemShowLines) {
-                if (typeof json.itemShowLines[prop] === "string"
-                    && json.itemShowLines[prop].substr(0, 8) == "function")
-                    this._itemShowLines[prop] = eval("(" + json.itemShowLines[prop] + ")");
-                else
-                    this._itemShowLines[prop] = json.itemShowLines[prop];
-            }
-            this._showLine = json.showLine;
-            this.hideLineNonRRange = json.hideLineNonRRange;
-            this.hideLineTotalPRangeOnly = json.hideLineTotalPRangeOnly;
-            this._itemLineStyles = {};
-            for (prop in json.itemLineStyles) {
-                if (typeof json.itemLineStyles[prop] === "string"
-                    && json.itemLineStyles[prop].substr(0, 8) == "function")
-                    this._itemLineStyles[prop] = eval("(" + json.itemLineStyles[prop] + ")");
-                else
-                    this._itemLineStyles[prop] = HuTime.Style.createFromJSON(json.itemLineStyles[prop]);
-            }
-            this._lineStyle = HuTime.Style.createFromJSON(json.lineStyle);
-        }
-
+            itemShowLines: { value: "_itemShowLines" },
+            itemLineStyles: { value: "_itemLineStyles" },
+            lineStyle: { value: "_lineStyle" }
+        })
     }
 });
-HuTime.ChartRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.ChartRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PlotSymbol = {   // シンボルの種類を表す定数
     Circle: 0,
@@ -11390,7 +10022,6 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.ChartRecord(null));
@@ -11447,36 +10078,24 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
                 }
                 this.onloadendCalendar();
             }
-
         }
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var json = HuTime.ChartRecordset.prototype.toJSON.apply(this);
-            json.calendarId = this.calendarId;
-            json.tBeginDataSetting = this._tBeginDataSetting;
-            json.tEndDataSetting = this._tEndDataSetting;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.ChartRecordset.prototype.parseJSON.apply(this, arguments);
-            this.calendarId = json.calendarId;
-            this._tBeginDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tBeginDataSetting);
-            this._tEndDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tEndDataSetting);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
     }
 });
-HuTime.CalendarChartRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarChartRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.ChartRecord = function ChartRecord(tRange) {
     HuTime.RecordBase.apply(this, arguments);
@@ -11712,49 +10331,27 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var prop;
-            var json = HuTime.RecordsetBase.prototype.toJSON.apply(this);
-
-            json.hideTRangeNonCentralValue = this.hideTRangeNonCentralValue;
-            json.showRecordAtTResolution = this._showRecordAtTResolution;
-            json.rangeStyle = this._rangeStyle;
-            json.bandBreadth = this._bandBreadth;
-
-            json.labelItem = this._labelItem;
-            json.showLabel = this._showLabel;
-            json.labelOffsetT = this._labelOffsetT;
-            json.labelOffsetV = this._labelOffsetV;
-            json.labelRotate = this._labelRotate;
-            json.labelStyle = this._labelStyle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            hideTRangeNonCentralValue: { value: "hideTRangeNonCentralValue" },
+            _showRecordAtTResolution: { value: "showRecordAtTResolution" },
+            _rangeStyle: { value: "rangeStyle" },
+            _bandBreadth: { value: "bandBreadth" },
+            _labelItem: { value: "labelItem" },
+            _showLabel: { value: "showLabel" },
+            _labelOffsetT: { value: "labelOffsetT" },
+            _labelOffsetV: { value: "labelOffsetV" },
+            _labelRotate: { value: "labelRotate" },
+            _labelStyle: { value: "labelStyle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.RecordsetBase.prototype.parseJSON.apply(this, arguments);
-            this.hideTRangeNonCentralValue = json.hideTRangeNonCentralValue;
-            this._showRecordAtTResolution = json.showRecordAtTResolution;
-            this._rangeStyle = HuTime.Style.createFromJSON(json.rangeStyle);
-            this._bandBreadth = json.bandBreadth;
-
-            this._labelItem = json.labelItem;
-            this._showLabel = json.showLabel;
-            this._labelOffsetT = json.labelOffsetT;
-            this._labelOffsetV = json.labelOffsetV;
-            this._labelRotate = json.labelRotate;
-            this._labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            rangeStyle: { value: "_rangeStyle" },
+            labelStyle: { value: "_labelStyle" }
+        })
     }
 });
-HuTime.TLineRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TLineRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 暦変換を含むレコードセット
 HuTime.CalendarTLineRecordset = function CalendarTLineRecordset(source, tBeginItem, tEndItem, label, calendarId, rangeStyle, labelStyle) {
@@ -11817,7 +10414,6 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.TLineRecord(null));
@@ -11878,31 +10474,20 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.TLineRecordset.prototype.toJSON.apply(this);
-            json.calendarId = this.calendarId;
-            json.tBeginDataSetting = this._tBeginDataSetting;
-            json.tEndDataSetting = this._tEndDataSetting;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.TLineRecordset.prototype.parseJSON.apply(this, arguments);
-            this.calendarId = json.calendarId;
-            this._tBeginDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tBeginDataSetting);
-            this._tEndDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tEndDataSetting);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
     }
 });
-HuTime.CalendarTLineRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarTLineRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
     topToBottom: 0,     // 上から下の順でプロットが描画する
@@ -13115,155 +11700,75 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.Layer.prototype,
-            fixedLayer: null,
+        value: Object.create(HuTime.Layer.prototype._toJSONProperties, {
+            _vTop: { value: "vTop" },
+            _vBottom: { value: "vBottom" },
+            _vForX: { value: "vForX" },
 
-            _vTop: "vTop",
-            _vBottom: "vBottom",
-            vTop: null,
-            vBottom: null,
-            _vForX: "vForX",
+            recordsets: { value: "recordsets" },
 
-            _syncInfoCanvas: null,
-            syncInfoCanvas: null,
-            _fixedInfoCanvas: null,
-            fixedInfoCanvas: null,
-            _systemCanvas: null,
-            systemCanvas: null,
+            allowHighlight: { value: "allowHighlight" },
+            highlightColor: { value: "highlightColor" },
+            selectRecord: { value: "selectRecord" },
 
-            recordsets: "recordsets",
-            appendRecordset: null,
-            removeRecordset: null,
-            updateRecordsets: null,
-            loadRecordsets: null,
+            showReliableTRange: { value: "showReliableTRange" },
+            showPossibleTRange: { value: "showPossibleTRange" },
+            showLine: { value: "showLine" },
+            showPlot: { value: "showPlot" },
 
-            allowHighlight: "allowHighlight",
-            highlightColor: "highlightColor",
-            selectRecord: "selectRecord",
+            showVScale: { value: "showVScale" },
+            vScales: {
+                value: function (json) {
+                    json.vScales = [];
+                    for (var i = 0; i < this.vScales.length; ++i) {
+                        json.vScales.push({});
+                        for (var prop in this.vScales[i]) {
+                            switch (prop) {     // 出力しない項目
+                                case "layer":
+                                    continue;
 
-            showReliableTRange: "showReliableTRange",
-            showPossibleTRange: "showPossibleTRange",
-            showLine: "showLine",
-            showPlot: "showPlot",
+                                case "updateStyle":
+                                    if (this.vScales[i][prop] ==
+                                        HuTime.RecordLayerBase.prototype.defaultUpdateVScaleStyle)
+                                        continue;
+                                    break;
 
-            showVScale: "showVScale",
-            vScales: function (json) {
-                json.vScales = [];
-                for (var i = 0; i < this.vScales.length; ++i) {
-                    json.vScales.push({});
-                    for (var prop in this.vScales[i]) {
-                        if (prop != "layer")
-                            json.vScales[i][prop] = this.vScales[i][prop];
+                                case "updateDatasetConfig":
+                                    if (this.vScales[i][prop] ==
+                                        HuTime.RecordLayerBase.prototype.defaultUpdateVScaleDatasetConfig)
+                                        continue;
+                                    break;
+                            }
+                            json.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
+                        }
                     }
                 }
             },
-            appendVScale: null,
-            removeVScale: null,
-            defaultUpdateVScaleStyle: null,
-            defaultUpdateVScaleDatasetConfig: null,
 
-            vScaleSide: null,
-            vScaleOffset: null,
-            vScaleBottom: null,
-            vScaleTop: null,
-            vScaleStyle: null,
-            vScaleDataset: null,
+            showVScaleLine: { value: "showVScaleLine" },
+            vScaleLine: { value: "vScaleLine" },
+            vScaleLineStyle: { value: "vScaleLineStyle" },
 
-            vScaleShowLegend: null,
-            vScaleLegend: null,
-            vScaleLegendOffset: null,
-            vScaleVisible: null,
-            vScaleUpdateStyle: null,
-            vScaleUpdateDatasetConfig: null,
-
-            showVScaleLine: "showVScaleLine",
-            vScaleLine: "vScaleLine",
-            vScaleLineStyle: "vScaleLineStyle",
-            defaultVScaleLineStyle: null,
-
-            _redrawBeforeChild: null,
-            _redrawContent: null,
-            _isRecordsSorted: null,
-
-            autoAdjustV: "autoAdjustV",
-            adjustV: null,
-
-            _sortRecords: null,
-            _drawRecordset: null,
-
-            _drawRecordRange: null,
-            _drawRecordLine: null,
-            _drawRecordPlot: null,
-
-            defaultDrawRange: null,
-            defaultDrawPlot: null,
-            defaultDrawLine: null,
-
-            _handleMouseEventBubbling: null,
-            _isInPlot: null,
-            _drawHighlight: null,
-            _getClickedRecords: null,
-            mouseEventCapture: "mouseEventCapture",
-            _handleInnerEventBubbling: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            autoAdjustV: { value: "autoAdjustV" },
+            mouseEventCapture: { value: "mouseEventCapture" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.Layer.prototype,
-            vTop: "_vTop",
-            vBottom: "_vBottom",
-            vForX: "_vForX",
-            recordsets: function (json) {
-                this.recordsets = [];
-                for (var i = 0; i < json.recordsets.length; ++i) {
-                    this.appendRecordset(
-                        HuTime.RecordsetBase.createFromJSON(json.recordsets[i]));
-                }
-                this.loadRecordsets();
-            },
-            vScales: function (json) {
-                this.vScales.length = 0;
-                for (var i = 0; i < json.vScales.length; ++i) {
-                    this.vScales.push({});
-                    this.vScales[i]["layer"] = this;
-                    for (var prop in json.vScales[i]) {
-                        if (prop == "dataset")
-                            this.vScales[i][prop]
-                                = HuTime.ScaleDatasetBase.createFromJSON(json.vScales[i][prop]);
-                        else if (prop == "style")
-                            this.vScales[i][prop]
-                                = HuTime.ScaleStyleBase.createFromJSON(json.vScales[i][prop]);
-                        else
-                            this.vScales[i][prop] = json.vScales[i][prop];
+        value: Object.create(HuTime.Layer.prototype._parseJSONProperties, {
+            vTop: { value: "_vTop" },
+            vBottom: { value: "_vBottom" },
+            vForX: { value: "_vForX" },
+            recordsets: {
+                value: function (json) {
+                    this.recordsets = [];
+                    for (var i = 0; i < json.recordsets.length; ++i) {
+                        this.appendRecordset(
+                            HuTime.JSON.parse(json.recordsets[i]));
                     }
+                    this.loadRecordsets();
                 }
             }
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "RecordLayerBase"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.RecordLayerBase.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.RecordLayerBase.prototype, json);
-            }
-        }
+        })
     }
 });
 
@@ -13827,97 +12332,22 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype,
-            vForX: null,
-            appendRecordset: null,
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+            useBandStyle: { value: "useBandStyle" },
+            plotInterval: { value: "plotInterval" },
+            padding: { value: "padding" },
+            showLabel: { value: "showLabel" },
+            plotDirection: { value: "plotDirection" },
 
-            useBandStyle: "useBandStyle",
-            plotInterval: "plotInterval",
-            padding: "padding",
-            showLabel: "showLabel",
-            plotDirection: "plotDirection",
-
-            showReliableTRange: "showReliableTRange",
-            showPossibleTRange: "showPossibleTRange",
-            showLine: null,
-            showPlot: null,
-
-            _sortedRecords: null,
-            _redrawBeforeChild: null,
-            _sortRecords: null,
-            _drawRecordset: null,
-            defaultDrawRange: null,
-            defaultDrawLabel: null,
-            _setGradation: null,
-
-            _isInPlot: null,
-            _drawHighlight: null,
-            _getClickedRecords: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            showReliableTRange: { value: "showReliableTRange" },
+            showPossibleTRange: { value: "showPossibleTRange" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "TLineLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.TLineLayer.prototype, json);
-            }
-            /*
-            var json = HuTime.RecordLayerBase.prototype.toJSON.apply(this);
-            json.useBandStyle = this.useBandStyle;
-            json.plotInterval = this.plotInterval;
-            json.padding = this.padding;
-            json.showLabel = this.showLabel;
-            json.plotDirection = this.plotDirection;
-
-            json.showReliableTRange = this.showReliableTRange;
-            json.showPossibleTRange = this.showPossibleTRange;
-            // */
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.TLineLayer.prototype, json);
-            }
-
-            /*
-            HuTime.RecordLayerBase.prototype.parseJSON.apply(this, arguments);
-
-            this.useBandStyle = json.useBandStyle;
-            this.plotInterval = json.plotInterval;
-            this.padding = json.padding;
-            this.padding = json.padding;
-            this.showLabel = json.showLabel;
-            this.showLabel = json.showLabel;
-            this.plotDirection = json.plotDirection;
-
-            this.showReliableTRange = json.showReliableTRange;
-            this.showPossibleTRange = json.showPossibleTRange;
-            // */
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TLineLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TLineLayer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 折れ線グラフ ****
 HuTime.LineChartLayer = function LineChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
@@ -14023,50 +12453,14 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype,
-            appendRecordset: null,
-            defaultDrawLine: null,
-            defaultDrawPlot: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "LineChartLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.LineChartLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.LineChartLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.LineChartLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.LineChartLayer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** プロットチャート ****
 HuTime.PlotChartLayer = function PlotChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
@@ -14088,45 +12482,14 @@ HuTime.PlotChartLayer.prototype = Object.create(HuTime.LineChartLayer.prototype,
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype,
-
-            showLine: null,
-            defaultDrawLine: null
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "PlotChartLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.PlotChartLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.PlotChartLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.PlotChartLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PlotChartLayer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 棒グラフ ****
 HuTime.BarChartLayer = function BarChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
@@ -14503,57 +12866,14 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype,
-
-            appendRecordset: null,
-            _drawRecordRange: null,
-            _drawRecordLine: null,
-            _drawRecordPlot: null,
-            defaultDrawLine: null,
-            defaultDrawPlot: null,
-
-            _isInPlot: null,
-            _drawHighlight: null,
-            _getClickedRecords: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.RecordLayerBase.prototype
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "BarChartLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.BarChartLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.BarChartLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.BarChartLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.BarChartLayer();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** ファイルの取得方法に応じた読み込み処理を提供 ****
 HuTime.StreamBase = function() {
@@ -14581,29 +12901,17 @@ HuTime.StreamBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        var json = {};
-        json.constructor = this.constructor.name;
-        var element = document.createElement("a");
-        element.href = this._source;
-        json.source = element.href;     // フルパスを入力
-        return json;
+    _toJSONProperties: {
+        _source: function (json) {
+            var element = document.createElement("a");
+            element.href = this._source;
+            json.source = element.href;     // フルパスを入力
+        }
     },
-    parseJSON: function parseJSON (json) {
-    }
-};
-HuTime.StreamBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "HttpStream":
-            return HuTime.HttpStream.createFromJSON(json);
-
-        case "FileStream":
-            return HuTime.FileStream.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -14661,24 +12969,15 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            return HuTime.StreamBase.prototype.toJSON.apply(this);
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._toJSONProperties, {
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.StreamBase.prototype.parseJSON.apply(this, arguments);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.FileStream.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.FileStream(json.source);
-    obj.parseJSON(json);
-    return obj;
-};
 
 // Web上からの読み込み
 HuTime.HttpStream = function HttpStream (source) {
@@ -14719,6 +13018,10 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             this.loadState = "ready";
         }
     },
+    _responseText: {
+        writable: true,
+        value: null
+    },
 
     // 基底クラスのオーバライド
     load: {
@@ -14742,24 +13045,15 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            return HuTime.StreamBase.prototype.toJSON.apply(this);
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._toJSONProperties, {
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.StreamBase.prototype.parseJSON.apply(this, arguments);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.HttpStream.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.HttpStream(json.source);
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** ファイルのタイプに応じた読み取り処理により、読み込んだデータを配列に展開 ****
 HuTime.StreamReaderBase = function StreamReaderBase (source) {
@@ -14814,33 +13108,18 @@ HuTime.StreamReaderBase.prototype = {
     _readRecordData: function() {},     // レコードセットの読み取り
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.stream = this._stream;
-        json.source = this._source;
-        return json;
+    _toJSONProperties: {
+        _stream: "stream",
+        _source: function (json) {
+            var element = document.createElement("a");
+            element.href = this._source;
+            json.source = element.href;     // フルパスを入力
+        }
     },
-    parseJSON: function parseJSON (json) {
-        this.stream = HuTime.StreamBase.createFromJSON(json.stream);
-        this.source = json.source;
-    }
-};
-HuTime.StreamReaderBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "CsvReader":
-            return HuTime.CsvReader.createFromJSON(json);
-
-        case "TsvReader":
-            return HuTime.TsvReader.createFromJSON(json);
-
-        case "TextReader":
-            return HuTime.TextReader.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -14987,29 +13266,17 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.StreamReaderBase.prototype.toJSON.apply(this);
-            json.isTitleRow = this.isTitleRow;
-            json.delimiter = this._delimiter;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamReaderBase.prototype._toJSONProperties, {
+            _isTitleRow: { value: "isTitleRow" },
+            _delimiter: { value: "delimiter" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.StreamReaderBase.prototype.parseJSON(this, arguments);
-            this._isTitleRow = json.isTitleRow;
-            this._delimiter = json.delimiter;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamReaderBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TextReader.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TextReader(json.source);
-    obj.parseJSON(json);
-    return obj;
-};
 
 // csvファイル（TextReaderの区切り記号を','に固定）
 HuTime.CsvReader = function CsvReader (source, isTitleRow) {
@@ -15028,15 +13295,18 @@ HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         get: function() {
             return this._delimiter;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.CsvReader.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CsvReader(json.source);
-    obj.parseJSON(json);
-    return obj;
-};
 
 // tsvファイル（TextReaderの区切り記号を'\t'に固定）
 HuTime.TsvReader = function TsvReader (source, isTitleRow) {
@@ -15055,15 +13325,18 @@ HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         get: function() {
             return this._delimiter;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TsvReader.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TsvReader(json.source);
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** Recordオブジェクト内のデータと読み込みデータの項目（列）との対応や生成方法を指定 ****
 HuTime.RecordSettingBase = function RecordSettingBase (itemName, getValue) {
@@ -15094,31 +13367,13 @@ HuTime.RecordSettingBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.itemName = this.itemName;
-        return json;
+    _toJSONProperties: {
+        itemName: "itemName"
     },
-    parseJSON: function parseJSON (json) {
-        this.itemName = json.itemName;
-    }
-};
-HuTime.RecordSettingBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "RecordDataSetting":
-            return HuTime.RecordDataSetting.createFromJSON(json);
-
-        case "RecordTSetting":
-            return HuTime.RecordTSetting.createFromJSON(json);
-
-        case "RecordTCalendarSetting":
-            return HuTime.RecordTCalendarSetting.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -15150,27 +13405,16 @@ HuTime.RecordDataSetting.prototype = Object.create(HuTime.RecordSettingBase.prot
         }
     },
 
-    toJSON: {
-        value: function toJSON() {
-            var json = HuTime.RecordSettingBase.prototype.toJSON.apply(this);
-            json.recordDataName = this.recordDataName;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._toJSONProperties, {
+            recordDataName: { value: "recordDataName" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.RecordSettingBase.prototype.parseJSON.apply(this, arguments);
-            this.recordDataName = json.recordDataName;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RecordDataSetting.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RecordDataSetting();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // t値の取得設定
 HuTime.RecordTSetting = function RecordTSetting (itemNameBegin, itemNameEnd, getValue) {
@@ -15205,29 +13449,17 @@ HuTime.RecordTSetting.prototype = Object.create(HuTime.RecordSettingBase.prototy
         }
     },
 
-    toJSON: {
-        value: function toJSON() {
-            var json = HuTime.RecordSettingBase.prototype.toJSON.apply(this);
-            json.itemNameBegin = this.itemNameBegin;
-            json.itemNameEnd = this.itemNameEnd;
-            return json;
+    _toJSONProperties: {
+        value: {
+            itemNameBegin: "itemNameBegin",
+            itemNameEnd: "itemNameEnd"
         }
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.RecordSettingBase.prototype.parseJSON.apply(this, arguments);
-            this.itemNameBegin = json.itemNameBegin;
-            this.itemNameEnd = json.itemNameEnd;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RecordTSetting.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RecordTSetting();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // t値の取得設定（暦データ）
 HuTime.RecordTCalendarSetting = function RecordTCalendarSetting (itemNameBegin, itemNameEnd, getValue) {
@@ -15256,25 +13488,15 @@ HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.pr
         }
     },
 
-    toJSON: {
-        value: function toJSON() {
-            var json = HuTime.RecordTSetting.prototype.toJSON.apply(this);
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordTSetting.prototype._toJSONProperties, {
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.RecordTSetting.prototype.parseJSON.apply(this, arguments);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordTSetting.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RecordTCalendarSetting.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RecordTCalendarSetting();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 設定を収容するコンテナ
 HuTime.RecordSettings = function RecordSettings () {
@@ -15301,25 +13523,14 @@ HuTime.RecordSettings.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.tSetting = this._tSetting;
-        json.dataSettings = this._dataSettings;
-        return json;
+    _toJSONProperties: {
+        _tSetting: "tSetting",
+        _dataSettings: "dataSettings"
     },
-    parseJSON: function parseJSON (json) {
-        if (json.tSetting)
-            this.tSetting = HuTime.RecordSettingBase.createFromJSON(json.tSetting);
-        for (var i = 0; i < json.dataSettings.length; ++i) {
-            this._dataSettings.push(HuTime.RecordSettingBase.createFromJSON(json.dataSettings[i]));
-        }
+    _parseJSONProperties: {
+        dataSettings: "_dataSettings"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
-};
-HuTime.RecordSettings.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RecordSettings();
-    obj.parseJSON(json);
-    return obj;
 };

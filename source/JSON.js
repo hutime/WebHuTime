@@ -1,222 +1,147 @@
+/*
+ 残作業
+ ＊データごとJSON化するか、ソースをJSON化するかを指定
+// */
 
 // JSON関係
 HuTime.JSON = {
     // シリアライズ
     stringify: function stringify (obj) {
-        return JSON.stringify(obj);
-    },
+        if (typeof obj === "undefined")     // undefined
+            return undefined;
+        if (obj == null)                    // null
+            return null;
+        if (typeof obj === "function")      // function
+            return obj.toString();
 
-    stringifyProperty: function stringifyProperty(prop, obj, ptype, json) {
-        if (ptype._toJSONProperties.hasOwnProperty(prop)) {  // 自身のプロパティ変換定義
-            if (ptype._toJSONProperties[prop] == null)
-                return;
-            if (typeof ptype._toJSONProperties[prop] === "string") {
-                if (obj[prop] == ptype[prop])
-                    return;
-                json[ptype._toJSONProperties[prop]] = obj[prop];
+        var json;   // 出力結果の収容用
+        var p;      // 再帰によるHuTime.JSON.stringigyの結果収容用
+        if (obj instanceof Array) {         // Array
+            json = [];
+            for (var i = 0; i < obj.length; ++i) {
+                p = HuTime.JSON.stringify(obj[i]);
+                if (typeof p !== "undefined")
+                    json.push(p);
             }
-            else if (typeof ptype._toJSONProperties[prop] === "function") {
-                ptype._toJSONProperties[prop].apply(obj, [json]);
-            }
+            return json;
         }
-        else {
-            if (ptype._toJSONProperties.hasOwnProperty("parentPrototype"))
-                return HuTime.JSON.stringifyProperty(prop, obj, ptype._toJSONProperties.parentPrototype, json);
+        if (typeof obj === "object") {      // object（Arrayを含む）
+            json = {};
+            if ("_toJSONProperties" in obj) {   // JSONへの変換テーブルあり -> HuTime関係のオブジェクト
+                json["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructerの名前を保存
+                for (var prop in obj) {
+                    switch (prop) {     // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                        case "_toJSONProperties":
+                        case "_parseJSONProperties":
+                        case "toJSON":
+                            continue;
+                    }
 
-            json[prop] = obj[prop];
+                    if (prop in obj._toJSONProperties) {     // JSONへの変換定義がある場合
+                        if (obj._toJSONProperties[prop] == null)          // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._toJSONProperties[prop] === "string") {    // 出力名が指定されている場合
+                            if (obj[prop] == obj.__proto__[prop])   // 既定値と同じ場合は出力しない
+                                continue;
+
+                            p = HuTime.JSON.stringify(obj[prop]);
+                            if (typeof p !== "undefined")
+                                json[obj._toJSONProperties[prop]] = p;
+                        }
+                        else if (typeof obj._toJSONProperties[prop] === "function") {     // 出力関数が指定されている場合
+                            obj._toJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {  // JSONへの変換定義が無い場合
+                        if (prop in obj.__proto__)
+                            continue;     // プロトタイプで定義されているのにJSONへの変換定義なし －＞ 出力しない
+                        json[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
+                    }
+                }
+            }
+            else {          // HuTime関係以外のオブジェクト
+                for (var prop in obj) {
+                    json[prop] = HuTime.JSON.stringify(obj[prop]);
+                }
+            }
+            return json;
         }
+        return obj;     // 数値、文字列など
     },
 
     // デシリアライズ
     parse: function parse (json) {
+        var p;
         var obj;
-        if (typeof json === "string")
-            json = JSON.parse(json);
-
-        /*
-         if (json instanceof Array) {
-         obj = [];
-         for (var i = 0; i < json.length; ++i) {
-         obj.push(HuTime.JSON.parse(json[i]));
-         }
-         return obj;
-         }
-         // */
-
-        if (!json.constructor)
-            return json;
-
-        var constructor = eval("HuTime." + json.constructor);
-        if (constructor == undefined)
-            return json;
-
-        obj = new constructor();
-        obj.parseJSON(json);
-        return obj;
-
-        /*
-         switch (json.constructor) {
-         // HuTime.ContainerBase
-         case "TilePanel":
-         return HuTime.TilePanel.createFromJSON(json);
-
-         case "Layer":
-         return HuTime.Layer.createFromJSON(json);
-
-         case "LineChartLayer":
-         return HuTime.LineChartLayer.createFromJSON(json);
-
-         case "PlotChartLayer":
-         return HuTime.PlotChartLayer.createFromJSON(json);
-
-         case "BarChartLayer":
-         return HuTime.BarChartLayer.createFromJSON(json);
-
-         case "TLineLayer":
-         return HuTime.TLineLayer.createFromJSON(json);
-
-         case "CalendarScaleLayer":
-         return HuTime.CalendarScaleLayer.createFromJSON(json);
-
-         case "TickScaleLayer":
-         return HuTime.TickScaleLayer.createFromJSON(json);
-
-         // HuTime.StreamBase
-         case "FileStream":
-         return HuTime.FileStream.createFromJSON(json);
-
-         case "HttpStream":
-         return HuTime.HttpStream.createFromJSON(json);
-
-         // HuTime.StreamReaderBase
-         case "TextReader":
-         return HuTime.TextReader.createFromJSON(json);
-
-         case "CsvReader":
-         return HuTime.CsvReader.createFromJSON(json);
-
-         case "TsvReader":
-         return HuTime.TsvReader.createFromJSON(json);
-
-         // HuTime.RecordSettingBase
-         case "RecordDataSetting":
-         return HuTime.RecordDataSetting.createFromJSON(json);
-
-         case "RecordTSetting":
-         return HuTime.RecordTSetting.createFromJSON(json);
-
-         case "RecordTCalendarSetting":
-         return HuTime.RecordTCalendarSetting.createFromJSON(json);
-
-         // HuTime.RecordSettings
-         case "RecordSettings":
-         return HuTime.RecordSettings.createFromJSON(json);
-
-         // HuTime.RecordsetBase
-         case "ChartRecordset":
-         return HuTime.ChartRecordset.createFromJSON(json);
-
-         case "CalendarChartRecordset":
-         return HuTime.CalendarChartRecordset.createFromJSON(json);
-
-         case "TLineRecordset":
-         return HuTime.TLineRecordset.createFromJSON(json);
-
-         case "CalendarTLineRecordset":
-         return HuTime.CalendarTLineRecordset.createFromJSON(json);
-
-         // HuTime.ScalePosition
-         case "ScalePosition":
-         return HuTime.ScalePosition.createFromJSON(json);
-
-         // HuTime.ScaleStyleBase
-         case "ScaleStyleBase":
-         return HuTime.ScaleStyleBase.createFromJSON(json);
-
-         // HuTime.PositionBase
-         case "TVPosition":
-         return HuTime.TVPosition.createFromJSON(json);
-
-         case "XYPosition":
-         return HuTime.XYPosition.createFromJSON(json);
-
-         case "RelativeTVPosition":
-         return HuTime.RelativeTVPosition.createFromJSON(json);
-
-         case "RelativeXYPosition":
-         return HuTime.RelativeXYPosition.createFromJSON(json);
-
-         case "PositionFloor":
-         return HuTime.PositionFloor.createFromJSON(json);
-
-         case "PositionCeil":
-         return HuTime.PositionCeil.createFromJSON(json);
-
-         case "PositionRound":
-         return HuTime.PositionRound.createFromJSON(json);
-
-         // HuTime.OnLayerObjectBase
-         case "Line":
-         return HuTime.Line.createFromJSON(json);
-
-         case "Polygon":
-         return HuTime.Polygon.createFromJSON(json);
-
-         case "Square":
-         return HuTime.Square.createFromJSON(json);
-
-         case "Rect":
-         return HuTime.Rect.createFromJSON(json);
-
-         case "Circle":
-         return HuTime.Circle.createFromJSON(json);
-
-         case "Arc":
-         return HuTime.Arc.createFromJSON(json);
-
-         case "Pie":
-         return HuTime.Pie.createFromJSON(json);
-
-         case "Triangle":
-         return HuTime.Triangle.createFromJSON(json);
-
-         case "Image":
-         return HuTime.Image.createFromJSON(json);
-
-         case "String":
-         return HuTime.String.createFromJSON(json);
-
-         // HuTime.Style
-         case "FigureStyle":
-         return HuTime.FigureStyle.createFromJSON(json);
-
-         case "StringStyle":
-         return HuTime.StringStyle.createFromJSON(json);
-
-         default:
-         return JSON.parse(json);
-         }
-         // */
-    },
-
-    parseProperty: function parseProperty (prop, obj, ptype, json) {
-        if (prop == "constructor")
-            return;
-        if (ptype._parseJSONProperties.hasOwnProperty(prop)) {
-            if (ptype._parseJSONProperties[prop] == null)
-                return;
-            if (typeof ptype._parseJSONProperties[prop] === "string") {
-                obj[ptype._parseJSONProperties[prop]] = json[prop];
+        var prop;
+        if (typeof json === "string") {
+            try {           // jsonをいったん標準的な方法でparseseする
+                p = JSON.parse(json);
+                json = p;
             }
-            else if (typeof ptype._parseJSONProperties[prop] === "function") {
-                ptype._parseJSONProperties[prop].apply(obj, [json]);
+            catch (e) {     // JSONとしてパースできない（JSONでない生の値 -> そのまま）
             }
         }
-        else {
-            if (ptype._parseJSONProperties.hasOwnProperty("parentPrototype"))
-                return HuTime.JSON.parseProperty(prop, obj, ptype._parseJSONProperties.parentPrototype, json);
-            obj[prop] = json[prop];
+
+        if (typeof json === "undefined")
+            return undefined;
+        if (json == null)                   // null
+            return null;
+        if (json instanceof Array) {        // Array
+            obj = [];
+            for (var i = 0; i < json.length; ++i) {
+                obj.push(HuTime.JSON.parse(json[i]));
+            }
+            return obj;
         }
+        if (typeof json === "object") {     // オブジェクト一般
+            // オブジェクトの生成
+            if (typeof json.constructor === "string") {     // HuTime関係のオブジェクト
+                var constructor = eval("HuTime." + json.constructor);
+                if (constructor == undefined)
+                    obj = {};   // コンストラクタの取得失敗
+                else
+                    obj = new constructor();
+            }
+            else {      // HuTime関係以外のオブジェクト
+                obj = {};
+            }
+
+            // 各プロパティのデシリアライズ
+            if ("_parseJSONProperties" in obj) {    // 出力指定がある場合（HuTime関係のオブジェクト）
+                for (prop in json) {
+                    switch (prop) {             // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                            continue;
+                    }
+
+                    if (prop in obj._parseJSONProperties) {     // 出力指定がある場合
+                        if (obj._parseJSONProperties[prop] == null)   // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._parseJSONProperties[prop] === "string") {     // 出力方法が文字列指定
+                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(json[prop]);
+                        }
+                        else if (typeof obj._parseJSONProperties[prop] === "function") {  // 出力方法が関数指定
+                            obj._parseJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {      // 出力指定が無い場合は、プロパティ名をそのまま利用
+                        obj[prop] = HuTime.JSON.parse(json[prop]);
+                    }
+                }
+            }
+            else {      // 出力指定が無い場合（HuTime関係以外のオブジェクト）
+                for (var prop in json) {
+                    obj[prop] = HuTime.JSON.parse(json[prop]);
+                }
+            }
+
+            return obj;
+        }
+        if (typeof json === "string" && json.substr(0, 8) == "function")    // function
+            return eval("(" + json + ")");
+        return json;        // その他（数値、文字列など）
     },
 
     // シリアライズデータの保存

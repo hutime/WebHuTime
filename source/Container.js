@@ -608,106 +608,34 @@ HuTime.ContainerBase.prototype = {
         name: "name",
         _contents: function (obj) {
             if (this._contents.length > 0)
-                obj["contents"] = this._contents;
+                obj["contents"] = HuTime.JSON.stringify(this._contents);
         },
-        contents: null,
-        _element: null,
-        element: null,
         style: function (obj) {
             obj["style"] = this._element.style.cssText;
         },
 
         _tRotation: "tRotation",
-        tRotation: null,
         _tDirection: "tDirection",
-        tDirection: null,
-        displayMode: null,
-        _setDisplayMode: null,
         _tLength: "tLength",
-        tLength: null,
-        _currentTXYOrigin: null,
-        currentTXYOrigin: null,
-        _currentTLength: null,
-        currentTLength: null,
-        _updateCurrentTLength: null,
-
-        vBreadthDefault: null,
         _vBreadth: "vBreadth",
-        vBreadth: null,
         _vMarginTop: "vMarginTop",
-        vMarginTop: null,
         _vMarginBottom: "vMarginBottom",
-        vMarginBottom: null,
         _vMarginForX: "vMarginForX",
-        vMarginForX: null,
-
-        _currentVXYOrigin: null,
-        currentVXYOrigin: null,
-        _currentVBreadth: null,
-        currentVBreadth: null,
-        _updateCurrentVBreadth: null,
-        _updateCurrentVXYOrigin: null,
-
-        zIndex: null,
         _visible: "visible",
-        visible: null,
-
-        _parent: null,
-        parent: null,
-        _setParent: null,
-        _hutimeRoot: null,
-        hutimeRoot: null,
-        _setHutimeRoot: null,
-        _captureElement: null,
-        captureElement: null,
-        _setCaptureElement: null,
-
-        appendContent: null,
-        removeContent: null,
-        _contentsIndex: null,
-        contentIndex: null,
-
-        redraw: null,
-        _redrawBeforeChild: null,
-        _redrawContent: null,
-        _redrawAfterChild: null,
         processBeforeRedraw: "processBeforeRedraw",
         processAfterRedraw: "processAfterRedraw",
-        compZIndex: null,
-        clear: null,
 
         _userEvents: function (obj) {
             if (this._userEvents.length > 0)
-                obj["userEvents"] = this._userEvents;
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
         },
-        addEventListener: null,
-        dispatchEvent: null,
-        _handleInnerEvent: null,
-        _handleInnerEventCapture: null,
-        _handleInnerEventBubbling: null,
-        _handleEvent: null,
-
-        _isMouseIn: null,
-        _mouseEventCapture: "mouseEventCapture",
-        mouseEventCapture: null,
-        _handleMouseEvent: null,
-        _handleMouseEventCapture: null,
-        _handleMouseEventBubbling: null,
-        isInsideXY: null,
-        _extractInnerTouchEvent: null,
-        _extractMouseEvent: null,
-        _addEventInfos: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _mouseEventCapture: "mouseEventCapture"
     },
     _parseJSONProperties: {
         contents: function (json) {
             var content;
             for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.ContainerBase.createFromJSON(json.contents[i]);
+                content = HuTime.JSON.parse(json.contents[i]);
                 if (content)
                     this.appendContent(content);
             }
@@ -729,53 +657,9 @@ HuTime.ContainerBase.prototype = {
         userEvents: null,
         mouseEventCapture:"_mouseEventCapture"
     },
-
     toJSON: function toJSON () {
-        var json = {
-            constructor: "ContainerBase"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.ContainerBase.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
-    parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.ContainerBase.prototype, json);
-        }
-    }
-};
-HuTime.ContainerBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "Layer":
-            return HuTime.Layer.createFromJSON(json);
-
-        case "LineChartLayer":
-            return HuTime.LineChartLayer.createFromJSON(json);
-
-        case "PlotChartLayer":
-            return HuTime.PlotChartLayer.createFromJSON(json);
-
-        case "BarChartLayer":
-            return HuTime.BarChartLayer.createFromJSON(json);
-
-        case "TLineLayer":
-            return HuTime.TLineLayer.createFromJSON(json);
-
-        case "TickScaleLayer":
-            return HuTime.TickScaleLayer.createFromJSON(json);
-
-        case "CalendarScaleLayer":
-            return HuTime.CalendarScaleLayer.createFromJSON(json);
-
-        case "TilePanel":
-            return HuTime.TilePanel.createFromJSON(json);
-
-        default:
-            return null;
-    }
 };
 
 // ******** パネルコレクション ********
@@ -832,15 +716,15 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     // **** 書式 ****
     displayMode: {
-        get: function() {
+        get: function () {
             return this._tRotation * 2 + this._tDirection;
         },
-        set: function(val) {  // PanelCollectionでのみ設定可能
+        set: function (val) {  // PanelCollectionでのみ設定可能
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 3)
                 return;
             this._tDirection = val % 2;
             this._tRotation = (val - this._tDirection) / 2;
-            for (var i = this._contents.length; i--; ) {    // 子オブジェクトの値を変更
+            for (var i = this._contents.length; i--;) {    // 子オブジェクトの値を変更
                 this._setDisplayMode(this._tRotation, this._tDirection);
             }
         }
@@ -850,19 +734,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 600
     },
     tLengthDefault: {
-        get: function() {
+        get: function () {
             return this._tLengthDefault;
         },
-        set: function(val) {
+        set: function (val) {
             if (isFinite(val) && (typeof val) == "number")
                 this._tLengthDefault = val;
         }
     },
     tLength: {
-        get: function() {
+        get: function () {
             return this._tLength;
         },
-        set: function(val) {
+        set: function (val) {
             this._tLength = val;
             // 異常値は_updateCurrentTLengthで_tLengthDefaultに置き換えられる
         }
@@ -872,7 +756,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1    // 既定値：親要素に合わせる
     },
     tLengthMode: {
-        get: function() {
+        get: function () {
             return this._tLengthMode;
         },
         set: function (val) {
@@ -883,7 +767,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
 
     _updateCurrentTLength: {
-        value: function() {
+        value: function () {
             var isTLengthChanged = false;
             if (this.tLengthMode != 0) {
                 if (this._tRotation == 1) {
@@ -900,8 +784,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                         }
                     }
                 }
-                else
-                if (this._currentTLength != this._element.parentNode.clientWidth) {
+                else if (this._currentTLength != this._element.parentNode.clientWidth) {
                     isTLengthChanged = true;
                     this._currentTLength = this._element.parentNode.clientWidth;  // 現在の表示幅を使う
                 }
@@ -933,10 +816,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 2    // 既定値：内包するパネルに合わせる
     },
     vBreadthMode: {
-        get: function() {
+        get: function () {
             return this._vBreadthMode;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 2)
                 return;
             this._vBreadthMode = val;
@@ -948,7 +831,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     panelsVBreadth: {
-        get: function() {
+        get: function () {
             return this._panelsVBreadth;
         }
     },
@@ -957,18 +840,18 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     vScrolled: {
-        get: function() {
+        get: function () {
             return this._vScrolled;
         }
     },
     _updatePanelsVBreadth: {       // 内包するタイルパネルの幅の合計を設定（contentsのソート後に処理のこと）
-        value: function() {
+        value: function () {
             var i;
             var upperPanelIndex = null;  // タイルパネルでの上（左）のパネルの_contents配列内の位置（最上端用に初期値null）
 
             this._panelsVBreadth = 0;
             // パネルの位置設定と幅の取得
-            for (i = this._contents.length; i--; ) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
+            for (i = this._contents.length; i--;) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -994,7 +877,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     = (this.vBreadth != null && isFinite(this.vBreadth)) ? this.vBreadth : this.vBreadthDefault;
             }
             // タイルパネル以外の処理current値の更新（_panelsVBreadthが決まらないと決定できないため）
-            for (i = this._contents.length; i--; ) {
+            for (i = this._contents.length; i--;) {
                 if (!(this._contents[i] instanceof HuTime.TilePanel)) {   // タイルパネル以外（オーバレイパネル）
                     this._contents[i]._updateCurrentVXYOrigin();
                     this._contents[i]._updateCurrentVBreadth();
@@ -1003,12 +886,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _updateCurrentVXYOrigin: {
-        value: function() {    // xy座標に変換されたContainerBaseの表示位置 (px)
+        value: function () {    // xy座標に変換されたContainerBaseの表示位置 (px)
             this._currentVXYOrigin = 0;   // 常に0
         }
     },
     _updateCurrentVBreadth: {
-        value: function() {
+        value: function () {
             this._updatePanelsVBreadth();      // 各パネルの位置決定と幅の合計値を取得
             switch (this.vBreadthMode) {
                 case 0:     // 固定モード
@@ -1021,8 +904,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 case 1:     // 親要素に合わせる場合
                     if (this._tRotation == 1)
                         this._currentVBreadth = this._element.parentNode.clientWidth;
-                    else
-                    if (this._element.parentNode.style.height)
+                    else if (this._element.parentNode.style.height)
                         this._currentVBreadth = this._element.parentNode.clientHeight;
                     else
                         this._currentVBreadth = this.vBreadthDefault;
@@ -1086,11 +968,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _setPanelVBreadth: {    // パネルの表示位置や大きさを反映させる
-        value: function() {
+        value: function () {
             this._updateCurrentVXYOrigin();
             this._updateCurrentVBreadth();
 
-            for (var i = this._contents.length; i--; ) {
+            for (var i = this._contents.length; i--;) {
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -1106,7 +988,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _drawHuTimeLogo: {   // HuTimeのロゴを表示
-        value: function(x, y) {
+        value: function (x, y) {
             var ctx;
             ctx = this._captureElement.getContext('2d');
             ctx.fillStyle = "rgb(51, 51, 51)";
@@ -1174,10 +1056,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: true
     },
     vScrollable: {
-        get: function() {
+        get: function () {
             return this._vScrollable;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "boolean")
                 return;
             this._vScrollable = val;
@@ -1489,7 +1371,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginY;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){
+                            this._tSwipeAnimationTimer = setInterval(function (e) {
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneY;
                             }.bind(this, ev), 100);
                         }
@@ -1508,7 +1390,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginX;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){   // 移動量履歴の保存
+                            this._tSwipeAnimationTimer = setInterval(function (e) {   // 移動量履歴の保存
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneX;
                             }.bind(this, ev), 100);
                         }
@@ -1629,7 +1511,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 8
     },
     isInsideXY: {   // パネル幅変更時に_captureElementを変える場合があるため、_captureElementで領域を判断
-        value: function(x, y) {
+        value: function (x, y) {
             if (this._tRotation == 1)
                 return (x < this._captureElement.width && x >= 0);  // _currentVXYOriginは0で固定されているので参照省略
             else
@@ -1654,7 +1536,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 for (var i = 0; i < this._contents.length; ++i) {
                     if (this._contents[i]._visible) {
                         if (this._tRotation == 1)
-                            this._contents[i]._extractInnerTouchEvent(ev, eventX  - this._currentVXYOrigin, eventY);
+                            this._contents[i]._extractInnerTouchEvent(ev, eventX - this._currentVXYOrigin, eventY);
                         else
                             this._contents[i]._extractInnerTouchEvent(ev, eventX, eventY - this._currentVXYOrigin);
                     }
@@ -1668,7 +1550,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸 zoom **
     _pinchZoom: {
-        value: function _pinchZoom(ev, eventX, eventY, targetPanel){
+        value: function _pinchZoom(ev, eventX, eventY, targetPanel) {
 
             var currentTOne, currentTTwo;
             var newTPerXY, newMinT, newMaxT;
@@ -1713,9 +1595,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     newMinT = newTPerXY * this._currentTLength + newMaxT;
                     break;
             }
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -1723,9 +1605,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -1742,7 +1624,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0.02
     },
     _wheelZoom: {    // ホイールによるzoom操作
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var zoomDelta = this.wheelZoomRatio;
             zoomDelta *= ev.deltaY > 0 ? 1 : -1;
 
@@ -1773,9 +1655,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // マウスポインタの位置（currentT）を基準にZoomする（hutimeRootのx座標値を書き換える）
             var newMinT = zoomDelta * (this._hutimeRoot.minT - currentT) + this._hutimeRoot.minT;
             var newMaxT = zoomDelta * (this._hutimeRoot.maxT - currentT) + this._hutimeRoot.maxT;
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -1783,9 +1665,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -1800,13 +1682,13 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸移動 **
     _startTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveStartイベント）を発火
                 HuTime.InnerEvent.createWithT("tmovestart", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
         }
     },
     _progressTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var deltaT;
             switch (this.displayMode) {
                 case 0:
@@ -1841,11 +1723,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
-            else if(newMinT < this._hutimeRoot.minTLimit) {
+            else if (newMinT < this._hutimeRoot.minTLimit) {
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxT;
             }
-            else if(newMaxT > this._hutimeRoot.maxTLimit) {
+            else if (newMaxT > this._hutimeRoot.maxTLimit) {
                 newMinT = this._hutimeRoot.minT;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
@@ -1854,15 +1736,17 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 HuTime.InnerEvent.createWithT("tmove", this, newMinT, newMaxT));
 
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() { obj._handleTimeout("tmovestop", obj); },
+                    function () {
+                        obj._handleTimeout("tmovestop", obj);
+                    },
                     obj._hutimeRoot.mouseTimeOut);
             }(this);
         }
     },
     _endTMove: {     // t軸移動確定
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveEndイベント）を発火
                 HuTime.InnerEvent.createWithT("tmoveend", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
             this._dragDirection = null;     // ドラッグの方向を未決に戻す
@@ -1896,7 +1780,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** v軸移動 **
     _progressVScroll: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var vScrolledOld = this._vScrolled;     // 移動量を検出するため、前の値を保存
             if (this._tRotation == 1) {
                 this._vScrolled += ev._offsetX - this._dragOriginX;
@@ -1938,12 +1822,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endVScroll: {
-        value: function() {
+        value: function () {
             this.scrollTilePanels();
         }
     },
     scrollTilePanels: {
-        value: function(deltaV) {
+        value: function (deltaV) {
             if (!deltaV || !isFinite(deltaV))
                 return;     // deltaV = 0 の場合（!deltaV）も該当
 
@@ -1981,7 +1865,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1.0
     },
     _startPanelOrderChange: {    // 変更開始（対象のパネルの書式変更）（shift+mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (targetPanel.repositionable) {
                 if (ev instanceof HuTime.MouseEvent)
                     this._captureElement.style.cursor = "pointer";  // カーソル変更
@@ -1994,7 +1878,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelOrderChange: { // 変更中（shift+mousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var left = parseFloat(this._panelOrderChanging._element.style.left);
             var top = parseFloat(this._panelOrderChanging._element.style.top);
 
@@ -2002,7 +1886,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += eventX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += eventY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = eventX;
                 this._dragOriginY = eventY;
             }
@@ -2010,19 +1894,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += ev.originalEvent.offsetX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += ev.originalEvent.offsetY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = ev.originalEvent.offsetX;
                 this._dragOriginY = ev.originalEvent.offsetY;
             }
             clearTimeout(this._mouseTimer);
 
-            this._mouseTimer = setTimeout(function (){
+            this._mouseTimer = setTimeout(function () {
                 this._endPanelOrderChange(ev, eventX, eventY, this._panelOrderChanging);
             }.bind(this), this._hutimeRoot.mouseTimeOut * 4)
         }
     },
     _endPanelOrderChange: {      // 変更確定（入れ換えと対象のパネルの書式を戻す）（mouseup）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             clearTimeout(this._mouseTimer);
 
             // カーソルと移動元の書式を元に戻す
@@ -2053,7 +1937,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     changePanelOrder: {             // パネルの順序変更
-        value: function(source, target) {
+        value: function (source, target) {
             if (!source.repositionable || source === target)
                 return;
 
@@ -2106,7 +1990,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 50
     },
     _startPanelBreadthChange: {  // 変更開始（mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (!targetPanel._panelBorder)
                 return;
             this._panelBreadthChanging = targetPanel._panelBorder;    // パル幅変更中を設定
@@ -2115,7 +1999,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // 一時的にcaptureElementの幅を_captureElementExtensionだけ伸ばす
             if (this.vBreadthMode == 2) {
                 this._element.style.overflow = "visible";   // 伸ばした分を有効にするため、hiddenからvisibleに
-                if (this._tRotation == 1){
+                if (this._tRotation == 1) {
                     this._captureElement.width = this._currentVBreadth + this._captureElementExtension;
                     this._captureElement.style.width =
                         (this._currentVBreadth + this._captureElementExtension) + "px";
@@ -2133,7 +2017,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelBreadthChange: {   // 変更中（パネル境界をmousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var i;  // カウンタ
             var panel = this._panelBreadthChanging._panel;   // 幅を変更するパネル
             var layer;
@@ -2156,7 +2040,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginX = ev._offsetX;
                 panel._element.style.width = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -2188,7 +2072,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginY = ev._offsetY;
                 panel._element.style.height = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -2229,7 +2113,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endPanelBreadthChange: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._panelBreadthChanging._panel.changeVBreadth();   // パネル幅変更を確定、再描画
 
             // 「パネルの幅に合わせる」の場合に変更したcaptureElementの設定を基に戻す
@@ -2249,10 +2133,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     _mouseTimer: {
         writable: true,
-        value : null
+        value: null
     },
     _handleTimeout: {
-        value: function(type, obj) {
+        value: function (type, obj) {
             obj._hutimeRoot._handleInnerEvent(   // 内部イベントを発火
                 HuTime.InnerEvent.createWithT(type, obj, obj._hutimeRoot.minT, obj._hutimeRoot.maxT));
         }
@@ -2280,136 +2164,32 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            displayMode: null,
-            _tLengthDefault: "tLengthDefault",
-            tLengthDefault: null,
-            tLength: "tLength",
-            _tLengthMode: "tLengthMode",
-            tLengthMode: null,
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _tLengthDefault: { value: "tLengthDefault" },
+            tLength: { value: "tLength" },
+            _tLengthMode: { value: "tLengthMode" },
 
-            _updateCurrentTLength: null,
-            _vBreadthMode: "vBreadthMode",
-            vBreadthMode: null,
+            _vBreadthMode: { value: "vBreadthMode" },
 
-            _panelsVBreadth: "panelsVBreadth",
-            panelsVBreadth: null,
-            _vScrolled: null,
-            vScrolled: null,
-            _updatePanelsVBreadth: null,
-            _updateCurrentVXYOrigin: null,
-            _updateCurrentVBreadth: null,
+            _panelsVBreadth: { value: "panelsVBreadth" },
+            dragSensitivity: { value: "dragSensitivity" },
+            _vScrollable: { value: "vScrollable" },
 
-            panels: null,
-            appendContent: null,
-            removeContent: null,
-            appendPanel: null,
-            removePanel: null,
-
-            _redrawBeforeChild: null,
-            _setPanelVBreadth: null,
-            _drawHuTimeLogo: null,
-
-            _handleInnerEventBubbling: null,
-            _isDragging: null,
-            _isWheeling: null,
-            _panelBreadthChanging: null,
-            _panelOrderChanging: null,
-            _dragOriginPanel: null,
-            _dragOriginX: null,
-            _dragOriginY: null,
-            _dragDirection: null,
-            dragSensitivity: "dragSensitivity",
-            _preventClick: null,
-            _preventMouseEvent: null,
-            _vScrollable: "vScrollable",
-            vScrollable: null,
-
-            _handleMouseEventCapture: null,
-            _handleMouseEventBubbling: null,
-            _pinchDirection: "pinchSensitivity",
-            pinchSensitivity: null,
-            isInsideXY: null,
-            _extractInnerTouchEvent: null,
-
-            _pinchZoom: null,
-            wheelZoomRatio: "wheelZoomRatio",
-            _wheelZoom: null,
-
-            _startTMove: null,
-            _progressTMove: null,
-            _endTMove: null,
-            _tSwipeAnimationTimer: null,
-            _tSwipeAnimationX: null,
-            _tSwipeAnimationY: null,
-            _tSwipeAnimationDelta: null,
-            _tSwipeAnimationOrigin: null,
-
-            _progressVScroll: null,
-            _endVScroll: null,
-            scrollTilePanels: null,
-
-            _panelOrderChangingZIndex: null,
-            _panelOrderChangingOpacity: null,
-            _startPanelOrderChange: null,
-            _progressPanelOrderChange: null,
-            _endPanelOrderChange: null,
-            changePanelOrder: null,
-
-            _captureElementExtension: null,
-            _startPanelBreadthChange: null,
-            _progressPanelBreadthChange: null,
-            _endPanelBreadthChange: null,
-            _mouseTimer: null,
-            _handleTimeout: null,
-            _handleCaptureMouseEvent: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            _pinchDirection: { value: "pinchSensitivity" },
+            wheelZoomRatio: { value: "wheelZoomRatio"}
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            constructor: null,
-            tLengthDefault: "_tLengthDefault",
-            tLengthMode: "_tLengthMode",
-            vBreadthMode: "_vBreadthMode",
-            panelsVBreadth: "_panelsVBreadth",
-            vScrollable: "_vScrollable",
-            pinchSensitivity: "_pinchDirection"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "PanelCollection"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.PanelCollection.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.PanelCollection.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            tLengthDefault: { value: "_tLengthDefault" },
+            tLengthMode: { value: "_tLengthMode" },
+            vBreadthMode: { value: "_vBreadthMode" },
+            panelsVBreadth: { value: "_panelsVBreadth" },
+            vScrollable: { value: "_vScrollable" },
+            pinchSensitivity: { value: "_pinchDirection" }
+        })
     }
 });
-HuTime.PanelCollection.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PanelCollection();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** パネル（基底クラス）********
 HuTime.PanelBase = function () {
@@ -2467,28 +2247,15 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
                 HuTime.ContainerBase.prototype.removeContent.apply(this, arguments);
         }
     },
+
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-
-            tRatio: "tRatio",
-            minPnlT: null,
-            maxPnlT: null,
-
-            layers: null,
-            appendContent: null,
-            removeContent: null,
-            appendLayer: null,
-            removeLayer: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            tRatio: { value: "tRatio" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -2738,85 +2505,34 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.PanelBase.prototype,
-            _contents: function (obj) {
-                obj["contents"] = [];
-                for (var i = 0; i < this._contents.length; ++i) {
-                    if (this._contents[i].constructor.name != "PanelBorder")
-                        obj["contents"][i] = this._contents[i];
+        value: Object.create(HuTime.PanelBase.prototype._toJSONProperties, {
+            _contents: {
+                value: function (obj) {
+                    obj["contents"] = [];
+                    for (var i = 0; i < this._contents.length; ++i) {
+                        if (this._contents[i].constructor.name != "PanelBorder")
+                            obj["contents"][i] = this._contents[i];
+                    }
                 }
             },
-            _panelBorder: null,
-            panelBorderWidth: "panelBorderWidth",
+            panelBorderWidth: { value: "panelBorderWidth" },
+            _vBreadth: { value: "vBreadth" },
 
-            _vBreadth: "vBreadth",
-            vBreadth: null,
+            vBreadthTouchLoweLimit: { value: "vBreadthTouchLoweLimit" },
+            vBreadthUpperLimit: { value: "vBreadthUpperLimit" },
 
-            vBreadthTouchLoweLimit: "vBreadthTouchLoweLimit",
-            vBreadthUpperLimit: "vBreadthUpperLimit",
-            changeVBreadth: null,
-
-            _tilePanelVXYOrigin: null,
-            _updateCurrentVBreadth: null,
-            _updateCurrentVXYOrigin: null,
-            zIndex: null,
-            visible: null,
-
-            _repositionable: "repositionable",
-            repositionable: null,
-            _resizable: "resizable",
-            resizable: null,
-
-            _upperPanelIndex: null,
-            upperPanel: null,
-            _lowerPanelIndex: null,
-            lowerPanel: null,
-
-            isInsideXY: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+            _repositionable: { value: "repositionable" },
+            _resizable: { value: "resizable" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.PanelBase.prototype,
-
-            vBreadth: "_vBreadth",
-            repositionable: "_repositionable",
-            resizable: "_resizable"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "TilePanel"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.TilePanel.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.TilePanel.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.PanelBase.prototype._parseJSONProperties, {
+            vBreadth: { value: "_vBreadth" },
+            repositionable: { value: "_repositionable" },
+            resizable: { value: "_resizable" }
+        })
     }
 });
-HuTime.TilePanel.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TilePanel();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** スライダ表示用パネル ********
 // マウス操作によるスライダの動作が他と異なるため、スライダを含むパネルであることをinstanceofで区別できるようにする
@@ -3331,88 +3047,19 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-
-            _fixedLayer: "fixedLayer",
-            fixedLayer: null,
-            _canvas: null,
-            canvas: null,
-
-            _minLyrT: null,
-            minLyrT: null,
-            _maxLyrT: null,
-            maxLyrT: null,
-            _lyrTResolution: null,
-            lyrTResolution: null,
-            _setT: null,
-            getXYFromT: null,
-            getTFromXY: null,
-
-            _vTop: "vTop",
-            vTop: null,
-            _vBottom: "vBottom",
-            vBottom: null,
-            _lyrVResolution: null,
-            lyrVResolution: null,
-            _setV: null,
-            _vForX: "vForX",
-            vForX: null,
-
-            getXYFromV: null,
-            getVFromXY: null,
-
-            objects: null,
-            appendContent: null,
-            removeContent: null,
-            appendObject: null,
-            removeObject: null,
-
-            clear: null,
-            _redrawBeforeChild: null,
-
-            _handleInnerEventBubbling: null,
-            _mouseEventCapture: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _fixedLayer: { value: "fixedLayer" },
+            _vTop: { value: "vTop" },
+            _vBottom: { value: "vBottom" },
+            _vForX: { value: "vForX"}
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ContainerBase.prototype,
-            fixedLayer: "_fixedLayer",
-            vTop: "_vTop",
-            vBottom: "_vBottom",
-            vForX: "_vForX"
-        }
-    },
-
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "Layer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.Layer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.Layer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            fixedLayer: { value: "_fixedLayer" },
+            vTop: { value: "_vTop" },
+            vBottom: { value: "_vBottom" },
+            vForX: { value: "_vForX" }
+        })
     }
 });
-HuTime.Layer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Layer();
-    obj.parseJSON(json);
-    return obj;
-};
