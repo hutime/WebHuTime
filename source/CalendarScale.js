@@ -1,6 +1,6 @@
 
 // 目盛用カレンダーデータ
-HuTime.CalendarScaleDataset = function (calendarId) {
+HuTime.CalendarScaleDataset = function CalendarScaleDataset (calendarId) {
     this.getScaleData = this.defaultGetScaleData;
     if (calendarId)
         this.calendarId = calendarId;
@@ -528,74 +528,19 @@ HuTime.CalendarScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-
-            minCnvTickInterval: "minCnvTickInterval",
-            getScaleData: null,
-            _calendarId: "calendarId",
-            calendarId: null,
-            _labelFormat: null,
-            labelFormat: null,
-            _request: null,
-            _calendarData: null,
-            _min: null,
-            _max: null,
-            _interval: null,
-            _minTickInterval: null,
-
-            defaultGetScaleData: null,
-
-            loadScaleData: null,
-            loadEraScaleData: null,
-
-            onload: "onload",
-            ymdOnload: null,
-            eraOnload: null,
-
-            getDefaultCalendarData: null,
-            _calendarType: "calendarType",
-            calendarType: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            minCnvTickInterval: { value: "minCnvTickInterval" },
+            _calendarId: { value: "calendarId" },
+            //onload: { value: "onload" },
+            _calendarType: { value: "calendarType" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.ScaleDatasetBase.prototype,
-            calendarId: "_calendarId",
-            calendarType: "_calendarType"
-        }
-    },
-    toJSON: {
-        value: function toJSON() {
-            var json = {
-                constructor: "CalendarScaleDataset"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleDataset.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+            calendarType: { value: "_calendarType" }
+        })
     }
 });
-HuTime.CalendarScaleDataset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarScaleDataset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 暦目盛の書式
 HuTime.CalendarLabelFormat = function (dataset) {
@@ -780,53 +725,12 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
     },
 
     _toJSONProperties: {
-        value: {
-            parentPrototype: HuTime.TickScaleLayer.prototype,
-
-            _scaleDataset: "scaleDataset",
-            scaleDataset:  null,
-            calendarId:  null,
-            calendarType:  null,
-            labelFormat: null,
-            processAfterRedraw: null,
-
-            _toJSONProperties: null,
-            _parseJSONProperties: null,
-            toJSON: null,
-            parseJSON: null
-        }
+        value: Object.create(HuTime.TickScaleLayer.prototype._toJSONProperties, {
+            _scaleDataset: { value: "scaleDataset" }
+        })
     },
     _parseJSONProperties: {
-        value: {
-            parentPrototype: HuTime.TickScaleLayer.prototype,
-            scaleDataset: function (json) {
-                this.scaleDataset = HuTime.ScaleDatasetBase.createFromJSON(json.scaleDataset);
-            }
-        }
-    },
-    toJSON: {
-        value: function toJSON () {
-            var json = {
-                constructor: "CalendarScaleLayer"
-            };
-            for (var prop in this) {
-                HuTime.JSON.stringifyProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
-            }
-            return json;
-        }
-    },
-    parseJSON: {
-        value: function parseJSON (json) {
-            for (var prop in json) {
-                HuTime.JSON.parseProperty(prop, this, HuTime.CalendarScaleLayer.prototype, json);
-            }
-        }
+        value: Object.create(HuTime.TickScaleLayer.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.CalendarScaleLayer.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarScaleLayer();
-    obj.parseJSON(json);
-    return obj;
-};

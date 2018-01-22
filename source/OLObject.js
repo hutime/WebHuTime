@@ -115,64 +115,26 @@ HuTime.OnLayerObjectBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name,
-            id: this.id,
-            name: this.name,
-            position: this.position,
-            rotate: this.rotate,
-            style: this.style,
-            zIndex: this.zIndex,
-            visible: this._visible
-        };
+    _toJSONProperties: {
+        id: "id",
+        name: "name",
+        position: "position",
+        rotate: "rotate",
+        style: "style",
+        _visible: "visible",
+        processBeforeRedraw: "processBeforeRedraw",
+        processAfterRedraw: "processAfterRedraw",
+        _userEvents: function (obj) {
+            if (this._userEvents.length > 0)
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+        }
     },
-    parseJSON: function parseJSON (json) {
-        this.id = json.id;
-        this.name = json.name;
-        this.position = HuTime.PositionBase.createFromJSON(json.position);
-        this.rotate = json.rotate;
-        this.style = HuTime.Style.createFromJSON(json.style);
-        this.zIndex = json.zIndex;
-        this._visible = json.visible;
-    }
-};
-HuTime.OnLayerObjectBase.createFromJSON = function createFromJSON (json ) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "Line":
-            return HuTime.Line.createFromJSON(json);
-
-        case "Polygon":
-            return HuTime.Polygon.createFromJSON(json);
-
-        case "Square":
-            return HuTime.Square.createFromJSON(json);
-
-        case "Rect":
-            return HuTime.Rect.createFromJSON(json);
-
-        case "Circle":
-            return HuTime.Circle.createFromJSON(json);
-
-        case "Arc":
-            return HuTime.Arc.createFromJSON(json);
-
-        case "Pie":
-            return HuTime.Pie.createFromJSON(json);
-
-        case "Triangle":
-            return HuTime.Triangle.createFromJSON(json);
-
-        case "Image":
-            return HuTime.Image.createFromJSON(json);
-
-        case "String":
-            return HuTime.String.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+        visible: "_visible",
+        userEvents: null
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -198,28 +160,16 @@ HuTime.Line.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = [];
-            for (var i = 0; i < json.position.length; ++i) {
-                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
-            }
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Line.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Line();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** ポリゴンオブジェクト ****
 HuTime.Polygon = function Polygon (style, position) {
@@ -243,28 +193,16 @@ HuTime.Polygon.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = [];
-            for (var i = 0; i < json.position.length; ++i) {
-                this.position.push(HuTime.PositionBase.createFromJSON(json.position[i]));
-            }
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Polygon.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Polygon();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 正方形オブジェクト ****
 HuTime.Square = function Square (style, position, width, rotate) {
@@ -294,30 +232,19 @@ HuTime.Square.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Square.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Square();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 矩形オブジェクト ****
-HuTime.Rect = function Rect (style, position1, position2, width, rotate) {
+HuTime.Rect = function Rect (style, position1, position2, rotate) {
     this.position = position1;
     this.position2 = position2;
     this.style = style;
@@ -344,27 +271,16 @@ HuTime.Rect.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.position2 = this.position2;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position2: { value: "position2" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.position2 = HuTime.PositionBase.createFromJSON(json.position2);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Rect.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Rect();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 円オブジェクト ****
 HuTime.Circle = function Circle (style, positions, width) {
@@ -393,27 +309,16 @@ HuTime.Circle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Circle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Circle();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 円弧オブジェクト ****
 HuTime.Arc = function Arc (style, position, radius, startAngle, endAngle) {
@@ -453,31 +358,18 @@ HuTime.Arc.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.radius = this.radius;
-            json.startAngle = this.startAngle;
-            json.endAngle = this.endAngle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.radius = json.radius;
-            this.startAngle = json.startAngle;
-            this.endAngle = json.endAngle;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Arc.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Arc();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 扇形オブジェクト ****
 HuTime.Pie = function Pie (style, position, radius, startAngle, endAngle) {
@@ -517,31 +409,18 @@ HuTime.Pie.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.radius = this.radius;
-            json.startAngle = this.startAngle;
-            json.endAngle = this.endAngle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.radius = json.radius;
-            this.startAngle = json.startAngle;
-            this.endAngle = json.endAngle;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Pie.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Pie();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 三角形オブジェクト ****
 HuTime.Triangle = function Triangle (style, position, width, rotate) {
@@ -571,27 +450,16 @@ HuTime.Triangle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.width = this.width;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.width = json.width;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Triangle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Triangle();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 画像オブジェクト ****
 HuTime.Image = function Image (style, position, src, width, height, rotate) {
@@ -644,35 +512,25 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-
-            // 絶対パスのを出力
-            var elem = document.createElement("img");
-            elem.src = this.src;
-            json.src = elem.src;
-            json.width = this.width;
-            json.height = this.height;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            src: {
+                value: function (json) {
+                    // 絶対パスを出力
+                    var elem = document.createElement("img");
+                    elem.src = this.src;
+                    json.src = elem.src;
+                }
+            },
+            width: { value: "width" },
+            height: { value: "height" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.src = json.src;
-            this.width = json.width;
-            this.height = json.height;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.Image.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.Image();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // **** 文字列オブジェクト ****
 HuTime.String = function String (style, position, text, rotate) {
@@ -702,27 +560,16 @@ HuTime.String.prototype = Object.create(HuTime.OnLayerObjectBase.prototype,{
         }
     },
 
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.OnLayerObjectBase.prototype.toJSON.apply(this);
-            json.text = this.text;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            text: { value: "text" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            this.position = HuTime.PositionBase.createFromJSON(json.position);
-            this.text = json.text;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.String.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.String();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 図形描画 ********
 HuTime.Drawing = {
@@ -1199,27 +1046,6 @@ HuTime.Drawing = {
     }
 };
 
-//  ******** 書式（JSON出力用） ********
-HuTime.Style = function Style () {
-};
-HuTime.Style.prototype = {
-    constructor: HuTime.Style
-};
-HuTime.Style.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "FigureStyle":
-            return HuTime.FigureStyle.createFromJSON(json);
-
-        case "StringStyle":
-            return HuTime.StringStyle.createFromJSON(json);
-
-        default:
-            return null;
-    }
-};
-
 // ******** 図形の書式 ********
 HuTime.FigureStyle = function FigureStyle (fillColor, lineColor, lineWidth) {
     if (fillColor != undefined)
@@ -1322,34 +1148,11 @@ HuTime.FigureStyle.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        constructor: function (json) {
-            json["constructor"] = "FigureStyle";
-        },
         _lineWidth: "lineWidth",
-        lineWidth: null,
         lineColor: "lineColor",
         _lineDash: "lineDash",
-        lineDash: null,
         fillColor: "fillColor",
-        _alpha: "alpha",
-        alpha: null,
-
-        _applyStyle: null,
-        applyStyle: null,
-        defaultApplyStyle: null,
-
-        _applyFillStyle: null,
-        applyFillStyle: null,
-        defaultApplyFillStyle: null,
-
-        _applyLineStyle: null,
-        applyLineStyle: null,
-        defaultApplyLineStyle: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _alpha: "alpha"
     },
     _parseJSONProperties: {
         lineWidth: "_lineWidth",
@@ -1357,26 +1160,11 @@ HuTime.FigureStyle.prototype = {
         alpha: "_alpha"
     },
     toJSON: function toJSON () {
-        var json = {
-            constructor: "FigureStyle"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.FigureStyle.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
     parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.FigureStyle.prototype, json);
-        }
+        HuTime.JSON.parse(json, this);
     }
-};
-HuTime.FigureStyle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.FigureStyle();
-    obj.parseJSON(json);
-    return obj;
 };
 
 // ******** 文字列の書式 ********
@@ -1625,45 +1413,20 @@ HuTime.StringStyle.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        constructor: function (json) {
-            json["constructor"] = "StringStyle";
-        },
         _fontSize: "fontSize",
-        fontSize: null,
         _fontStyle: "fontStyle",
-        fontStyle: null,
         _fontWeight: "fontWeight",
-        fontWeight: null,
         _fontFamily: "fontFamily",
-        fontFamily: null,
         _fontVariant: "fontVariant",
-        fontVariant: null,
         _lineHeight: "lineHeight",
-        lineHeight: null,
-        font: null,
 
         _textAlign: "textAlign",
-        textAlign: null,
         _textBaseline: "textBaseline",
-        textBaseline: null,
 
         _fillColor: "fillColor",
-        fillColor: null,
         _lineWidth: "lineWidth",
-        lineWidth: null,
         _lineColor: "lineColor",
-        lineColor: null,
-        _alpha: "alpha",
-        alpha: null,
-
-        _applyStyle: null,
-        applyStyle: null,
-        defaultApplyStyle: null,
-
-        _toJSONProperties: null,
-        _parseJSONProperties: null,
-        toJSON: null,
-        parseJSON: null
+        _alpha: "alpha"
     },
     _parseJSONProperties: {
         fontSize: "_fontSize",
@@ -1683,24 +1446,9 @@ HuTime.StringStyle.prototype = {
     },
 
     toJSON: function toJSON () {
-        var json = {
-            constructor: "StringStyle"
-        };
-        for (var prop in this) {
-            HuTime.JSON.stringifyProperty(prop, this, HuTime.StringStyle.prototype, json);
-        }
-        return json;
+        return HuTime.JSON.stringify(this);
     },
     parseJSON: function parseJSON (json) {
-        for (var prop in json) {
-            HuTime.JSON.parseProperty(prop, this, HuTime.StringStyle.prototype, json);
-        }
+        HuTime.JSON.parse(json, this);
     }
-};
-HuTime.StringStyle.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.StringStyle();
-    obj.parseJSON(json);
-    return obj;
 };

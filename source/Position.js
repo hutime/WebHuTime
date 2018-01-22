@@ -12,41 +12,12 @@ HuTime.PositionBase.prototype = {
     },
 
     // **** JSON出力 ****
-    toJSON: function toJSON () {
-        return {
-            constructor: this.constructor.name
-        };
+    _toJSONProperties: {
     },
-    parseJSON: function parseJSON (json) {
-    }
-};
-HuTime.PositionBase.createFromJSON = function createFromJSON (json ) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "TVPosition":
-            return HuTime.TVPosition.createFromJSON(json);
-
-        case "XYPosition":
-            return HuTime.XYPosition.createFromJSON(json);
-
-        case "RelativeTVPosition":
-            return HuTime.RelativeTVPosition.createFromJSON(json);
-
-        case "RelativeXYPosition":
-            return HuTime.RelativeXYPosition.createFromJSON(json);
-
-        case "PositionFloor":
-            return HuTime.PositionFloor.createFromJSON(json);
-
-        case "PositionCeil":
-            return HuTime.PositionCeil.createFromJSON(json);
-
-        case "PositionRound":
-            return HuTime.PositionRound.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -129,29 +100,17 @@ HuTime.TVPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.t = this._t;
-            obj.v = this._v;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _t: { value: "t" },
+            _v: { value: "v" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._t = json.t;
-            this._v = json.v;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.TVPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TVPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** x-y座標系での絶対座標 ********
 HuTime.XYPosition = function XYPosition (x, y) {
@@ -207,29 +166,17 @@ HuTime.XYPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.x = this._x;
-            obj.y = this._y;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _x: { value: "x" },
+            _y: { value: "y" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._x = json.x;
-            this._y = json.y;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.XYPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.XYPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** t-v座標系での相対座標 ********
 // t値、v値の進む方向を正とした、基準座標からの相対位置（px単位）
@@ -317,31 +264,18 @@ HuTime.RelativeTVPosition.prototype = Object.create(HuTime.PositionBase.prototyp
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            obj.ofsT = this._ofsT;
-            obj.ofsV = this._ofsV;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsT: { value: "ofsT" },
+            _ofsV: { value: "ofsV" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-            this._ofsT = json.ofsT;
-            this._ofsV = json.ofsV;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RelativeTVPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RelativeTVPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** x-y座標系での相対座標 ********
 HuTime.RelativeXYPosition = function RelativeXYPosition (position, ofsX, ofsY) {
@@ -408,31 +342,18 @@ HuTime.RelativeXYPosition.prototype = Object.create(HuTime.PositionBase.prototyp
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            obj.ofsX = this._ofsX;
-            obj.ofsY = this._ofsY;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsX: { value: "ofsX" },
+            _ofsY: { value: "ofsY" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-            this._ofsX = json.ofsX;
-            this._ofsY = json.ofsY;
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.RelativeXYPosition.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.RelativeXYPosition();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 座標の整数化 ********
 HuTime.PositionFloor = function PositionFloor (position) {
@@ -471,27 +392,21 @@ HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
-HuTime.PositionFloor.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionFloor();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PositionCeil = function PositionCeil (position) {
     this.position = position;
@@ -529,27 +444,21 @@ HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
-HuTime.PositionCeil.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionCeil();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PositionRound = function PositionRound (position) {
     this.position = position;
@@ -587,27 +496,16 @@ HuTime.PositionRound.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var obj = HuTime.PositionBase.prototype.toJSON.apply(this);
-            obj.position = this._position;
-            return obj;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.PositionBase.prototype.parseJSON.apply(this, arguments);
-            this._position = HuTime.PositionBase.prototype.parseJSON(json.position);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
-HuTime.PositionRound.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.PositionRound();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // ******** 座標上の固定位置 ********
 HuTime.PositionConstant = {

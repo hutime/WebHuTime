@@ -2,19 +2,19 @@
 // レコードセットの基底クラス － 書式などの情報をレコードセットに埋め込む
 HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
     this.records = [];  // レコード配列の初期化
-    Object.defineProperty(this, "records", {writable: false});
+    //Object.defineProperty(this, "records", {writable: false});
 
     // t値範囲関係の初期設定
     this._itemShowReliableTRanges = {};
-    Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
     this.showReliableTRange = this._showReliableTRange;   // 初期値を設定
 
     this._itemShowPossibleTRanges = {};
-    Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
     this.showPossibleTRange = this._showPossibleTRange;   // 初期値を設定
 
     this._itemRangeStyles = {};
-    Object.defineProperty(this, "_itemRangeStyles", {writable: false});
+    //Object.defineProperty(this, "_itemRangeStyles", {writable: false});
     this.rangeStyle = this._rangeStyle;   // いったん初期値を設定する
 
     if (typeof source == "string" && source != "") {    // URLとしての入力
@@ -135,7 +135,6 @@ HuTime.RecordsetBase.prototype = {
         var record;
         var recordData;
         var itemData;
-        this.recordSettings._reader = this.reader;
         for (var i = 0; i < this.reader.recordData.length; ++i) {
             record = this.appendNewRecord(this.recordSettings._tSetting.getValue(this.reader.recordData[i]));
             for (var j = 0; j < this.recordSettings._dataSettings.length; ++j) {
@@ -338,113 +337,32 @@ HuTime.RecordsetBase.prototype = {
     drawRange: function (){},
 
     // **** JSON出力 ****
-    toJSON:  function toJSON() {
-        var prop;
-        var json = {};
-        json.constructor = this.constructor.name;
-        json.visible = this.visible;
-        json.reader = this._reader;
-        json.recordSettings = this._recordSettings;
-        json.disableSortRecords = this.disableSortRecords;
-        json.showRecordset = this.showRecordset;
-
-        json.itemShowReliableTRanges = {};
-        for (prop in this._itemShowReliableTRanges) {
-            if (typeof this._itemShowReliableTRanges[prop] === "function")
-                json.itemShowReliableTRanges[prop] = this._itemShowReliableTRanges[prop].toString();
-            else
-                json.itemShowReliableTRanges[prop] = this._itemShowReliableTRanges[prop];
-        }
-        json.showReliableTRange = this._showReliableTRange;
-        json.itemShowPossibleTRanges = {};
-        for (prop in this._itemShowPossibleTRanges) {
-            if (typeof this._itemShowPossibleTRanges[prop] === "function")
-                json.itemShowPossibleTRanges[prop] = this._itemShowPossibleTRanges[prop].toString();
-            else
-                json.itemShowPossibleTRanges[prop] = this._itemShowPossibleTRanges[prop];
-        }
-        json.showPossibleTRange = this._showPossibleTRange;
-
-        json.hideTRangeNonRRange = this.hideTRangeNonRRange;
-        json.hideTRangeTotalPRangeOnly = this.hideTRangeTotalPRangeOnly;
-        json.hideTRangeNonCentralValue = this.hideTRangeNonCentralValue;
-        json.drawPRangeAsRRange = this.drawPRangeAsRRange;
-
-        json.itemRangeStyles = {};
-        for (prop in this._itemRangeStyles) {
-            if (typeof this._itemRangeStyles[prop] === "function")
-                json.itemRangeStyles[prop] = this._itemRangeStyles[prop].toString();
-            else
-                json.itemRangeStyles[prop] = this._itemRangeStyles[prop];
-        }
-        json.rangeStyle = this._rangeStyle;
-        json.rangeTickHeight = this._rangeTickHeight;
-
-        return json;
+    _toJSONProperties: {
+        visible: "visible",
+        _reader: "reader",
+        _recordSettings: "recordSettings",
+        disableSortRecords: "disableSortRecords",
+        showRecordset: "showRecordset",
+        _itemShowReliableTRanges: "itemShowReliableTRanges",
+        _showReliableTRange: "showReliableTRange",
+        _itemShowPossibleTRanges: "itemShowPossibleTRanges",
+        _showPossibleTRange: "showPossibleTRange",
+        hideTRangeNonRRange: "hideTRangeNonRRange",
+        hideTRangeTotalPRangeOnly: "hideTRangeTotalPRangeOnly",
+        hideTRangeNonCentralValue: "hideTRangeNonCentralValue",
+        drawPRangeAsRRange: "drawPRangeAsRRange",
+        _itemRangeStyles: "itemRangeStyles",
+        _rangeStyle: "rangeStyle",
+        _rangeTickHeight: "rangeTickHeight"
     },
-    parseJSON: function parseJSON (json) {
-        var prop;
-        this.visible = json.visible;
-        this.reader = HuTime.StreamReaderBase.createFromJSON(json.reader);
-
-        this._recordSettings = HuTime.RecordSettings.createFromJSON(json.recordSettings);
-        this.disableSortRecords = json.disableSortRecords;
-        this.showRecordset = json.showRecordset;
-
-        this._itemShowReliableTRanges = {};
-        for (prop in json.itemShowReliableTRanges) {
-            if (typeof json.itemShowReliableTRanges[prop] === "string"
-                && json.itemShowReliableTRanges[prop].substr(0, 8) == "function")
-                this._itemShowReliableTRanges[prop] = eval("(" + json.itemShowReliableTRanges[prop] + ")");
-            else
-                this._itemShowReliableTRanges[prop] = json.itemShowReliableTRanges[prop];
-        }
-        this._showReliableTRange = json.showReliableTRange;
-        this._itemShowPossibleTRanges = {};
-        for (prop in json.itemShowPossibleTRanges) {
-            if (typeof json.itemShowPossibleTRanges[prop] === "string"
-                && json.itemShowPossibleTRanges[prop].substr(0, 8) == "function")
-                this._itemShowPossibleTRanges[prop] = eval("(" + json.itemShowPossibleTRanges[prop] + ")");
-            else
-                this._itemShowPossibleTRanges[prop] = json.itemShowPossibleTRanges[prop];
-        }
-        this._showPossibleTRange = json.showPossibleTRange;
-
-        this.hideTRangeNonRRange = json.hideTRangeNonRRange;
-        this.hideTRangeTotalPRangeOnly = json.hideTRangeTotalPRangeOnly;
-        this.hideTRangeNonCentralValue = json.hideTRangeNonCentralValue;
-        this.drawPRangeAsRRange = json.drawPRangeAsRRange;
-
-        this._itemRangeStyles = {};
-        for (prop in json.itemRangeStyles) {
-            if (typeof json.itemRangeStyles[prop] === "string"
-                && json.itemRangeStyles[prop].substr(0, 8) == "function")
-                this._itemRangeStyles[prop] = eval("(" + json.itemRangeStyles[prop] + ")");
-            else
-                this._itemRangeStyles[prop] = HuTime.Style.createFromJSON(json.itemRangeStyles[prop]);
-        }
-        this._rangeStyle = json.rangeStyle;
-        this._rangeTickHeight = json.rangeTickHeight;
-    }
-};
-HuTime.RecordsetBase.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    switch (json.constructor) {
-        case "ChartRecordset":
-            return HuTime.ChartRecordset.createFromJSON(json);
-
-        case "CalendarChartRecordset":
-            return HuTime.CalendarChartRecordset.createFromJSON(json);
-
-        case "TLineRecordset":
-            return HuTime.TLineRecordset.createFromJSON(json);
-
-        case "CalendarTLineRecordset":
-            return HuTime.CalendarTLineRecordset.createFromJSON(json);
-
-        default:
-            return null;
+    _parseJSONProperties: {
+        recordSettings: "_recordSettings",
+        itemShowReliableTRanges: "_itemShowReliableTRanges",
+        itemShowPossibleTRanges: "_itemShowPossibleTRanges",
+        itemRangeStyles: "_itemRangeStyles"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -587,7 +505,7 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // グラフ用の値関係の初期設定
     this._valueItems = [];
-    Object.defineProperty(this, "_valueItems", {writable: false});
+    //Object.defineProperty(this, "_valueItems", {writable: false});
 
     tBeginItem = this._validateItemName(tBeginItem);
     if (tBeginItem) {
@@ -605,33 +523,33 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // プロット関係の初期設定
     this._itemShowPlots = {};       // プロットの表示・非表示
-    Object.defineProperty(this, "_itemShowPlots", {writable: false});
+    //Object.defineProperty(this, "_itemShowPlots", {writable: false});
     this.showPlot = this.__proto__._showPlot;     // 初期値を設定
 
     this._itemPlotStyles = {};      // プロットの書式
-    Object.defineProperty(this, "_itemPlotStyles", {writable: false});
+    //Object.defineProperty(this, "_itemPlotStyles", {writable: false});
     this.plotStyle = this.__proto__._plotStyle;     // いったん初期値を設定
     this.plotStyle = plotStyle;
 
     this._itemPlotSymbols = {};     // プロットのシンボル
-    Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
+    //Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
     this.plotSymbol = this.__proto__._plotSymbol;     // 初期値を設定
 
     this._itemPlotWidths = {};      // プロットの大きさ
-    Object.defineProperty(this, "_itemPlotWidths", {writable: false});
+    //Object.defineProperty(this, "_itemPlotWidths", {writable: false});
     this.plotWidth = this.__proto__._plotWidth;
 
     this._itemPlotRotates = {};     // プロットの回転角
-    Object.defineProperty(this, "_itemPlotRotates", {writable: false});
+    //Object.defineProperty(this, "_itemPlotRotates", {writable: false});
     this.plotRotate = this.__proto__._plotRotate;
 
     // 線（プロット間の）関係の初期設定
     this._itemShowLines = {};       // 線の表示・非表示
-    Object.defineProperty(this, "_itemShowLines", {writable: false});
+    //Object.defineProperty(this, "_itemShowLines", {writable: false});
     this.showLine = this.__proto__._showLine;     // 初期値を設定
 
     this._itemLineStyles = {};      // 線の書式
-    Object.defineProperty(this, "_itemLineStyles", {writable: false});
+    //Object.defineProperty(this, "_itemLineStyles", {writable: false});
     this.lineStyle = this.__proto__._lineStyle;     // いったん初期値を設定
     this.lineStyle = lineStyle;
 };
@@ -1187,177 +1105,51 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var prop;
-            var json = HuTime.RecordsetBase.prototype.toJSON.apply(this);
-            json.selectRecord = this.selectRecord;
-            json.valueItems = this._valueItems;
-            json.showRecordsetPlot = this.showRecordsetPlot;
-            json.showRecordsetLine = this.showRecordsetLine;
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            selectRecord: { value: "selectRecord" },
+            _valueItems: { value: "valueItems" },
+            showRecordsetPlot: { value: "showRecordsetPlot" },
+            showRecordsetLine: { value: "showRecordsetLine" },
+            _itemShowPlots: { value: "itemShowPlots" },
+            _showPlot: { value: "showPlot" },
+            hidePlotNonRRange: { value: "hidePlotNonRRange" },
+            hidePlotTotalPRangeOnly: { value: "hidePlotTotalPRangeOnly" },
 
-            json.itemShowPlots = {};
-            for (prop in this._itemShowPlots) {
-                if (typeof this._itemShowPlots[prop] === "function")
-                    json.itemShowPlots[prop] = this._itemShowPlots[prop].toString();
-                else
-                    json.itemShowPlots[prop] = this._itemShowPlots[prop];
-            }
-            json.showPlot = this._showPlot;
-            json.hidePlotNonRRange = this.hidePlotNonRRange;
-            json.hidePlotTotalPRangeOnly = this.hidePlotTotalPRangeOnly;
-            json.itemPlotStyles = {};
-            for (prop in this._itemPlotStyles) {
-                if (typeof this._itemPlotStyles[prop] === "function")
-                    json.itemPlotStyles[prop] = this._itemPlotStyles[prop].toString();
-                else
-                    json.itemPlotStyles[prop] = this._itemPlotStyles[prop];
-            }
-            json.plotStyle = this._plotStyle;
-            json.itemPlotSymbols = {};
-            for (prop in this._itemPlotSymbols) {
-                if (typeof this._itemPlotSymbols[prop] === "function")
-                    json.itemPlotSymbols[prop] = this._itemPlotSymbols[prop].toString();
-                else
-                    json.itemPlotSymbols[prop] = this._itemPlotSymbols[prop];
-            }
-            json.plotSymbol = this._plotSymbol;
-            json.itemPlotWidths = {};
-            for (prop in this._itemPlotWidths) {
-                if (typeof this._itemPlotWidths[prop] === "function")
-                    json.itemPlotWidths[prop] = this._itemPlotWidths[prop].toString();
-                else
-                    json.itemPlotWidths[prop] = this._itemPlotWidths[prop];
-            }
-            json.plotWidth = this._plotWidth;
-            json.itemPlotRotates = {};
-            for (prop in this._itemPlotRotates) {
-                if (typeof this._itemPlotRotates[prop] === "function")
-                    json.itemPlotRotates[prop] = this._itemPlotRotates[prop].toString();
-                else
-                    json.itemPlotRotates[prop] = this._itemPlotRotates[prop];
-            }
-            json.plotRotate = this._plotRotate;
-            json.plotWidthType = this._plotWidthType;
+            _itemPlotStyles: { value: "itemPlotStyles" },
+            _plotStyle: { value: "plotStyle" },
+            _itemPlotSymbols: { value: "itemPlotSymbols" },
+            _plotSymbol: { value: "plotSymbol" },
+            _itemPlotWidths: { value: "itemPlotWidths" },
+            _plotWidth: { value: "plotWidth" },
+            _itemPlotRotates: { value: "itemPlotRotates" },
+            _plotRotate: { value: "plotRotate" },
+            _plotWidthType: { value: "plotWidthType" },
 
-            json.itemShowLines = {};
-            for (prop in this._itemShowLines) {
-                if (typeof this._itemShowLines[prop] === "function")
-                    json.itemShowLines[prop] = this._itemShowLines[prop].toString();
-                else
-                    json.itemShowLines[prop] = this._itemShowLines[prop];
-            }
-            json.showLine = this._showLine;
-            json.hideLineNonRRange = this.hideLineNonRRange;
-            json.hideLineTotalPRangeOnly = this.hideLineTotalPRangeOnly;
-            json.itemLineStyles = {};
-            for (prop in this._itemLineStyles) {
-                if (typeof this._itemLineStyles[prop] === "function")
-                    json.itemLineStyles[prop] = this._itemLineStyles[prop].toString();
-                else
-                    json.itemLineStyles[prop] = this._itemLineStyles[prop];
-            }
-            json.lineStyle = this._lineStyle;
-
-            return json;
-        }
+            _itemShowLines: { value: "itemShowLines" },
+            _showLine: { value: "showLine" },
+            hideLineNonRRange: { value: "hideLineNonRRange" },
+            hideLineTotalPRangeOnly: { value: "hideLineTotalPRangeOnly" },
+            _itemLineStyles: { value: "itemLineStyles" },
+            _lineStyle: { value: "lineStyle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.RecordsetBase.prototype.parseJSON.apply(this, arguments);
-            var i;
-            var prop;
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            valueItems: { value: "_valueItems" },
+            itemShowPlots: { value: "_itemShowPlots" },
+            itemPlotStyles: { value: "_itemPlotStyles" },
+            plotStyle: { value: "_plotStyle" },
+            itemPlotSymbols: { value: "_itemPlotSymbols" },
+            itemPlotWidths: { value: "_itemPlotWidths" },
+            itemPlotRotates: { value: "_itemPlotRotates" },
 
-            this.selectRecord = json.selectRecord;
-            this._valueItems = [];
-            for (i = 0; i < json.valueItems.length; ++i) {
-                if (typeof json.valueItems[i].order != "number" || !isFinite(json.valueItems[i].order))
-                    json.valueItems[i].order = Number.NaN;
-                this._valueItems.push(json.valueItems[i]);
-            }
-            this.showRecordsetPlot = json.showRecordsetPlot;
-            this.showRecordsetLine = json.showRecordsetLine;
-
-            this._itemShowPlots = {};
-            for (prop in json.itemShowPlots) {
-                if (typeof json.itemShowPlots[prop] === "string"
-                    && json.itemShowPlots[prop].substr(0, 8) == "function")
-                        this._itemShowPlots[prop] = eval("(" + json.itemShowPlots[prop] + ")");
-                else
-                    this._itemShowPlots[prop] = json.itemShowPlots[prop];
-            }
-            this._showPlot = json.showPlot;
-            this.hidePlotNonRRange = json.hidePlotNonRRange;
-            this.hidePlotTotalPRangeOnly = json.hidePlotTotalPRangeOnly;
-            this._itemPlotStyles = {};
-            for (prop in json.itemPlotStyles) {
-                if (typeof json.itemPlotStyles[prop] === "string"
-                    && json.itemPlotStyles[prop].substr(0, 8) == "function")
-                    this._itemPlotStyles[prop] = eval("(" + json.itemPlotStyles[prop] + ")");
-                else
-                    this._itemPlotStyles[prop] = HuTime.Style.createFromJSON(json.itemPlotStyles[prop]);
-            }
-            this._plotStyle = HuTime.Style.createFromJSON(json.plotStyle);
-            this._itemPlotSymbols = {};
-            for (prop in json.itemPlotSymbols) {
-                if (typeof json.itemPlotSymbols[prop] === "string"
-                    && json.itemPlotSymbols[prop].substr(0, 8) == "function")
-                    this._itemPlotSymbols[prop] = eval("(" + json.itemPlotSymbols[prop] + ")");
-                else
-                    this._itemPlotSymbols[prop] = json.itemPlotSymbols[prop];
-            }
-            this._plotSymbol = json.plotSymbol;
-            this._itemPlotWidths = {};
-            for (prop in json.itemPlotWidths) {
-                if (typeof json.itemPlotWidths[prop] === "string"
-                    && json.itemPlotWidths[prop].substr(0, 8) == "function")
-                    this._itemPlotWidths[prop] = eval("(" + json.itemPlotWidths[prop] + ")");
-                else
-                    this._itemPlotWidths[prop] = json.itemPlotWidths[prop];
-            }
-            this._plotWidth = json.plotWidth;
-            this._itemPlotRotates = {};
-            for (prop in json.itemPlotRotates) {
-                if (typeof json.itemPlotRotates[prop] === "string"
-                    && json.itemPlotRotates[prop].substr(0, 8) == "function")
-                    this._itemPlotRotates[prop] = eval("(" + json.itemPlotRotates[prop] + ")");
-                else
-                    this._itemPlotRotates[prop] = json.itemPlotRotates[prop];
-            }
-            this._plotRotate = json.plotRotate;
-            this._plotWidthType = json.plotWidthType;
-
-            this._itemShowLines = {};
-            for (prop in json.itemShowLines) {
-                if (typeof json.itemShowLines[prop] === "string"
-                    && json.itemShowLines[prop].substr(0, 8) == "function")
-                    this._itemShowLines[prop] = eval("(" + json.itemShowLines[prop] + ")");
-                else
-                    this._itemShowLines[prop] = json.itemShowLines[prop];
-            }
-            this._showLine = json.showLine;
-            this.hideLineNonRRange = json.hideLineNonRRange;
-            this.hideLineTotalPRangeOnly = json.hideLineTotalPRangeOnly;
-            this._itemLineStyles = {};
-            for (prop in json.itemLineStyles) {
-                if (typeof json.itemLineStyles[prop] === "string"
-                    && json.itemLineStyles[prop].substr(0, 8) == "function")
-                    this._itemLineStyles[prop] = eval("(" + json.itemLineStyles[prop] + ")");
-                else
-                    this._itemLineStyles[prop] = HuTime.Style.createFromJSON(json.itemLineStyles[prop]);
-            }
-            this._lineStyle = HuTime.Style.createFromJSON(json.lineStyle);
-        }
-
+            itemShowLines: { value: "_itemShowLines" },
+            itemLineStyles: { value: "_itemLineStyles" },
+            lineStyle: { value: "_lineStyle" }
+        })
     }
 });
-HuTime.ChartRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.ChartRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PlotSymbol = {   // シンボルの種類を表す定数
     Circle: 0,
@@ -1436,7 +1228,6 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.ChartRecord(null));
@@ -1493,36 +1284,24 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
                 }
                 this.onloadendCalendar();
             }
-
         }
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var json = HuTime.ChartRecordset.prototype.toJSON.apply(this);
-            json.calendarId = this.calendarId;
-            json.tBeginDataSetting = this._tBeginDataSetting;
-            json.tEndDataSetting = this._tEndDataSetting;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON (json) {
-            HuTime.ChartRecordset.prototype.parseJSON.apply(this, arguments);
-            this.calendarId = json.calendarId;
-            this._tBeginDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tBeginDataSetting);
-            this._tEndDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tEndDataSetting);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
     }
 });
-HuTime.CalendarChartRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarChartRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.ChartRecord = function ChartRecord(tRange) {
     HuTime.RecordBase.apply(this, arguments);
@@ -1758,49 +1537,27 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON() {
-            var prop;
-            var json = HuTime.RecordsetBase.prototype.toJSON.apply(this);
-
-            json.hideTRangeNonCentralValue = this.hideTRangeNonCentralValue;
-            json.showRecordAtTResolution = this._showRecordAtTResolution;
-            json.rangeStyle = this._rangeStyle;
-            json.bandBreadth = this._bandBreadth;
-
-            json.labelItem = this._labelItem;
-            json.showLabel = this._showLabel;
-            json.labelOffsetT = this._labelOffsetT;
-            json.labelOffsetV = this._labelOffsetV;
-            json.labelRotate = this._labelRotate;
-            json.labelStyle = this._labelStyle;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            hideTRangeNonCentralValue: { value: "hideTRangeNonCentralValue" },
+            _showRecordAtTResolution: { value: "showRecordAtTResolution" },
+            _rangeStyle: { value: "rangeStyle" },
+            _bandBreadth: { value: "bandBreadth" },
+            _labelItem: { value: "labelItem" },
+            _showLabel: { value: "showLabel" },
+            _labelOffsetT: { value: "labelOffsetT" },
+            _labelOffsetV: { value: "labelOffsetV" },
+            _labelRotate: { value: "labelRotate" },
+            _labelStyle: { value: "labelStyle" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.RecordsetBase.prototype.parseJSON.apply(this, arguments);
-            this.hideTRangeNonCentralValue = json.hideTRangeNonCentralValue;
-            this._showRecordAtTResolution = json.showRecordAtTResolution;
-            this._rangeStyle = HuTime.Style.createFromJSON(json.rangeStyle);
-            this._bandBreadth = json.bandBreadth;
-
-            this._labelItem = json.labelItem;
-            this._showLabel = json.showLabel;
-            this._labelOffsetT = json.labelOffsetT;
-            this._labelOffsetV = json.labelOffsetV;
-            this._labelRotate = json.labelRotate;
-            this._labelStyle = HuTime.Style.createFromJSON(json.labelStyle);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            rangeStyle: { value: "_rangeStyle" },
+            labelStyle: { value: "_labelStyle" }
+        })
     }
 });
-HuTime.TLineRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.TLineRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 // 暦変換を含むレコードセット
 HuTime.CalendarTLineRecordset = function CalendarTLineRecordset(source, tBeginItem, tEndItem, label, calendarId, rangeStyle, labelStyle) {
@@ -1863,7 +1620,6 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.TLineRecord(null));
@@ -1924,31 +1680,20 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
     },
 
     // **** JSON出力 ****
-    toJSON: {
-        value: function toJSON () {
-            var json = HuTime.TLineRecordset.prototype.toJSON.apply(this);
-            json.calendarId = this.calendarId;
-            json.tBeginDataSetting = this._tBeginDataSetting;
-            json.tEndDataSetting = this._tEndDataSetting;
-            return json;
-        }
+    _toJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
     },
-    parseJSON: {
-        value: function parseJSON(json) {
-            HuTime.TLineRecordset.prototype.parseJSON.apply(this, arguments);
-            this.calendarId = json.calendarId;
-            this._tBeginDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tBeginDataSetting);
-            this._tEndDataSetting = HuTime.RecordSettingBase.createFromJSON(json.tEndDataSetting);
-        }
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
     }
 });
-HuTime.CalendarTLineRecordset.createFromJSON = function createFromJSON (json) {
-    if (typeof json === "string")
-        json = JSON.parse(json);
-    var obj = new HuTime.CalendarTLineRecordset();
-    obj.parseJSON(json);
-    return obj;
-};
 
 HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
     topToBottom: 0,     // 上から下の順でプロットが描画する
