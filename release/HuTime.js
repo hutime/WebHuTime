@@ -1299,7 +1299,7 @@ HuTime.checkNewLineCode =  function checkNewLineCode (text) {
 
 // JSON関係
 HuTime.JSON = {
-    // シリアライズ
+    // シリアライズとデシリアライズ
     stringify: function stringify (obj) {
         if (typeof obj === "undefined")     // undefined
             return undefined;
@@ -1363,8 +1363,6 @@ HuTime.JSON = {
         }
         return obj;     // 数値、文字列など
     },
-
-    // デシリアライズ
     parse: function parse (json) {
         var p;
         var obj;
@@ -1438,7 +1436,7 @@ HuTime.JSON = {
         return json;        // その他（数値、文字列など）
     },
 
-    // シリアライズデータの保存
+    // シリアライズデータの保存と取得
     save: function save (obj) {
         var content =  JSON.stringify(obj);
         var blob = new Blob([ content ], { "type" : "application/json" });
@@ -1448,13 +1446,24 @@ HuTime.JSON = {
         elm.download="data.json";
         elm.click();
         document.body.removeChild(elm);
+    },
+    load: function load (source, handler) {     // ソースと取得後の処理関数を設定
+        var reader = new HuTime.JSON.Reader(source);
+        if (typeof handler === "function")
+            reader.onloadend = handler;
+        reader.load();
+        return reader;
     }
 };
+
+// JSONデータを読み込むためのリーダ
 HuTime.JSON.Reader = function Reader (source) {
     this.source = source;
 };
 HuTime.JSON.Reader.prototype = {
-    _stream: null,
+    constructor: HuTime.JSON.Reader,
+
+    _stream: null,      // レコードセットを取得するストリーム
     get stream () {
         return this._stream;
     },
@@ -1463,41 +1472,43 @@ HuTime.JSON.Reader.prototype = {
             return;
         this._stream = val;
         this._stream.onloadend = function () {
-            this._loadedObject = HuTime.JSON.parse(this._stream.readAll());
+            this._parsedObject = HuTime.JSON.parse(this._stream.readAll());
+            this._isParsed = true;
             this.onloadend.apply(this);
         }.bind(this);
     },
 
-    _source: null,
+    _source: null,      // レコードセットの取得元
     get source () {
         return this._source;
     },
-    set source (val) {
+    set source (val) {      // 取得もとに応じて、適切なstreamオブジェクトを設定
         if (typeof  val === "string" && val != "")
             this.stream = new HuTime.HttpStream(val);
-        else if (val instanceof File)
+        else if (val instanceof File)       // Fileオブジェクトが入力された場合
             this.stream = new HuTime.FileStream(val);
-        else if (val instanceof HuTime.StreamBase)
+        else if (val instanceof HuTime.StreamBase)  // streamオブジェクトが直接入力された場合
             this.stream = val;
         else
             return;
         this._source = val;
     },
 
-    get loadState () {
-        return this._stream.loadState;
-    },
-
-    _loadedObject: null,
-    get loadedObject () {
-        if (this._stream.loadState == "loadend")
-            return this._loadedObject;
+    _isParsed: false,   // JSONデータのパース終了フラグ
+    _parsedObject: null,
+    get parsedObject () {
+        if (this._isParsed)
+            return this._parsedObject;
         else
-            return null;
+            return undefined;
     },
 
     load: function load () {
+        this._isParsed = false;     // パース終了フラグをクリア
         this._stream.load();
+    },
+    get loadState () {
+        return this._stream.loadState;
     },
     onloadend: function onloadend () {}
 };
@@ -13100,10 +13111,13 @@ HuTime.StreamReaderBase.prototype = {
     get itemNames() {
         return this._itemNames;
     },
-
     load: function load () {     // 読み込み
         this._stream.load();
     },
+    get loadState () {
+        return this._stream.loadState;
+    },
+
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
     _readRecordData: function() {},     // レコードセットの読み取り
 

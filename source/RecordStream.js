@@ -224,10 +224,13 @@ HuTime.StreamReaderBase.prototype = {
     get itemNames() {
         return this._itemNames;
     },
-
     load: function load () {     // 読み込み
         this._stream.load();
     },
+    get loadState () {
+        return this._stream.loadState;
+    },
+
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
     _readRecordData: function() {},     // レコードセットの読み取り
 
