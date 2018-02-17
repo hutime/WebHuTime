@@ -1,8 +1,7 @@
 // ********************************
 // Web HuTime
-// Copyright (C) 2016-2017 Tatsuki Sekino.
+// Copyright (C) 2016-2018 Tatsuki Sekino.
 // ********************************
-
 
 // ******** WebHuTime本体 ********
 HuTime = function(elementId) {
@@ -532,6 +531,11 @@ HuTime.prototype = {
         }
     }
 };
+
+
+
+
+
 // ブラウザ判定
 HuTime.userAgent = function () {
     var userAgent = window.navigator.userAgent.toLowerCase();
@@ -1164,7 +1168,7 @@ HuTime.isoToJd = function isoToJd(iso, type) {
 
 // ISO8601表記からJDでの時間範囲を得る
 HuTime.isoToJdRange = function isoToJdRange(iso, type) {
-    var blocks = iso.trim().split(["T"]);
+    var blocks = iso.toString().trim().split(["T"]);
     if (blocks[0].length == 0)
         return [Number.NaN, Number.NaN];
     var date = blocks[0].trim();
@@ -1230,8 +1234,8 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
                 }
             }
             else {          // 年まで
-                bJd = HuTime.timeToJd(year, month, day, 0, 0, 0, type);
-                bJd = HuTime.timeToJd(year + 1, month, day, 0, 0, 0, type);
+                bJd = HuTime.timeToJd(year, 1, 1, 0, 0, 0, type);
+                eJd = HuTime.timeToJd(year + 1, 1, 1, 0, 0, 0, type);
             }
         }
         else {
@@ -1242,9 +1246,275 @@ HuTime.isoToJdRange = function isoToJdRange(iso, type) {
     return [bJd, eJd];
 };
 
+// 改行コードのチェック（引用符を考慮）
+HuTime.checkNewLineCode =  function checkNewLineCode (text) {
+    var pos = 0;        // 現在の探索開始位置
+    var posNLCode;      // 改行コードの位置
+    var posQuotation;   // 引用符の位置
+    var NLCodes = [ "\r\n", "\r", "\n"];
+    var NLCode;
+    var countQuotation;
+
+    while (pos < text.length) {
+        for (var i = 0; i < NLCodes.length; ++i) {  // 改行コードを探索
+            posNLCode = text.indexOf(NLCodes[i], pos);
+            if (posNLCode >= 0) {
+                NLCode = NLCodes[i];
+                break;
+            }
+        }
+        if (i >= NLCodes.length)    // 改行コードが見つからない場合
+            return null;
+
+        countQuotation = 0;
+        posQuotation = pos;
+        while (posQuotation < posNLCode) {
+            posQuotation = text.indexOf("\"", posQuotation);
+            if (posQuotation > posNLCode || posQuotation < 0)
+                break;
+
+            // 引用符内のエスケープされた引用符'""'は、結局、偶数個になるのでチェックしない
+            ++countQuotation;
+            ++posQuotation;
+        }
+        if (countQuotation % 2 == 0)
+            return NLCode;   // 見つかった改行コードは引用符外
+
+        // 見つかった改行コードは引用符内（引用の末端を探し、次の改行を探索）
+        pos = posNLCode + NLCode.length;
+        while (pos < text.length) {
+            pos = text.indexOf("\"", pos);
+             if (pos == text.length || text.substr(pos, 2) != "\"\"")    // 引用内のエスケープされた引用符'""'では無い
+                break;
+            pos += 2;
+        }
+        pos += NLCode.length;
+    }
+    return null;
+};
+/*
+ 残作業
+ ＊データごとJSON化するか、ソースをJSON化するかを指定
+// */
+
+// JSON関係
+HuTime.JSON = {
+    // シリアライズとデシリアライズ
+    stringify: function stringify (obj) {
+        if (typeof obj === "undefined")     // undefined
+            return undefined;
+        if (obj == null)                    // null
+            return null;
+        if (typeof obj === "function")      // function
+            return obj.toString();
+
+        var json;   // 出力結果の収容用
+        var p;      // 再帰によるHuTime.JSON.stringigyの結果収容用
+        if (obj instanceof Array) {         // Array
+            json = [];
+            for (var i = 0; i < obj.length; ++i) {
+                p = HuTime.JSON.stringify(obj[i]);
+                if (typeof p !== "undefined")
+                    json.push(p);
+            }
+            return json;
+        }
+        if (typeof obj === "object") {      // object（Arrayを含む）
+            json = {};
+            if ("_toJSONProperties" in obj) {   // JSONへの変換テーブルあり -> HuTime関係のオブジェクト
+                json["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructerの名前を保存
+                for (var prop in obj) {
+                    switch (prop) {     // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                        case "_toJSONProperties":
+                        case "_parseJSONProperties":
+                        case "toJSON":
+                            continue;
+                    }
+
+                    if (prop in obj._toJSONProperties) {     // JSONへの変換定義がある場合
+                        if (obj._toJSONProperties[prop] == null)          // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._toJSONProperties[prop] === "string") {    // 出力名が指定されている場合
+                            if (obj[prop] == obj.__proto__[prop])   // 既定値と同じ場合は出力しない
+                                continue;
+
+                            p = HuTime.JSON.stringify(obj[prop]);
+                            if (typeof p !== "undefined")
+                                json[obj._toJSONProperties[prop]] = p;
+                        }
+                        else if (typeof obj._toJSONProperties[prop] === "function") {     // 出力関数が指定されている場合
+                            obj._toJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {  // JSONへの変換定義が無い場合
+                        if (prop in obj.__proto__)
+                            continue;     // プロトタイプで定義されているのにJSONへの変換定義なし －＞ 出力しない
+                        json[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
+                    }
+                }
+            }
+            else {          // HuTime関係以外のオブジェクト
+                for (var prop in obj) {
+                    json[prop] = HuTime.JSON.stringify(obj[prop]);
+                }
+            }
+            return json;
+        }
+        return obj;     // 数値、文字列など
+    },
+    parse: function parse (json) {
+        var p;
+        var obj;
+        var prop;
+        if (typeof json === "string") {
+            try {           // jsonをいったん標準的な方法でparseseする
+                p = JSON.parse(json);
+                json = p;
+            }
+            catch (e) {     // JSONとしてパースできない（JSONでない生の値 -> そのまま）
+            }
+        }
+
+        if (typeof json === "undefined")
+            return undefined;
+        if (json == null)                   // null
+            return null;
+        if (json instanceof Array) {        // Array
+            obj = [];
+            for (var i = 0; i < json.length; ++i) {
+                obj.push(HuTime.JSON.parse(json[i]));
+            }
+            return obj;
+        }
+        if (typeof json === "object") {     // オブジェクト一般
+            // オブジェクトの生成
+            if (typeof json.constructor === "string") {     // HuTime関係のオブジェクト
+                var constructor = eval("HuTime." + json.constructor);
+                if (constructor == undefined)
+                    obj = {};   // コンストラクタの取得失敗
+                else
+                    obj = new constructor();
+            }
+            else {      // HuTime関係以外のオブジェクト
+                obj = {};
+            }
+
+            // 各プロパティのデシリアライズ
+            if ("_parseJSONProperties" in obj) {    // 出力指定がある場合（HuTime関係のオブジェクト）
+                for (prop in json) {
+                    switch (prop) {             // 各クラスに共通の読み飛ばすプロパティ
+                        case "constructor":
+                            continue;
+                    }
+
+                    if (prop in obj._parseJSONProperties) {     // 出力指定がある場合
+                        if (obj._parseJSONProperties[prop] == null)   // 出力指定がnullの場合は出力しない
+                            continue;
+                        if (typeof obj._parseJSONProperties[prop] === "string") {     // 出力方法が文字列指定
+                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(json[prop]);
+                        }
+                        else if (typeof obj._parseJSONProperties[prop] === "function") {  // 出力方法が関数指定
+                            obj._parseJSONProperties[prop].apply(obj, [json]);
+                        }
+                    }
+                    else {      // 出力指定が無い場合は、プロパティ名をそのまま利用
+                        obj[prop] = HuTime.JSON.parse(json[prop]);
+                    }
+                }
+            }
+            else {      // 出力指定が無い場合（HuTime関係以外のオブジェクト）
+                for (var prop in json) {
+                    obj[prop] = HuTime.JSON.parse(json[prop]);
+                }
+            }
+
+            return obj;
+        }
+        if (typeof json === "string" && json.substr(0, 8) == "function")    // function
+            return eval("(" + json + ")");
+        return json;        // その他（数値、文字列など）
+    },
+
+    // シリアライズデータの保存と取得
+    save: function save (obj) {
+        var content =  JSON.stringify(obj);
+        var blob = new Blob([ content ], { "type" : "application/json" });
+        var elm = document.createElement("a");  // a要素を作って、一時的にbody要素直下に置く
+        document.body.appendChild(elm);
+        elm.href = window.URL.createObjectURL(blob);
+        elm.download="data.json";
+        elm.click();
+        document.body.removeChild(elm);
+    },
+    load: function load (source, handler) {     // ソースと取得後の処理関数を設定
+        var reader = new HuTime.JSON.Reader(source);
+        if (typeof handler === "function")
+            reader.onloadend = handler;
+        reader.load();
+        return reader;
+    }
+};
+
+// JSONデータを読み込むためのリーダ
+HuTime.JSON.Reader = function Reader (source) {
+    this.source = source;
+};
+HuTime.JSON.Reader.prototype = {
+    constructor: HuTime.JSON.Reader,
+
+    _stream: null,      // レコードセットを取得するストリーム
+    get stream () {
+        return this._stream;
+    },
+    set stream (val) {
+        if (!(val instanceof HuTime.StreamBase))
+            return;
+        this._stream = val;
+        this._stream.onloadend = function () {
+            this._parsedObject = HuTime.JSON.parse(this._stream.readAll());
+            this._isParsed = true;
+            this.onloadend.apply(this);
+        }.bind(this);
+    },
+
+    _source: null,      // レコードセットの取得元
+    get source () {
+        return this._source;
+    },
+    set source (val) {      // 取得もとに応じて、適切なstreamオブジェクトを設定
+        if (typeof  val === "string" && val != "")
+            this.stream = new HuTime.HttpStream(val);
+        else if (val instanceof File)       // Fileオブジェクトが入力された場合
+            this.stream = new HuTime.FileStream(val);
+        else if (val instanceof HuTime.StreamBase)  // streamオブジェクトが直接入力された場合
+            this.stream = val;
+        else
+            return;
+        this._source = val;
+    },
+
+    _isParsed: false,   // JSONデータのパース終了フラグ
+    _parsedObject: null,
+    get parsedObject () {
+        if (this._isParsed)
+            return this._parsedObject;
+        else
+            return undefined;
+    },
+
+    load: function load () {
+        this._isParsed = false;     // パース終了フラグをクリア
+        this._stream.load();
+    },
+    get loadState () {
+        return this._stream.loadState;
+    },
+    onloadend: function onloadend () {}
+};
 
 // ******** ContainerBase (PanelCollection, Panel, Layer の基底クラス) ********
-HuTime.ContainerBase = function() {
+HuTime.ContainerBase = function ContainerBase () {
     this._contents = [];
     this._userEvents = [];
 };
@@ -1844,11 +2114,70 @@ HuTime.ContainerBase.prototype = {
             eventInfos.push(new HuTime.EventInfo("mousemove", addedEventInfos[0].target,
                 addedEventInfos[0].t, addedEventInfos[0].y));
         }
-    }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        id: "id",
+        name: "name",
+        _contents: function (obj) {
+            if (this._contents.length > 0)
+                obj["contents"] = HuTime.JSON.stringify(this._contents);
+        },
+        style: function (obj) {
+            obj["style"] = this._element.style.cssText;
+        },
+
+        _tRotation: "tRotation",
+        _tDirection: "tDirection",
+        _tLength: "tLength",
+        _vBreadth: "vBreadth",
+        _vMarginTop: "vMarginTop",
+        _vMarginBottom: "vMarginBottom",
+        _vMarginForX: "vMarginForX",
+        _visible: "visible",
+        processBeforeRedraw: "processBeforeRedraw",
+        processAfterRedraw: "processAfterRedraw",
+
+        _userEvents: function (obj) {
+            if (this._userEvents.length > 0)
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+        },
+        _mouseEventCapture: "mouseEventCapture"
+    },
+    _parseJSONProperties: {
+        contents: function (json) {
+            var content;
+            for (var i = 0; i < json.contents.length; ++i) {
+                content = HuTime.JSON.parse(json.contents[i]);
+                if (content)
+                    this.appendContent(content);
+            }
+        },
+        style: function (json) {
+            this._element.style.cssText = json.style;
+        },
+
+        tRotation: "_tRotation",
+        tDirection: "_tDirection",
+        tLength: "_tLength",
+
+        vBreadth: "_vBreadth",
+        vMarginTop:"_vMarginTop",
+        vMarginBottom:"_vMarginBottom",
+        vMarginForX:"_vMarginForX",
+
+        visible:"_visible",
+        userEvents: null,
+        mouseEventCapture:"_mouseEventCapture"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    },
 };
 
 // ******** パネルコレクション ********
-HuTime.PanelCollection = function (vBreadth, tLength) {
+HuTime.PanelCollection = function PanelCollection (vBreadth, tLength) {
     HuTime.ContainerBase.apply(this, arguments);
 
     if (vBreadth != null && isFinite(vBreadth)) {
@@ -1901,15 +2230,15 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     // **** 書式 ****
     displayMode: {
-        get: function() {
+        get: function () {
             return this._tRotation * 2 + this._tDirection;
         },
-        set: function(val) {  // PanelCollectionでのみ設定可能
+        set: function (val) {  // PanelCollectionでのみ設定可能
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 3)
                 return;
             this._tDirection = val % 2;
             this._tRotation = (val - this._tDirection) / 2;
-            for (var i = this._contents.length; i--; ) {    // 子オブジェクトの値を変更
+            for (var i = this._contents.length; i--;) {    // 子オブジェクトの値を変更
                 this._setDisplayMode(this._tRotation, this._tDirection);
             }
         }
@@ -1919,19 +2248,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 600
     },
     tLengthDefault: {
-        get: function() {
+        get: function () {
             return this._tLengthDefault;
         },
-        set: function(val) {
+        set: function (val) {
             if (isFinite(val) && (typeof val) == "number")
                 this._tLengthDefault = val;
         }
     },
     tLength: {
-        get: function() {
+        get: function () {
             return this._tLength;
         },
-        set: function(val) {
+        set: function (val) {
             this._tLength = val;
             // 異常値は_updateCurrentTLengthで_tLengthDefaultに置き換えられる
         }
@@ -1941,7 +2270,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1    // 既定値：親要素に合わせる
     },
     tLengthMode: {
-        get: function() {
+        get: function () {
             return this._tLengthMode;
         },
         set: function (val) {
@@ -1952,7 +2281,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
 
     _updateCurrentTLength: {
-        value: function() {
+        value: function () {
             var isTLengthChanged = false;
             if (this.tLengthMode != 0) {
                 if (this._tRotation == 1) {
@@ -1969,8 +2298,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                         }
                     }
                 }
-                else
-                if (this._currentTLength != this._element.parentNode.clientWidth) {
+                else if (this._currentTLength != this._element.parentNode.clientWidth) {
                     isTLengthChanged = true;
                     this._currentTLength = this._element.parentNode.clientWidth;  // 現在の表示幅を使う
                 }
@@ -2002,10 +2330,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 2    // 既定値：内包するパネルに合わせる
     },
     vBreadthMode: {
-        get: function() {
+        get: function () {
             return this._vBreadthMode;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "number" || val % 1 != 0 || val < 0 || val > 2)
                 return;
             this._vBreadthMode = val;
@@ -2017,7 +2345,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     panelsVBreadth: {
-        get: function() {
+        get: function () {
             return this._panelsVBreadth;
         }
     },
@@ -2026,18 +2354,18 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0
     },
     vScrolled: {
-        get: function() {
+        get: function () {
             return this._vScrolled;
         }
     },
     _updatePanelsVBreadth: {       // 内包するタイルパネルの幅の合計を設定（contentsのソート後に処理のこと）
-        value: function() {
+        value: function () {
             var i;
             var upperPanelIndex = null;  // タイルパネルでの上（左）のパネルの_contents配列内の位置（最上端用に初期値null）
 
             this._panelsVBreadth = 0;
             // パネルの位置設定と幅の取得
-            for (i = this._contents.length; i--; ) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
+            for (i = this._contents.length; i--;) {   // タイルパネルをｚIndexの大きい順にするため、逆順（配列は小さい順）
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -2063,7 +2391,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     = (this.vBreadth != null && isFinite(this.vBreadth)) ? this.vBreadth : this.vBreadthDefault;
             }
             // タイルパネル以外の処理current値の更新（_panelsVBreadthが決まらないと決定できないため）
-            for (i = this._contents.length; i--; ) {
+            for (i = this._contents.length; i--;) {
                 if (!(this._contents[i] instanceof HuTime.TilePanel)) {   // タイルパネル以外（オーバレイパネル）
                     this._contents[i]._updateCurrentVXYOrigin();
                     this._contents[i]._updateCurrentVBreadth();
@@ -2072,12 +2400,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _updateCurrentVXYOrigin: {
-        value: function() {    // xy座標に変換されたContainerBaseの表示位置 (px)
+        value: function () {    // xy座標に変換されたContainerBaseの表示位置 (px)
             this._currentVXYOrigin = 0;   // 常に0
         }
     },
     _updateCurrentVBreadth: {
-        value: function() {
+        value: function () {
             this._updatePanelsVBreadth();      // 各パネルの位置決定と幅の合計値を取得
             switch (this.vBreadthMode) {
                 case 0:     // 固定モード
@@ -2090,8 +2418,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 case 1:     // 親要素に合わせる場合
                     if (this._tRotation == 1)
                         this._currentVBreadth = this._element.parentNode.clientWidth;
-                    else
-                    if (this._element.parentNode.style.height)
+                    else if (this._element.parentNode.style.height)
                         this._currentVBreadth = this._element.parentNode.clientHeight;
                     else
                         this._currentVBreadth = this.vBreadthDefault;
@@ -2155,11 +2482,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _setPanelVBreadth: {    // パネルの表示位置や大きさを反映させる
-        value: function() {
+        value: function () {
             this._updateCurrentVXYOrigin();
             this._updateCurrentVBreadth();
 
-            for (var i = this._contents.length; i--; ) {
+            for (var i = this._contents.length; i--;) {
                 if (!this._contents[i]._visible)    // 非表示のパネルは読み飛ばす
                     continue;
 
@@ -2175,7 +2502,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _drawHuTimeLogo: {   // HuTimeのロゴを表示
-        value: function(x, y) {
+        value: function (x, y) {
             var ctx;
             ctx = this._captureElement.getContext('2d');
             ctx.fillStyle = "rgb(51, 51, 51)";
@@ -2243,10 +2570,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: true
     },
     vScrollable: {
-        get: function() {
+        get: function () {
             return this._vScrollable;
         },
-        set: function(val) {
+        set: function (val) {
             if ((typeof val) != "boolean")
                 return;
             this._vScrollable = val;
@@ -2558,7 +2885,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginY;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){
+                            this._tSwipeAnimationTimer = setInterval(function (e) {
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneY;
                             }.bind(this, ev), 100);
                         }
@@ -2577,7 +2904,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                             this._dragDirection = "t";
                             this._tSwipeAnimationOrigin = ev._handleObject.touchOneOriginX;
                             clearTimeout(this._tSwipeAnimationTimer);
-                            this._tSwipeAnimationTimer = setInterval(function (e){   // 移動量履歴の保存
+                            this._tSwipeAnimationTimer = setInterval(function (e) {   // 移動量履歴の保存
                                 this._tSwipeAnimationOrigin = e._handleObject.touchOneX;
                             }.bind(this, ev), 100);
                         }
@@ -2698,7 +3025,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 8
     },
     isInsideXY: {   // パネル幅変更時に_captureElementを変える場合があるため、_captureElementで領域を判断
-        value: function(x, y) {
+        value: function (x, y) {
             if (this._tRotation == 1)
                 return (x < this._captureElement.width && x >= 0);  // _currentVXYOriginは0で固定されているので参照省略
             else
@@ -2723,7 +3050,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 for (var i = 0; i < this._contents.length; ++i) {
                     if (this._contents[i]._visible) {
                         if (this._tRotation == 1)
-                            this._contents[i]._extractInnerTouchEvent(ev, eventX  - this._currentVXYOrigin, eventY);
+                            this._contents[i]._extractInnerTouchEvent(ev, eventX - this._currentVXYOrigin, eventY);
                         else
                             this._contents[i]._extractInnerTouchEvent(ev, eventX, eventY - this._currentVXYOrigin);
                     }
@@ -2737,7 +3064,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸 zoom **
     _pinchZoom: {
-        value: function _pinchZoom(ev, eventX, eventY, targetPanel){
+        value: function _pinchZoom(ev, eventX, eventY, targetPanel) {
 
             var currentTOne, currentTTwo;
             var newTPerXY, newMinT, newMaxT;
@@ -2782,9 +3109,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     newMinT = newTPerXY * this._currentTLength + newMaxT;
                     break;
             }
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -2792,9 +3119,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -2811,7 +3138,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 0.02
     },
     _wheelZoom: {    // ホイールによるzoom操作
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var zoomDelta = this.wheelZoomRatio;
             zoomDelta *= ev.deltaY > 0 ? 1 : -1;
 
@@ -2842,9 +3169,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // マウスポインタの位置（currentT）を基準にZoomする（hutimeRootのx座標値を書き換える）
             var newMinT = zoomDelta * (this._hutimeRoot.minT - currentT) + this._hutimeRoot.minT;
             var newMaxT = zoomDelta * (this._hutimeRoot.maxT - currentT) + this._hutimeRoot.maxT;
-            if(newMinT < this._hutimeRoot.minTLimit)
+            if (newMinT < this._hutimeRoot.minTLimit)
                 newMinT = this._hutimeRoot.minTLimit;
-            if(newMaxT > this._hutimeRoot.maxTLimit)
+            if (newMaxT > this._hutimeRoot.maxTLimit)
                 newMaxT = this._hutimeRoot.maxTLimit;
 
             this._hutimeRoot._handleInnerEvent( // tMoveEndイベントを発火
@@ -2852,9 +3179,9 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
             // タイマ処理
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() {
+                    function () {
                         obj._handleTimeout("tmovestop", obj);
                         // tmovedイベント発火
                         var newEv = new HuTime.Event("tmoved", obj._hutimeRoot);
@@ -2869,13 +3196,13 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** t軸移動 **
     _startTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveStartイベント）を発火
                 HuTime.InnerEvent.createWithT("tmovestart", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
         }
     },
     _progressTMove: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var deltaT;
             switch (this.displayMode) {
                 case 0:
@@ -2910,11 +3237,11 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
-            else if(newMinT < this._hutimeRoot.minTLimit) {
+            else if (newMinT < this._hutimeRoot.minTLimit) {
                 newMinT = this._hutimeRoot.minTLimit;
                 newMaxT = this._hutimeRoot.maxT;
             }
-            else if(newMaxT > this._hutimeRoot.maxTLimit) {
+            else if (newMaxT > this._hutimeRoot.maxTLimit) {
                 newMinT = this._hutimeRoot.minT;
                 newMaxT = this._hutimeRoot.maxTLimit;
             }
@@ -2923,15 +3250,17 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 HuTime.InnerEvent.createWithT("tmove", this, newMinT, newMaxT));
 
             clearTimeout(this._mouseTimer);
-            this._mouseTimer = function(obj) {
+            this._mouseTimer = function (obj) {
                 return setTimeout(
-                    function() { obj._handleTimeout("tmovestop", obj); },
+                    function () {
+                        obj._handleTimeout("tmovestop", obj);
+                    },
                     obj._hutimeRoot.mouseTimeOut);
             }(this);
         }
     },
     _endTMove: {     // t軸移動確定
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._hutimeRoot._handleInnerEvent(     // 内部イベント（tMoveEndイベント）を発火
                 HuTime.InnerEvent.createWithT("tmoveend", this, this._hutimeRoot.minT, this._hutimeRoot.maxT));
             this._dragDirection = null;     // ドラッグの方向を未決に戻す
@@ -2965,7 +3294,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
 
     // ** v軸移動 **
     _progressVScroll: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var vScrolledOld = this._vScrolled;     // 移動量を検出するため、前の値を保存
             if (this._tRotation == 1) {
                 this._vScrolled += ev._offsetX - this._dragOriginX;
@@ -3007,12 +3336,12 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endVScroll: {
-        value: function() {
+        value: function () {
             this.scrollTilePanels();
         }
     },
     scrollTilePanels: {
-        value: function(deltaV) {
+        value: function (deltaV) {
             if (!deltaV || !isFinite(deltaV))
                 return;     // deltaV = 0 の場合（!deltaV）も該当
 
@@ -3050,7 +3379,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 1.0
     },
     _startPanelOrderChange: {    // 変更開始（対象のパネルの書式変更）（shift+mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (targetPanel.repositionable) {
                 if (ev instanceof HuTime.MouseEvent)
                     this._captureElement.style.cursor = "pointer";  // カーソル変更
@@ -3063,7 +3392,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelOrderChange: { // 変更中（shift+mousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var left = parseFloat(this._panelOrderChanging._element.style.left);
             var top = parseFloat(this._panelOrderChanging._element.style.top);
 
@@ -3071,7 +3400,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += eventX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += eventY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = eventX;
                 this._dragOriginY = eventY;
             }
@@ -3079,19 +3408,19 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                 left += ev.originalEvent.offsetX - this._dragOriginX;
                 this._panelOrderChanging._element.style.left = left + "px";
                 top += ev.originalEvent.offsetY - this._dragOriginY;
-                this._panelOrderChanging._element.style.top = top+ "px";
+                this._panelOrderChanging._element.style.top = top + "px";
                 this._dragOriginX = ev.originalEvent.offsetX;
                 this._dragOriginY = ev.originalEvent.offsetY;
             }
             clearTimeout(this._mouseTimer);
 
-            this._mouseTimer = setTimeout(function (){
+            this._mouseTimer = setTimeout(function () {
                 this._endPanelOrderChange(ev, eventX, eventY, this._panelOrderChanging);
             }.bind(this), this._hutimeRoot.mouseTimeOut * 4)
         }
     },
     _endPanelOrderChange: {      // 変更確定（入れ換えと対象のパネルの書式を戻す）（mouseup）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             clearTimeout(this._mouseTimer);
 
             // カーソルと移動元の書式を元に戻す
@@ -3122,7 +3451,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     changePanelOrder: {             // パネルの順序変更
-        value: function(source, target) {
+        value: function (source, target) {
             if (!source.repositionable || source === target)
                 return;
 
@@ -3175,7 +3504,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         value: 50
     },
     _startPanelBreadthChange: {  // 変更開始（mousedown）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             if (!targetPanel._panelBorder)
                 return;
             this._panelBreadthChanging = targetPanel._panelBorder;    // パル幅変更中を設定
@@ -3184,7 +3513,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             // 一時的にcaptureElementの幅を_captureElementExtensionだけ伸ばす
             if (this.vBreadthMode == 2) {
                 this._element.style.overflow = "visible";   // 伸ばした分を有効にするため、hiddenからvisibleに
-                if (this._tRotation == 1){
+                if (this._tRotation == 1) {
                     this._captureElement.width = this._currentVBreadth + this._captureElementExtension;
                     this._captureElement.style.width =
                         (this._currentVBreadth + this._captureElementExtension) + "px";
@@ -3202,7 +3531,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _progressPanelBreadthChange: {   // 変更中（パネル境界をmousemove）
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             var i;  // カウンタ
             var panel = this._panelBreadthChanging._panel;   // 幅を変更するパネル
             var layer;
@@ -3225,7 +3554,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginX = ev._offsetX;
                 panel._element.style.width = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -3257,7 +3586,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
                     panel.vBreadth = panel.vBreadthUpperLimit;    // パネル幅の上限値制限
                 this._dragOriginY = ev._offsetY;
                 panel._element.style.height = panel._currentVBreadth + "px";
-                for (i = panel._contents.length; i--; ) {
+                for (i = panel._contents.length; i--;) {
                     layer = panel._contents[i];
                     layer._updateCurrentVXYOrigin();
                     layer._updateCurrentVBreadth();
@@ -3298,7 +3627,7 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
         }
     },
     _endPanelBreadthChange: {
-        value: function(ev, eventX, eventY, targetPanel) {
+        value: function (ev, eventX, eventY, targetPanel) {
             this._panelBreadthChanging._panel.changeVBreadth();   // パネル幅変更を確定、再描画
 
             // 「パネルの幅に合わせる」の場合に変更したcaptureElementの設定を基に戻す
@@ -3318,10 +3647,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     _mouseTimer: {
         writable: true,
-        value : null
+        value: null
     },
     _handleTimeout: {
-        value: function(type, obj) {
+        value: function (type, obj) {
             obj._hutimeRoot._handleInnerEvent(   // 内部イベントを発火
                 HuTime.InnerEvent.createWithT(type, obj, obj._hutimeRoot.minT, obj._hutimeRoot.maxT));
         }
@@ -3345,6 +3674,34 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             domEv.preventDefault();
             return false;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _tLengthDefault: { value: "tLengthDefault" },
+            tLength: { value: "tLength" },
+            _tLengthMode: { value: "tLengthMode" },
+
+            _vBreadthMode: { value: "vBreadthMode" },
+
+            _panelsVBreadth: { value: "panelsVBreadth" },
+            dragSensitivity: { value: "dragSensitivity" },
+            _vScrollable: { value: "vScrollable" },
+
+            _pinchDirection: { value: "pinchSensitivity" },
+            wheelZoomRatio: { value: "wheelZoomRatio"}
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            tLengthDefault: { value: "_tLengthDefault" },
+            tLengthMode: { value: "_tLengthMode" },
+            vBreadthMode: { value: "_vBreadthMode" },
+            panelsVBreadth: { value: "_panelsVBreadth" },
+            vScrollable: { value: "_vScrollable" },
+            pinchSensitivity: { value: "_pinchDirection" }
+        })
     }
 });
 
@@ -3403,11 +3760,21 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
             if (layer instanceof HuTime.Layer)
                 HuTime.ContainerBase.prototype.removeContent.apply(this, arguments);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            tRatio: { value: "tRatio" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** タイルパネル ********
-HuTime.TilePanel = function (vBreadth) {
+HuTime.TilePanel = function TilePanel (vBreadth) {
     if (!isFinite(vBreadth) || vBreadth == null)
         this._vBreadth = this.vBreadthDefault;
     else
@@ -3648,6 +4015,36 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
                 return (y < this._currentVBreadth + this.panelBorderWidth / 2 + this._currentVXYOrigin &&
                 y >= this._currentVXYOrigin);
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PanelBase.prototype._toJSONProperties, {
+            _contents: {
+                value: function (obj) {
+                    obj["contents"] = [];
+                    for (var i = 0; i < this._contents.length; ++i) {
+                        if (this._contents[i].constructor.name != "PanelBorder")
+                            obj["contents"][i] = this._contents[i];
+                    }
+                }
+            },
+            panelBorderWidth: { value: "panelBorderWidth" },
+            _vBreadth: { value: "vBreadth" },
+
+            vBreadthTouchLoweLimit: { value: "vBreadthTouchLoweLimit" },
+            vBreadthUpperLimit: { value: "vBreadthUpperLimit" },
+
+            _repositionable: { value: "repositionable" },
+            _resizable: { value: "resizable" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PanelBase.prototype._parseJSONProperties, {
+            vBreadth: { value: "_vBreadth" },
+            repositionable: { value: "_repositionable" },
+            resizable: { value: "_resizable" }
+        })
     }
 });
 
@@ -3765,7 +4162,7 @@ HuTime.OverlayPanel.prototype = Object.create(HuTime.PanelBase.prototype, {
 });
 
 // ******** パネル境界 ********
-HuTime.PanelBorder = function (panel) {
+HuTime.PanelBorder = function PanelBorder (panel) {
     HuTime.ContainerBase.apply(this);
     if (panel instanceof HuTime.TilePanel)
         this._panel = panel;
@@ -3844,7 +4241,7 @@ HuTime.PanelBorder.prototype = Object.create(HuTime.ContainerBase.prototype, {
 });
 
 // ******** レイヤ ********
-HuTime.Layer = function (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.Layer = function Layer (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     // vBreadth, vMarginTop, vMarginBottom: レイヤの表示位置関係（幅、上マージン、下マージン）
     // vTop, vBottom: レイヤのv軸関係（v軸->y軸の場合の上端、下端の値）
     HuTime.ContainerBase.apply(this, arguments);
@@ -3860,7 +4257,6 @@ HuTime.Layer = function (vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
         this._vTop = vTop;
     if (isFinite(vBottom))
         this._vBottom = vBottom;
-
 
     this._element = document.createElement("div");
     this._element.style.overflow = "hidden";
@@ -4161,11 +4557,29 @@ HuTime.Layer.prototype = Object.create(HuTime.ContainerBase.prototype, {
     _mouseEventCapture: {    // マウスイベントをキャプチャする範囲（0:なし, 1:子を除く, 2:子のみ, 3:全て）
         writable: true,
         value: 2    // オーバレイ用なので、既定値は子以外は透過させる設定にする
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._toJSONProperties, {
+            _fixedLayer: { value: "fixedLayer" },
+            _vTop: { value: "vTop" },
+            _vBottom: { value: "vBottom" },
+            _vForX: { value: "vForX"}
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ContainerBase.prototype._parseJSONProperties, {
+            fixedLayer: { value: "_fixedLayer" },
+            vTop: { value: "_vTop" },
+            vBottom: { value: "_vBottom" },
+            vForX: { value: "_vForX" }
+        })
     }
 });
 
 // ******** 座標の基底クラス ********
-HuTime.PositionBase = function () {
+HuTime.PositionBase = function PositionBase () {
 };
 HuTime.PositionBase.prototype = {
     constructor: HuTime.PositionBase,
@@ -4174,11 +4588,20 @@ HuTime.PositionBase.prototype = {
     },
     cnvY: function(layer) {
         return 0;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // ******** t-v座標系での絶対座標 ********
-HuTime.TVPosition = function (t, v) {
+HuTime.TVPosition = function TVPosition (t, v) {
     this.t = t;
     this.v = v;
 };
@@ -4187,7 +4610,6 @@ HuTime.TVPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
     constructor: {
         value: HuTime.TVPosition
     },
-
 
     _t: {            // t軸 座標
         writable: true,
@@ -4254,11 +4676,23 @@ HuTime.TVPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
                 return (v - layer._vTop) * layer._lyrVResolution;
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _t: { value: "t" },
+            _v: { value: "v" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** x-y座標系での絶対座標 ********
-HuTime.XYPosition = function (x, y) {
+HuTime.XYPosition = function XYPosition (x, y) {
     this.x = x;
     this.y = y;
 };
@@ -4308,12 +4742,24 @@ HuTime.XYPosition.prototype = Object.create(HuTime.PositionBase.prototype, {
         value: function(layer) {
             return this._y instanceof Function ? this._y(layer) : this._y;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _x: { value: "x" },
+            _y: { value: "y" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** t-v座標系での相対座標 ********
 // t値、v値の進む方向を正とした、基準座標からの相対位置（px単位）
-HuTime.RelativeTVPosition = function(position, ofsT, ofsV) {
+HuTime.RelativeTVPosition = function RelativeTVPosition (position, ofsT, ofsV) {
     this.ofsT = ofsT;
     this.ofsV = ofsV;
     this.position = position;
@@ -4394,11 +4840,24 @@ HuTime.RelativeTVPosition.prototype = Object.create(HuTime.PositionBase.prototyp
                 return this._position.cnvY(layer) + vDirection * this._ofsV * layer._lyrVResolution;
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsT: { value: "ofsT" },
+            _ofsV: { value: "ofsV" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** x-y座標系での相対座標 ********
-HuTime.RelativeXYPosition = function(position, ofsX, ofsY) {
+HuTime.RelativeXYPosition = function RelativeXYPosition (position, ofsX, ofsY) {
     this.ofsX = ofsX;
     this.ofsY = ofsY;
     this.position = position;
@@ -4459,11 +4918,24 @@ HuTime.RelativeXYPosition.prototype = Object.create(HuTime.PositionBase.prototyp
         value: function(layer) {    // canvasのy座標
             return this._position.cnvY(layer) + this._ofsY;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" },
+            _ofsX: { value: "ofsX" },
+            _ofsY: { value: "ofsY" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** 座標の整数化 ********
-HuTime.PositionFloor = function(position) {
+HuTime.PositionFloor = function PositionFloor (position) {
     this.position = position;
 };
 HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
@@ -4496,10 +4968,26 @@ HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
         value: function(layer) {    // canvasのy座標
             return Math.floor(this._position.cnvY(layer));
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
 
-HuTime.PositionCeil = function(position) {
+HuTime.PositionCeil = function PositionCeil (position) {
     this.position = position;
 };
 HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
@@ -4532,10 +5020,26 @@ HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
         value: function(layer) {    // canvasのy座標
             return Math.ceil(this._position.cnvY(layer));
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+            position: {
+                value: function (json) {
+                    this.position = HuTime.PositionBase.createFromJSON(json.position);
+                }
+            }
+        })
     }
 });
 
-HuTime.PositionRound = function(position) {
+HuTime.PositionRound = function PositionRound (position) {
     this.position = position;
 };
 HuTime.PositionRound.prototype = Object.create(HuTime.PositionBase.prototype, {
@@ -4568,43 +5072,54 @@ HuTime.PositionRound.prototype = Object.create(HuTime.PositionBase.prototype, {
         value: function(layer) {    // canvasのy座標
             return Math.round(this._position.cnvY(layer));
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._toJSONProperties, {
+            _position: { value: "position" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // ******** 座標上の固定位置 ********
 HuTime.PositionConstant = {
     // t軸、v軸の最少、最大値
-    tMin: function tMin(layer) {     // tの最小値
+    tMin: function tMin (layer) {     // tの最小値
         return layer._minLyrT;
     },
-    tMax: function tMax(layer) {     // tの最大値
+    tMax: function tMax (layer) {     // tの最大値
         return layer._maxLyrT;
     },
-    vMin: function vMin(layer) {     // vの最小値
+    vMin: function vMin (layer) {     // vの最小値
         return layer._vTop;
     },
-    vMax: function vMax(layer) {     // vの最大値
+    vMax: function vMax (layer) {     // vの最大値
         return layer._vBottom;
     },
 
     // xy座標の固定値
-    xLeft: function xLeft(layer) {      // t軸の向きにかかわらず、左端
+    xLeft: function xLeft (layer) {      // t軸の向きにかかわらず、左端
         return 0;
     },
-    xRight: function xRight(layer) {    // t軸の向きにかかわらず、右端
+    xRight: function xRight (layer) {    // t軸の向きにかかわらず、右端
         return layer._element.width;    // canvas要素なので、style.widthでなく、width属性が使える
     },
-    yTop: function yTop(layer) {        // v軸の向きにかかわらず、上端
+    yTop: function yTop (layer) {        // v軸の向きにかかわらず、上端
         return 0;
     },
-    yBottom: function yBottom(layer) {  // v軸の向きにかかわらず、下端
+    yBottom: function yBottom (layer) {  // v軸の向きにかかわらず、下端
         return layer._element.height;   // canvas要素なので、style.heightでなく、height属性が使える
     }
 };
 
 // ******** レイヤ上の図形オブジェクト ********
 // レイヤ上の図形オブジェクトの基底クラス
-HuTime.OnLayerObjectBase = function (position) {
+HuTime.OnLayerObjectBase = function OnLayerObjectBase (position) {
     this.position = position;
     this._userEvents = [];
 };
@@ -4715,12 +5230,35 @@ HuTime.OnLayerObjectBase.prototype = {
                 }
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        id: "id",
+        name: "name",
+        position: "position",
+        rotate: "rotate",
+        style: "style",
+        _visible: "visible",
+        processBeforeRedraw: "processBeforeRedraw",
+        processAfterRedraw: "processAfterRedraw",
+        _userEvents: function (obj) {
+            if (this._userEvents.length > 0)
+                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+        }
+    },
+    _parseJSONProperties: {
+        visible: "_visible",
+        userEvents: null
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // **** 線オブジェクト ****
-HuTime.Line = function (style, position) {
-    this.position = position;
+HuTime.Line = function Line (style, positions) {
+    this.position = positions;
     this.style = style;
     this._userEvents = [];
 };
@@ -4738,11 +5276,21 @@ HuTime.Line.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathLine(this.layer, this.position, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** ポリゴンオブジェクト ****
-HuTime.Polygon = function (style, position) {
+HuTime.Polygon = function Polygon (style, position) {
     this.position = position;
     this.style = style;
     this._userEvents = [];
@@ -4761,11 +5309,21 @@ HuTime.Polygon.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathPolygon(this.layer, this.position, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position: { value: "position" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 正方形オブジェクト ****
-HuTime.Square = function (style, position, width, rotate) {
+HuTime.Square = function Square (style, position, width, rotate) {
     this.position = position;
     this.width = width;
     this.rotate = rotate;
@@ -4790,11 +5348,21 @@ HuTime.Square.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathSquare(this.layer, this.position, this.width, this.rotate, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 矩形オブジェクト ****
-HuTime.Rect = function (style, position1, position2, width, rotate) {
+HuTime.Rect = function Rect (style, position1, position2, rotate) {
     this.position = position1;
     this.position2 = position2;
     this.style = style;
@@ -4819,12 +5387,22 @@ HuTime.Rect.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathRect(this.layer, this.position, this.position2, this.rotate, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            position2: { value: "position2" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 円オブジェクト ****
-HuTime.Circle = function (style, position, width) {
-    this.position = position;
+HuTime.Circle = function Circle (style, positions, width) {
+    this.position = positions;
     this.width = width;
     this.style = style;
     this._userEvents = [];
@@ -4847,11 +5425,21 @@ HuTime.Circle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathCircle(this.layer, this.position, this.width, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 円弧オブジェクト ****
-HuTime.Arc = function (style, position, radius, startAngle, endAngle) {
+HuTime.Arc = function Arc (style, position, radius, startAngle, endAngle) {
     this.position = position;
     this.radius = radius;
     this.startAngle = startAngle;
@@ -4886,11 +5474,23 @@ HuTime.Arc.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathArc(this.layer, this.position, this.radius,
                 this.startAngle, this.endAngle, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 扇形オブジェクト ****
-HuTime.Pie = function (style, position, radius, startAngle, endAngle) {
+HuTime.Pie = function Pie (style, position, radius, startAngle, endAngle) {
     this.position = position;
     this.radius = radius;
     this.startAngle = startAngle;
@@ -4925,11 +5525,23 @@ HuTime.Pie.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathPie(this.layer, this.position, this.radius,
                 this.startAngle, this.endAngle, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            radius: { value: "radius" },
+            startAngle: { value: "startAngle" },
+            endAngle: { value: "endAngle" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 三角形オブジェクト ****
-HuTime.Triangle = function (style, position, width, rotate) {
+HuTime.Triangle = function Triangle (style, position, width, rotate) {
     this.position = position;
     this.width = width;
     this.style = style;
@@ -4954,11 +5566,21 @@ HuTime.Triangle.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
         value: function() {
             return HuTime.Drawing.pathTriangle(this.layer, this.position, this.width, this.rotate, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            width: { value: "width" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 画像オブジェクト ****
-HuTime.Image = function (style, position, src, width, height, rotate) {
+HuTime.Image = function Image (style, position, src, width, height, rotate) {
     this.position = position;
     this.src = src;
     this.width = width;
@@ -4968,7 +5590,7 @@ HuTime.Image = function (style, position, src, width, height, rotate) {
     this._userEvents = [];
 
     if (!width && !height) {    // 表示サイズが指定されていない場合は、画像読み込み後に画像サイズを設定する
-        var img = new Image();
+        var img = document.createElement("img");
         img.src = src;
         var setSize  = function(obj) {
             img.onload = function() {
@@ -5006,11 +5628,30 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
             return HuTime.Drawing.pathImage(
                 this.layer, this.position, this.src, this.width, this.height, this.rotate, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            src: {
+                value: function (json) {
+                    // 絶対パスを出力
+                    var elem = document.createElement("img");
+                    elem.src = this.src;
+                    json.src = elem.src;
+                }
+            },
+            width: { value: "width" },
+            height: { value: "height" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 文字列オブジェクト ****
-HuTime.String = function (style, position, text, rotate) {
+HuTime.String = function String (style, position, text, rotate) {
     this.position = position;
     this.text = text;
     this.style = style;
@@ -5035,6 +5676,16 @@ HuTime.String.prototype = Object.create(HuTime.OnLayerObjectBase.prototype,{
         value: function() {
             return HuTime.Drawing.pathString(this.style, this.layer, this.position, this.text, this.rotate, this.canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
+            text: { value: "text" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.OnLayerObjectBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -5249,20 +5900,8 @@ HuTime.Drawing = {
     drawArc: function(style, layer, position, radius, startAngle, endAngle, canvas) {
         if (!style)
             style = new HuTime.FigureStyle();
-
-        var cnvX = position.cnvX(layer);
-        var cnvY = position.cnvY(layer);
-        var ctx;
-        if (canvas)
-            ctx = canvas.getContext('2d');
-        else
-            ctx = layer._canvas.getContext('2d');
-        ctx.beginPath();
-        ctx.arc(cnvX, cnvY, radius,
-            startAngle * HuTime.Drawing._constDegToRad, endAngle * HuTime.Drawing._constDegToRad);
-        ctx.globalAlpha = this.alpha;
-        style._applyLineStyle(ctx);
-        ctx.globalAlpha = alphaOld;
+        style.applyStyle(
+            HuTime.Drawing.pathArc(layer, position, radius, startAngle, endAngle, canvas));
     },
 
     // 扇形（positionは中心）
@@ -5526,7 +6165,7 @@ HuTime.Drawing = {
 };
 
 // ******** 図形の書式 ********
-HuTime.FigureStyle = function(fillColor, lineColor, lineWidth) {
+HuTime.FigureStyle = function FigureStyle (fillColor, lineColor, lineWidth) {
     if (fillColor != undefined)
         this.fillColor = fillColor;
     if (lineColor != undefined)         // 省略された場合は、既定値（null）になる
@@ -5623,11 +6262,31 @@ HuTime.FigureStyle.prototype = {
             ctx.lineWidth = this._lineWidth;
             ctx.stroke();
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _lineWidth: "lineWidth",
+        lineColor: "lineColor",
+        _lineDash: "lineDash",
+        fillColor: "fillColor",
+        _alpha: "alpha"
+    },
+    _parseJSONProperties: {
+        lineWidth: "_lineWidth",
+        lineDash: "_lineDash",
+        alpha: "_alpha"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    },
+    parseJSON: function parseJSON (json) {
+        HuTime.JSON.parse(json, this);
     }
 };
 
 // ******** 文字列の書式 ********
-HuTime.StringStyle = function(fontSize, fillColor, fontWeight, fontStyle, fontFamily) {
+HuTime.StringStyle = function StringStyle (fontSize, fillColor, fontWeight, fontStyle, fontFamily) {
     if (fontSize != undefined)
         this.fontSize = fontSize;
     if (fillColor != undefined)
@@ -5868,9 +6527,49 @@ HuTime.StringStyle.prototype = {
         }
 
         ctx.globalAlpha = alphaOld;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _fontSize: "fontSize",
+        _fontStyle: "fontStyle",
+        _fontWeight: "fontWeight",
+        _fontFamily: "fontFamily",
+        _fontVariant: "fontVariant",
+        _lineHeight: "lineHeight",
+
+        _textAlign: "textAlign",
+        _textBaseline: "textBaseline",
+
+        _fillColor: "fillColor",
+        _lineWidth: "lineWidth",
+        _lineColor: "lineColor",
+        _alpha: "alpha"
+    },
+    _parseJSONProperties: {
+        fontSize: "_fontSize",
+        fontStyle: "_fontStyle",
+        fontWeight: "_fontWeight",
+        fontFamily: "_fontFamily",
+        fontVariant: "_fontVariant",
+        lineHeight: "_lineHeight",
+
+        textAlign: "_textAlign",
+        textBaseline: "_textBaseline",
+
+        fillColor: "_fillColor",
+        lineWidth: "_lineWidth",
+        lineColor: "_lineColor",
+        alpha: "_alpha"
+    },
+
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    },
+    parseJSON: function parseJSON (json) {
+        HuTime.JSON.parse(json, this);
     }
 };
-
 
 HuTime.Slider = function (vBreadth, vMarginTop, vMarginBottom) {
     HuTime.ContainerBase.apply(this, arguments);
@@ -6401,7 +7100,7 @@ HuTime.Drawing.drawScale =  function(scaleStyle, layer, scalePos, scaleDataset, 
 };
 
 // **** 目盛の位置情報 ****
-HuTime.ScalePosition = function(positionBegin, positionEnd, valueBegin, valueEnd, layer) {
+HuTime.ScalePosition = function ScalePosition (positionBegin, positionEnd, valueBegin, valueEnd, layer) {
     if (!(positionBegin instanceof HuTime.PositionBase) || !(positionEnd instanceof HuTime.PositionBase) ||
         !isFinite(valueBegin) || valueBegin == null || !isFinite(valueEnd) || valueEnd == null)
         return;
@@ -6504,19 +7203,39 @@ HuTime.ScalePosition.prototype = {
             offset = 0;
         return (value - this.valueBegin) / this._dValue * this._dY + this._beginY
             - offset / this._scaleLength * this._dX;
+    },
+
+    _toJSONProperties: {
+        positionBegin: "positionBegin",
+        positionEnd: "positionEnd",
+        valueBegin: "valueBegin",
+        valueEnd: "valueEnd"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // **** 目盛の書式 ****
 // 目盛の書式の基底クラス
-HuTime.ScaleStyleBase = function() {
+HuTime.ScaleStyleBase = function ScaleStyleBase () {
 };
 HuTime.ScaleStyleBase.prototype = {
-    constructor: HuTime.ScaleStyleBase
+    constructor: HuTime.ScaleStyleBase,
+
+    _toJSONProperties: {
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    }
 };
 
 // 目盛線による目盛の書式
-HuTime.TickScaleStyle = function() {
+HuTime.TickScaleStyle = function TickScaleStyle () {
     // 軸
     this.defaultAxisStyle = new HuTime.FigureStyle(null, "black", 1);
     this.axisStyle = this.defaultAxisStyle;
@@ -6633,7 +7352,6 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
     },
     ////////
 
-
     labelRotate: {          // ラベルの回転（nullなどの場合は、軸の方向）
         writable: true,
         value: null
@@ -6681,12 +7399,33 @@ HuTime.TickScaleStyle.prototype = Object.create(HuTime.ScaleStyleBase.prototype,
                 scalePos.cnvXYPosition(scaleData.value, offset, alignOffset),
                 scaleData.label, rotate, canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.ScaleStyleBase.prototype._toJSONProperties, {
+            axisStyle: { value: "axisStyle" },
+            showAxis: { value: "showAxis" },
+            tickStyle: { value: "tickStyle" },
+            tickSize: { value: "tickSize" },
+            tickPosition: { value: "tickPosition" },
+            tickOffset: { value: "tickOffset" },
+            labelStyle: { value: "labelStyle" },
+            labelOffset: { value: "labelOffset" },
+            labelAlignOffset: { value: "labelAlignOffset" },
+            labelRotate: { value: "labelRotate" },
+            labelOnTick: { value: "labelOnTick" },
+            labelLineHeight: { value: "labelLineHeight" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ScaleStyleBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 目盛のデータ ****
 // 基底の目盛のデータセット
-HuTime.ScaleDatasetBase = function() {
+HuTime.ScaleDatasetBase = function ScaleDatasetBase () {
 };
 HuTime.ScaleDatasetBase.prototype = {
     constructor: HuTime.ScaleDatasetBase,
@@ -6695,11 +7434,19 @@ HuTime.ScaleDatasetBase.prototype = {
         // value: 目盛の値
         // level: 目盛のレベル
         // label: 目盛のラベル（無い場合は空文字）
+    },
+
+    _toJSONProperties: {
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // 標準の目盛データ（値をそのまま出力）
-HuTime.StandardScaleDataset = function() {
+HuTime.StandardScaleDataset = function StandardScaleDataset () {
 };
 HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prototype,{
     constructor: {
@@ -6818,11 +7565,23 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
             }
             return data;
         }
+    },
+    _toJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            minCnvTickInterval: { value: "minCnvTickInterval" },
+            minLabeledLevel: { value: "minLabeledLevel" },
+            adjustTickIntervalToLabel: { value: "adjustTickIntervalToLabel" },
+            coefficientOfLabelSize: { value: "coefficientOfLabelSize" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // 手動設定によりデータセット
-HuTime.ManualScaleDataset = function() {
+HuTime.ManualScaleDataset = function ManualScaleDataset () {
     this._scaleData = [];
 };
 HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prototype, {
@@ -6853,12 +7612,20 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
         value: function(min, max, scalePos) {
             return this._scaleData;
         }
+    },
+    _toJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            _scaleData: { value: "scaleData" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+        })
     }
-
 });
 
 // **** 目盛レイヤ ****
-HuTime.TickScaleLayer = function (vBreadth, vMarginTop, vMarginBottom, scaleStyle, scaleDataset) {
+HuTime.TickScaleLayer = function TickScaleLayer (vBreadth, vMarginTop, vMarginBottom, scaleStyle, scaleDataset) {
     HuTime.Layer.apply(this, arguments);
 
     // 目盛の書式
@@ -6957,12 +7724,24 @@ HuTime.TickScaleLayer.prototype = Object.create(HuTime.Layer.prototype, {
     mouseEventCapture: {
         writable: true,
         value: 0    //HuTime.EventCapture.None
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.Layer.prototype._toJSONProperties, {
+            scaleDataset: { value: "scaleDataset" },
+            _scalePosition: { value: "scalePosition" },
+            scaleStyle: { value: "scaleStyle" },
+            mouseEventCapture: { value: "mouseEventCapture" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.Layer.prototype._parseJSONProperties, {
+        })
     }
 });
 
-
 // 目盛用カレンダーデータ
-HuTime.CalendarScaleDataset = function (calendarId) {
+HuTime.CalendarScaleDataset = function CalendarScaleDataset (calendarId) {
     this.getScaleData = this.defaultGetScaleData;
     if (calendarId)
         this.calendarId = calendarId;
@@ -7487,6 +8266,20 @@ HuTime.CalendarScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
         set: function(val) {
             this._calendarType = val;
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
+            minCnvTickInterval: { value: "minCnvTickInterval" },
+            _calendarId: { value: "calendarId" },
+            //onload: { value: "onload" },
+            _calendarType: { value: "calendarType" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ScaleDatasetBase.prototype._parseJSONProperties, {
+            calendarType: { value: "_calendarType" }
+        })
     }
 });
 
@@ -7557,7 +8350,7 @@ HuTime.CalendarLabelFormat.prototype = {
 };
 
 // **** 暦スケールレイヤ ****
-HuTime.CalendarScaleLayer = function (vBreadth, vMarginTop, vMarginBottom, calendarId) {
+HuTime.CalendarScaleLayer = function CalendarScaleLayer (vBreadth, vMarginTop, vMarginBottom, calendarId) {
     // 目盛の書式
     var scaleStyle = new HuTime.TickScaleStyle();
     scaleStyle.labelOnTick = true;
@@ -7670,6 +8463,16 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
                 HuTime.Drawing.drawScale(this.scaleStyle, this, this._scalePosition,    // 既にロードされている場合は描画処理
                     this.scaleDataset.getScaleData(this._minLyrT, this._maxLyrT, this._scalePosition), this._canvas);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.TickScaleLayer.prototype._toJSONProperties, {
+            _scaleDataset: { value: "scaleDataset" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TickScaleLayer.prototype._parseJSONProperties, {
+        })
     }
 });
 // Time Interval Algebra
@@ -8471,7 +9274,7 @@ Object.freeze(HuTime.TRangeAlgebra.Length);
 Object.freeze(HuTime.TRangeAlgebra.Edge);
 
 // t値による範囲の長さ
-HuTime.TDuration = function(lower, upper) {
+HuTime.TDuration = function TDuration (lower, upper) {
     if (isNaN(lower) || lower == null || lower < 0)
         this._lower = 0;
     else
@@ -8498,11 +9301,24 @@ HuTime.TDuration.prototype = {
     },
     get upper() {
         return this._upper;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _lower: "lower",
+        _upper: "upper"
+    },
+    _parseJSONProperties: {
+        lower: "_lower",
+        upper: "_upper"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // t値で示された範囲
-HuTime.TRange = function() {
+HuTime.TRange = function TRange () {
 };
 HuTime.TRange.prototype = {
     constructor: HuTime.TRange,
@@ -8625,6 +9441,25 @@ HuTime.TRange.prototype = {
         a._pEnd = this._pEnd;
         a._centralValue = this._centralValue;
         return a;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _pBegin: "pBegin",
+        _rBegin: "rBegin",
+        _rEnd: "rEnd",
+        _pEnd: "pEnd",
+        _centralValue: "centralValue",
+    },
+    _parseJSONProperties: {
+        pBegin: "_pBegin",
+        rBegin: "_rBegin",
+        rEnd: "_rEnd",
+        pEnd: "_pEnd",
+        centralValue: "_centralValue",
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -8654,7 +9489,7 @@ HuTime.TRange.createFromBeginEnd = function (begin, end) {
 };
 
 // １つの点（または期間）を指定してTRangeを生成（t値またはTRangeを指定）
-HuTime.TRange.createFromDuring = function (during) {
+HuTime.TRange.createFromDuring = function createFromDuring (during) {
     var tRange = new HuTime.TRange();
 
     if (during instanceof HuTime.TRange) {   // TRangeで指定された場合
@@ -8663,7 +9498,7 @@ HuTime.TRange.createFromDuring = function (during) {
         tRange._rEnd =during._pBegin;
         tRange._pEnd = during._pEnd;
     }
-    else if(!isNaN(begin) && begin != null) {
+    else if(!isNaN(during) && during != null) {
         tRange._pBegin = during;
         tRange._rBegin = during;
         tRange._rEnd = during;
@@ -8677,19 +9512,19 @@ HuTime.TRange.createFromDuring = function (during) {
 // レコードセットの基底クラス － 書式などの情報をレコードセットに埋め込む
 HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
     this.records = [];  // レコード配列の初期化
-    Object.defineProperty(this, "records", {writable: false});
+    //Object.defineProperty(this, "records", {writable: false});
 
     // t値範囲関係の初期設定
     this._itemShowReliableTRanges = {};
-    Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowReliableTRanges", {writable: false});
     this.showReliableTRange = this._showReliableTRange;   // 初期値を設定
 
     this._itemShowPossibleTRanges = {};
-    Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
+    //Object.defineProperty(this, "_itemShowPossibleTRanges", {writable: false});
     this.showPossibleTRange = this._showPossibleTRange;   // 初期値を設定
 
     this._itemRangeStyles = {};
-    Object.defineProperty(this, "_itemRangeStyles", {writable: false});
+    //Object.defineProperty(this, "_itemRangeStyles", {writable: false});
     this.rangeStyle = this._rangeStyle;   // いったん初期値を設定する
 
     if (typeof source == "string" && source != "") {    // URLとしての入力
@@ -8810,7 +9645,6 @@ HuTime.RecordsetBase.prototype = {
         var record;
         var recordData;
         var itemData;
-        this.recordSettings._reader = this.reader;
         for (var i = 0; i < this.reader.recordData.length; ++i) {
             record = this.appendNewRecord(this.recordSettings._tSetting.getValue(this.reader.recordData[i]));
             for (var j = 0; j < this.recordSettings._dataSettings.length; ++j) {
@@ -9010,13 +9844,43 @@ HuTime.RecordsetBase.prototype = {
     },
 
     // 描画処理（レコードセットごとのカスタム設定）
-    drawRange: function (){}
+    drawRange: function (){},
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        visible: "visible",
+        records: "records",
+        _reader: "reader",
+        _recordSettings: "recordSettings",
+        disableSortRecords: "disableSortRecords",
+        showRecordset: "showRecordset",
+        _itemShowReliableTRanges: "itemShowReliableTRanges",
+        _showReliableTRange: "showReliableTRange",
+        _itemShowPossibleTRanges: "itemShowPossibleTRanges",
+        _showPossibleTRange: "showPossibleTRange",
+        hideTRangeNonRRange: "hideTRangeNonRRange",
+        hideTRangeTotalPRangeOnly: "hideTRangeTotalPRangeOnly",
+        hideTRangeNonCentralValue: "hideTRangeNonCentralValue",
+        drawPRangeAsRRange: "drawPRangeAsRRange",
+        _itemRangeStyles: "itemRangeStyles",
+        _rangeStyle: "rangeStyle",
+        _rangeTickHeight: "rangeTickHeight"
+    },
+    _parseJSONProperties: {
+        recordSettings: "_recordSettings",
+        itemShowReliableTRanges: "_itemShowReliableTRanges",
+        itemShowPossibleTRanges: "_itemShowPossibleTRanges",
+        itemRangeStyles: "_itemRangeStyles"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    }
 };
 
 // レコードクラス
 HuTime.RecordBase = function RecordBase(tRange) {
     this.data = {};        // 初期化（連想配列として初期化）
-    Object.defineProperty(this, "data", {writable: false});
+    //Object.defineProperty(this, "data", {writable: false});
     this.tRange = tRange;
 };
 HuTime.RecordBase.prototype = {
@@ -9051,6 +9915,17 @@ HuTime.RecordBase.prototype = {
             return;
         if (itemName in this.data)
             delete this.data[itemName];
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _tRange: "tRange",
+        data: "data"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -9142,6 +10017,17 @@ HuTime.RecordData.prototype = {
     },
     get text() {
         return this._getText();
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _content: "content",
+        _type: "type"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -9152,7 +10038,7 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // グラフ用の値関係の初期設定
     this._valueItems = [];
-    Object.defineProperty(this, "_valueItems", {writable: false});
+    //Object.defineProperty(this, "_valueItems", {writable: false});
 
     tBeginItem = this._validateItemName(tBeginItem);
     if (tBeginItem) {
@@ -9170,33 +10056,33 @@ HuTime.ChartRecordset = function ChartRecordset(source, tBeginItem, tEndItem, va
 
     // プロット関係の初期設定
     this._itemShowPlots = {};       // プロットの表示・非表示
-    Object.defineProperty(this, "_itemShowPlots", {writable: false});
+    //Object.defineProperty(this, "_itemShowPlots", {writable: false});
     this.showPlot = this.__proto__._showPlot;     // 初期値を設定
 
     this._itemPlotStyles = {};      // プロットの書式
-    Object.defineProperty(this, "_itemPlotStyles", {writable: false});
+    //Object.defineProperty(this, "_itemPlotStyles", {writable: false});
     this.plotStyle = this.__proto__._plotStyle;     // いったん初期値を設定
     this.plotStyle = plotStyle;
 
     this._itemPlotSymbols = {};     // プロットのシンボル
-    Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
+    //Object.defineProperty(this, "_itemPlotSymbols", {writable: false});
     this.plotSymbol = this.__proto__._plotSymbol;     // 初期値を設定
 
     this._itemPlotWidths = {};      // プロットの大きさ
-    Object.defineProperty(this, "_itemPlotWidths", {writable: false});
+    //Object.defineProperty(this, "_itemPlotWidths", {writable: false});
     this.plotWidth = this.__proto__._plotWidth;
 
     this._itemPlotRotates = {};     // プロットの回転角
-    Object.defineProperty(this, "_itemPlotRotates", {writable: false});
+    //Object.defineProperty(this, "_itemPlotRotates", {writable: false});
     this.plotRotate = this.__proto__._plotRotate;
 
     // 線（プロット間の）関係の初期設定
     this._itemShowLines = {};       // 線の表示・非表示
-    Object.defineProperty(this, "_itemShowLines", {writable: false});
+    //Object.defineProperty(this, "_itemShowLines", {writable: false});
     this.showLine = this.__proto__._showLine;     // 初期値を設定
 
     this._itemLineStyles = {};      // 線の書式
-    Object.defineProperty(this, "_itemLineStyles", {writable: false});
+    //Object.defineProperty(this, "_itemLineStyles", {writable: false});
     this.lineStyle = this.__proto__._lineStyle;     // いったん初期値を設定
     this.lineStyle = lineStyle;
 };
@@ -9749,8 +10635,55 @@ HuTime.ChartRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     drawLine: {                 // 線の描画処理
         writable: true,
         value: function (){}
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            selectRecord: { value: "selectRecord" },
+            _valueItems: { value: "valueItems" },
+            showRecordsetPlot: { value: "showRecordsetPlot" },
+            showRecordsetLine: { value: "showRecordsetLine" },
+            _itemShowPlots: { value: "itemShowPlots" },
+            _showPlot: { value: "showPlot" },
+            hidePlotNonRRange: { value: "hidePlotNonRRange" },
+            hidePlotTotalPRangeOnly: { value: "hidePlotTotalPRangeOnly" },
+
+            _itemPlotStyles: { value: "itemPlotStyles" },
+            _plotStyle: { value: "plotStyle" },
+            _itemPlotSymbols: { value: "itemPlotSymbols" },
+            _plotSymbol: { value: "plotSymbol" },
+            _itemPlotWidths: { value: "itemPlotWidths" },
+            _plotWidth: { value: "plotWidth" },
+            _itemPlotRotates: { value: "itemPlotRotates" },
+            _plotRotate: { value: "plotRotate" },
+            _plotWidthType: { value: "plotWidthType" },
+
+            _itemShowLines: { value: "itemShowLines" },
+            _showLine: { value: "showLine" },
+            hideLineNonRRange: { value: "hideLineNonRRange" },
+            hideLineTotalPRangeOnly: { value: "hideLineTotalPRangeOnly" },
+            _itemLineStyles: { value: "itemLineStyles" },
+            _lineStyle: { value: "lineStyle" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            valueItems: { value: "_valueItems" },
+            itemShowPlots: { value: "_itemShowPlots" },
+            itemPlotStyles: { value: "_itemPlotStyles" },
+            plotStyle: { value: "_plotStyle" },
+            itemPlotSymbols: { value: "_itemPlotSymbols" },
+            itemPlotWidths: { value: "_itemPlotWidths" },
+            itemPlotRotates: { value: "_itemPlotRotates" },
+
+            itemShowLines: { value: "_itemShowLines" },
+            itemLineStyles: { value: "_itemLineStyles" },
+            lineStyle: { value: "_lineStyle" }
+        })
     }
 });
+
 HuTime.PlotSymbol = {   // シンボルの種類を表す定数
     Circle: 0,
     Square: 1,
@@ -9769,13 +10702,6 @@ Object.freeze(HuTime.plotWidthType);
 HuTime.CalendarChartRecordset = function CalendarChartRecordset(source, tBeginItem, tEndItem, valueItem, calendarId, plotStyle, lineStyle) {
     HuTime.ChartRecordset.apply(this, [source, null, null, valueItem, plotStyle, lineStyle]);
 
-    /*
-    if (typeof tBeginItem == "number" || typeof tBeginItem == "string") {
-        if (typeof tEndItem != "number" && typeof tEndItem != "string")
-            tEndItem = tBeginItem;
-        this._recordSettings.tSetting = new HuTime.RecordTCalendarSetting(tBeginItem, tEndItem);
-    }
-    // */
     if (typeof tBeginItem == "number" || typeof tBeginItem == "string") {
         if (typeof tEndItem != "number" && typeof tEndItem != "string")
             tEndItem = tBeginItem;
@@ -9783,7 +10709,6 @@ HuTime.CalendarChartRecordset = function CalendarChartRecordset(source, tBeginIt
         this._tEndDataSetting = new HuTime.RecordDataSetting(tEndItem, "tEnd");
         this.calendarId = calendarId;
     }
-
 };
 HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.prototype, {
     constructor: {
@@ -9817,8 +10742,9 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
             this._reader = val;
             var onloadend = function (obj) {
                 obj._reader.onloadend = function () {
-                    obj._getRecords.apply(obj);
-                }
+                    this._getRecords();
+                    //obj._getRecords.apply(obj);
+                }.bind(obj)
             }(this);
             var onloadendCalendar = function (obj) {
                 obj.onloadendCalendar = function (obj) {
@@ -9835,7 +10761,6 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.ChartRecord(null));
@@ -9892,10 +10817,23 @@ HuTime.CalendarChartRecordset.prototype = Object.create(HuTime.ChartRecordset.pr
                 }
                 this.onloadendCalendar();
             }
-
         }
-    }
+    },
 
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.ChartRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
+    }
 });
 
 HuTime.ChartRecord = function ChartRecord(tRange) {
@@ -9904,6 +10842,15 @@ HuTime.ChartRecord = function ChartRecord(tRange) {
 HuTime.ChartRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.ChartRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -10129,6 +11076,28 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     drawLabel: {        // ラベルの描画
         writable: true,
         value: null
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._toJSONProperties, {
+            hideTRangeNonCentralValue: { value: "hideTRangeNonCentralValue" },
+            _showRecordAtTResolution: { value: "showRecordAtTResolution" },
+            _rangeStyle: { value: "rangeStyle" },
+            _bandBreadth: { value: "bandBreadth" },
+            _labelItem: { value: "labelItem" },
+            _showLabel: { value: "showLabel" },
+            _labelOffsetT: { value: "labelOffsetT" },
+            _labelOffsetV: { value: "labelOffsetV" },
+            _labelRotate: { value: "labelRotate" },
+            _labelStyle: { value: "labelStyle" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordsetBase.prototype._parseJSONProperties, {
+            rangeStyle: { value: "_rangeStyle" },
+            labelStyle: { value: "_labelStyle" }
+        })
     }
 });
 
@@ -10193,7 +11162,6 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             var itemData;
             var tBegin = [];
             var tEnd = [];
-            this.recordSettings._reader = this.reader;
             var i, j;
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.TLineRecord(null));
@@ -10251,6 +11219,21 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
                 this.onloadendCalendar();
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._toJSONProperties, {
+            calendarId: { value: "calendarId" },
+            _tBeginDataSetting: { value: "tBeginDataSetting" },
+            _tEndDataSetting: { value: "tEndDataSetting" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TLineRecordset.prototype._parseJSONProperties, {
+            tBeginDataSetting: { value: "_tBeginDataSetting" },
+            tEndDataSetting: { value: "_tEndDataSetting" }
+        })
     }
 });
 
@@ -10260,12 +11243,21 @@ HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
 };
 Object.freeze(HuTime.PlotDirection);
 
-HuTime.TLineRecord = function TLineRecord(tRange) {
+HuTime.TLineRecord = function TLineRecord (tRange) {
     HuTime.RecordBase.call(this, tRange);
 };
 HuTime.TLineRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.TLineRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });
 // **** 年表、グラフレイヤの基底クラス ****
@@ -10803,7 +11795,9 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 if (!this.recordsets[i].visible)
                     continue;
 
-                loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
+                if (this.recordsets[i]._reader && this.recordsets[i]._reader._stream)
+                    loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
+
                 // レコードのソート
                 if (!this.recordsets[i].disableSortRecords) {
                     this.recordsets[i].records.sort(function (record1, record2) {
@@ -10859,7 +11853,6 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 this._isRecordsSorted = true;
         }
     },
-
     _drawRecordset: {               // レコードセットの描画
         value: function() {
             var i, j;     // レコードセット、レコードのカウンタ
@@ -11299,7 +12292,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
                 // イベント発火
                 if (clickedRecords.length > 0) {
-                    newEv = new HuTime.Event("plotclick", this);
+                    //newEv = new HuTime.Event("plotclick", this);
+                    newEv = HuTime.MouseEvent.createFromDomEv(ev, "plotclick", this);
                     newEv.records = clickedRecords;
                     this._hutimeRoot._handleEvent(newEv);
                 }
@@ -11492,6 +12486,79 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 this.redraw();
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.Layer.prototype._toJSONProperties, {
+            _vTop: { value: "vTop" },
+            _vBottom: { value: "vBottom" },
+            _vForX: { value: "vForX" },
+
+            recordsets: { value: "recordsets" },
+
+            allowHighlight: { value: "allowHighlight" },
+            highlightColor: { value: "highlightColor" },
+            selectRecord: { value: "selectRecord" },
+
+            showReliableTRange: { value: "showReliableTRange" },
+            showPossibleTRange: { value: "showPossibleTRange" },
+            showLine: { value: "showLine" },
+            showPlot: { value: "showPlot" },
+
+            showVScale: { value: "showVScale" },
+            vScales: {
+                value: function (json) {
+                    json.vScales = [];
+                    for (var i = 0; i < this.vScales.length; ++i) {
+                        json.vScales.push({});
+                        for (var prop in this.vScales[i]) {
+                            switch (prop) {     // 出力しない項目
+                                case "layer":
+                                    continue;
+
+                                case "updateStyle":
+                                    if (this.vScales[i][prop] ==
+                                        HuTime.RecordLayerBase.prototype.defaultUpdateVScaleStyle)
+                                        continue;
+                                    break;
+
+                                case "updateDatasetConfig":
+                                    if (this.vScales[i][prop] ==
+                                        HuTime.RecordLayerBase.prototype.defaultUpdateVScaleDatasetConfig)
+                                        continue;
+                                    break;
+                            }
+                            json.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
+                        }
+                    }
+                }
+            },
+
+            showVScaleLine: { value: "showVScaleLine" },
+            vScaleLine: { value: "vScaleLine" },
+            vScaleLineStyle: { value: "vScaleLineStyle" },
+
+            autoAdjustV: { value: "autoAdjustV" },
+            mouseEventCapture: { value: "mouseEventCapture" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.Layer.prototype._parseJSONProperties, {
+            vTop: { value: "_vTop" },
+            vBottom: { value: "_vBottom" },
+            vForX: { value: "_vForX" },
+            recordsets: {
+                value: function (json) {
+                    this.recordsets = [];
+                    for (var i = 0; i < json.recordsets.length; ++i) {
+                        this.appendRecordset(
+                            HuTime.JSON.parse(json.recordsets[i]));
+                    }
+                    //this.loadRecordsets();
+                }
+            }
+        })
     }
 });
 
@@ -11588,6 +12655,8 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
 
                 // レコードの追加（スクロールにより表示位置が変わらないよう、範囲外も含めてすべて対象とする）
                 for (var j = 0; j < this.recordsets[i].records.length; ++j) {
+                    if (this.recordsets[i].records[j]._tRange == null)
+                        continue;   // 日付が取得できなかったなどでnullの場合
                     this._sortedRecords.push({
                             recordset: this.recordsets[i],
                             record: this.recordsets[i].records[j]
@@ -12084,11 +13153,29 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
             }
             return clickedRecords;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+            useBandStyle: { value: "useBandStyle" },
+            plotInterval: { value: "plotInterval" },
+            padding: { value: "padding" },
+            showLabel: { value: "showLabel" },
+            plotDirection: { value: "plotDirection" },
+
+            showReliableTRange: { value: "showReliableTRange" },
+            showPossibleTRange: { value: "showPossibleTRange" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 折れ線グラフ ****
-HuTime.LineChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.LineChartLayer = function LineChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.RecordLayerBase.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -12100,8 +13187,8 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
         value: function (recordset) {
             if (recordset instanceof HuTime.ChartRecordset) {
                 this.recordsets.push(recordset);
-                var onloadend = function(obj){      // データ読み込み後に再描画させる
-                    recordset.onloadend = function() {
+                var onloadend = function (obj) {      // データ読み込み後に再描画させる
+                    recordset.onloadend = function () {
                         obj.redraw();
                     }
                 }(this);
@@ -12187,11 +13274,21 @@ HuTime.LineChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype
                     break;
             }
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** プロットチャート ****
-HuTime.PlotChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.PlotChartLayer = function PlotChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.LineChartLayer.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -12206,11 +13303,21 @@ HuTime.PlotChartLayer.prototype = Object.create(HuTime.LineChartLayer.prototype,
     defaultDrawLine: {          // 線（プロット間）の描画（何もしない処理に差し替え）
         value: function () {
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** 棒グラフ ****
-HuTime.BarChartLayer = function(recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
+HuTime.BarChartLayer = function BarChartLayer (recordset, vBreadth, vMarginTop, vMarginBottom, vTop, vBottom) {
     HuTime.RecordLayerBase.apply(this, arguments);
     this.appendRecordset(recordset);
 };
@@ -12592,14 +13699,18 @@ HuTime.BarChartLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype,
             }
             return clickedRecords;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordLayerBase.prototype._parseJSONProperties, {
+        })
     }
 });
-
-
-
-
-
-
 
 // **** ファイルの取得方法に応じた読み込み処理を提供 ****
 HuTime.StreamBase = function() {
@@ -12624,14 +13735,28 @@ HuTime.StreamBase.prototype = {
 
     readAll: function readAll() {           // 全ての読み込みデータを返す（基底クラスなのでnullを返す）
         return null;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _source: function (json) {
+            var element = document.createElement("a");
+            element.href = this._source;
+            json.source = element.href;     // フルパスを入力
+        }
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // ローカルファイルからの読み込み
-HuTime.FileStream = function(source) {
+HuTime.FileStream = function FileStream (source) {
     this.source = source;
     this._reader = new FileReader();
-    this.reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
+    this._reader.onloadend = function (e) {  // FileReaderの読み込み終了イベントに処理を設定
         this.loadState = "loadend";
         this.onloadend.apply(this)
     }.bind(this);
@@ -12679,11 +13804,20 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             else
                 return null;
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // Web上からの読み込み
-HuTime.HttpStream = function(source) {
+HuTime.HttpStream = function HttpStream (source) {
     this.source = source;
     this._request = new XMLHttpRequest();
     this._request.onreadystatechange = function (e) {       // XMLHttpRequestの読み込み終了イベントに処理を設定
@@ -12721,6 +13855,10 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             this.loadState = "ready";
         }
     },
+    _responseText: {
+        writable: true,
+        value: null
+    },
 
     // 基底クラスのオーバライド
     load: {
@@ -12742,11 +13880,20 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
                 return null;
             return this._request.responseText;
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** ファイルのタイプに応じた読み取り処理により、読み込んだデータを配列に展開 ****
-HuTime.StreamReaderBase = function(source) {
+HuTime.StreamReaderBase = function StreamReaderBase (source) {
     this.source = source;
 };
 HuTime.StreamReaderBase.prototype = {
@@ -12790,16 +13937,34 @@ HuTime.StreamReaderBase.prototype = {
     get itemNames() {
         return this._itemNames;
     },
-
-    load: function read() {     // 読み込み
-        this.stream.load();
+    load: function load () {     // 読み込み
+        this._stream.load();
     },
+    get loadState () {
+        return this._stream.loadState;
+    },
+
     onloadend: function onloadend(){},  // レコードセット読み取り終了後の処理
-    _readRecordData: function() {}      // レコードセットの読み取り
+    _readRecordData: function() {},     // レコードセットの読み取り
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _stream: "stream",
+        _source: function (json) {
+            var element = document.createElement("a");
+            element.href = this._source;
+            json.source = element.href;     // フルパスを入力
+        }
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    }
 };
 
 // テキストファイル
-HuTime.TextReader = function(source, isTitleRow, delimiter) {
+HuTime.TextReader = function TextReader (source, isTitleRow, delimiter) {
     // isTitleRow: trueならば1行目はタイトル行, delimiter: 区切り文字
     HuTime.StreamReaderBase.apply(this, arguments);
     this.isTitleRow = isTitleRow;
@@ -12855,6 +14020,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             var loadedData = this.stream.readAll();
             var length = loadedData.length;
             var isEnclosed = false;
+            var NLCode = HuTime.checkNewLineCode(loadedData);   // 改行コード
 
             recordId = 0;
             while (pos < length) {
@@ -12895,10 +14061,7 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                     if (posNext < 0)
                         posNext = length;   // 区切りが見つからない場合は最後ファイル末尾を設定
 
-                    posIndexOf = loadedData.indexOf("\r", pos);    // レコード区切り
-                    if (posIndexOf >= 0 && posIndexOf < posNext)
-                        posNext = posIndexOf;
-                    posIndexOf = loadedData.indexOf("\r", pos);
+                    posIndexOf = loadedData.indexOf(NLCode, pos);      // レコード区切り
                     if (posIndexOf >= 0 && posIndexOf < posNext)
                         posNext = posIndexOf;
 
@@ -12919,14 +14082,8 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
 
                     if (loadedData[posNext] != this._delimiter)
                         break;      // データ項目区切りでない場合は、レコード末端（次のレコードへ）
-                    pos = posNext + 1;
+                    pos = posNext + this._delimiter.length;
                 }
-                pos = loadedData.indexOf("\r", pos);    // レコード区切り
-                if (pos < 0)
-                    pos = length - 1;
-                posIndexOf = loadedData.indexOf("\n", pos);
-                if (posIndexOf > pos)
-                    pos = posIndexOf;
 
                 if (isTitleRow)
                     isTitleRow = false;  // falseに設定し、以降の処理をデータ行として処理
@@ -12935,7 +14092,9 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
                         maxItemCount = this._recordData[recordId].value.length;
                     ++recordId;
                 }
-                ++pos;
+
+                pos = loadedData.indexOf(NLCode, pos);    // レコード区切り
+                pos += NLCode.length;
             }
 
             // 項目名の不足分を列番号で補完
@@ -12944,11 +14103,23 @@ HuTime.TextReader.prototype = Object.create(HuTime.StreamReaderBase.prototype, {
             }
             return this._recordData;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.StreamReaderBase.prototype._toJSONProperties, {
+            _isTitleRow: { value: "isTitleRow" },
+            _delimiter: { value: "delimiter" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.StreamReaderBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // csvファイル（TextReaderの区切り記号を','に固定）
-HuTime.CsvReader = function(source, isTitleRow) {
+HuTime.CsvReader = function CsvReader (source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
@@ -12964,11 +14135,21 @@ HuTime.CsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         get: function() {
             return this._delimiter;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // tsvファイル（TextReaderの区切り記号を'\t'に固定）
-HuTime.TsvReader = function(source, isTitleRow) {
+HuTime.TsvReader = function TsvReader (source, isTitleRow) {
     HuTime.TextReader.apply(this, arguments);
 };
 HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
@@ -12984,11 +14165,21 @@ HuTime.TsvReader.prototype = Object.create(HuTime.TextReader.prototype, {
         get: function() {
             return this._delimiter;
         }
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.TextReader.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // **** Recordオブジェクト内のデータと読み込みデータの項目（列）との対応や生成方法を指定 ****
-HuTime.RecordSettingBase = function(itemName, getValue) {
+HuTime.RecordSettingBase = function RecordSettingBase (itemName, getValue) {
     if (getValue instanceof Function)
         this.getValue = getValue;
     else
@@ -13013,11 +14204,21 @@ HuTime.RecordSettingBase.prototype = {
             return null;    // 不正な項目名指定
 
         return streamRecord.value[itemIndex];
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        itemName: "itemName"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // RecordDataの取得設定
-HuTime.RecordDataSetting = function(itemName, recordDataName, getValue) {
+HuTime.RecordDataSetting = function RecordDataSetting (itemName, recordDataName, getValue) {
     HuTime.RecordSettingBase.apply(this, [itemName, getValue]);
     this.itemName = itemName;
     if (recordDataName)
@@ -13038,15 +14239,25 @@ HuTime.RecordDataSetting.prototype = Object.create(HuTime.RecordSettingBase.prot
         value: null
     },
     getValueDefault: {
-        value: function(streamRecord) {
+        value: function (streamRecord) {
             return HuTime.RecordSettingBase.prototype.getValueBase.apply(
                 this, [streamRecord, this.itemName]);
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._toJSONProperties, {
+            recordDataName: { value: "recordDataName" }
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // t値の取得設定
-HuTime.RecordTSetting = function(itemNameBegin, itemNameEnd, getValue) {
+HuTime.RecordTSetting = function RecordTSetting (itemNameBegin, itemNameEnd, getValue) {
     HuTime.RecordSettingBase.apply(this, [itemNameBegin, getValue]);
     this.itemNameBegin = itemNameBegin;
     if (itemNameEnd)
@@ -13076,12 +14287,22 @@ HuTime.RecordTSetting.prototype = Object.create(HuTime.RecordSettingBase.prototy
                 return null;
             return new HuTime.TRange.createFromBeginEnd(begin, end);
         }
+    },
+
+    _toJSONProperties: {
+        value: {
+            itemNameBegin: "itemNameBegin",
+            itemNameEnd: "itemNameEnd"
+        }
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordSettingBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
-
 // t値の取得設定（暦データ）
-HuTime.RecordTCalendarSetting = function(itemNameBegin, itemNameEnd, getValue) {
+HuTime.RecordTCalendarSetting = function RecordTCalendarSetting (itemNameBegin, itemNameEnd, getValue) {
     HuTime.RecordTSetting.apply(this, arguments);
 };
 HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.prototype, {
@@ -13105,11 +14326,20 @@ HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.pr
             //    new HuTime.TRange.createFromBeginEnd(beginRange[0], beginRange[1]),
             //    new HuTime.TRange.createFromBeginEnd(endRange[0], endRange[1]));
         }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordTSetting.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordTSetting.prototype._parseJSONProperties, {
+        })
     }
 });
 
 // 設定を収容するコンテナ
-HuTime.RecordSettings = function() {
+HuTime.RecordSettings = function RecordSettings () {
     this._dataSettings = [];
 };
 HuTime.RecordSettings.prototype = {
@@ -13130,6 +14360,17 @@ HuTime.RecordSettings.prototype = {
     },
     appendDataSetting: function appendSetting(setting) {
         this._dataSettings.push(setting);
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _tSetting: "tSetting",
+        _dataSettings: "dataSettings"
+    },
+    _parseJSONProperties: {
+        dataSettings: "_dataSettings"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
-
