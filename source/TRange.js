@@ -797,7 +797,7 @@ Object.freeze(HuTime.TRangeAlgebra.Length);
 Object.freeze(HuTime.TRangeAlgebra.Edge);
 
 // t値による範囲の長さ
-HuTime.TDuration = function(lower, upper) {
+HuTime.TDuration = function TDuration (lower, upper) {
     if (isNaN(lower) || lower == null || lower < 0)
         this._lower = 0;
     else
@@ -824,11 +824,24 @@ HuTime.TDuration.prototype = {
     },
     get upper() {
         return this._upper;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _lower: "lower",
+        _upper: "upper"
+    },
+    _parseJSONProperties: {
+        lower: "_lower",
+        upper: "_upper"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
 // t値で示された範囲
-HuTime.TRange = function() {
+HuTime.TRange = function TRange () {
 };
 HuTime.TRange.prototype = {
     constructor: HuTime.TRange,
@@ -951,6 +964,25 @@ HuTime.TRange.prototype = {
         a._pEnd = this._pEnd;
         a._centralValue = this._centralValue;
         return a;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _pBegin: "pBegin",
+        _rBegin: "rBegin",
+        _rEnd: "rEnd",
+        _pEnd: "pEnd",
+        _centralValue: "centralValue",
+    },
+    _parseJSONProperties: {
+        pBegin: "_pBegin",
+        rBegin: "_rBegin",
+        rEnd: "_rEnd",
+        pEnd: "_pEnd",
+        centralValue: "_centralValue",
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -980,7 +1012,7 @@ HuTime.TRange.createFromBeginEnd = function (begin, end) {
 };
 
 // １つの点（または期間）を指定してTRangeを生成（t値またはTRangeを指定）
-HuTime.TRange.createFromDuring = function (during) {
+HuTime.TRange.createFromDuring = function createFromDuring (during) {
     var tRange = new HuTime.TRange();
 
     if (during instanceof HuTime.TRange) {   // TRangeで指定された場合
@@ -989,7 +1021,7 @@ HuTime.TRange.createFromDuring = function (during) {
         tRange._rEnd =during._pBegin;
         tRange._pEnd = during._pEnd;
     }
-    else if(!isNaN(begin) && begin != null) {
+    else if(!isNaN(during) && during != null) {
         tRange._pBegin = during;
         tRange._rBegin = during;
         tRange._rEnd = during;
