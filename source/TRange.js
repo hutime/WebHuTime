@@ -1,6 +1,6 @@
 
 // 範囲間の関係を示すデータ
-HuTime.TIntervalRelation = function(sub, rel, obj) {
+HuTime.TIntervalRelation = function TIntervalRelation (sub, rel, obj) {
     if (sub instanceof HuTime.TRange)
         this.tSubject = sub;
     this.relation = rel;
@@ -12,11 +12,23 @@ HuTime.TIntervalRelation.prototype = {
 
     tSubject: null,     // RDFの主語に相当
     relation: null,     // 関係
-    tObject: null       // RDFの目的語に相当
+    tObject: null,       // RDFの目的語に相当
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        tSubject: "tSubject",
+        relation: "relation",
+        tObject: "tObject"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    }
 };
 
 // t値で示された範囲
-HuTime.TRange = function() {
+HuTime.TRange = function TRange () {
     this.references = [];
 };
 HuTime.TRange.prototype = {
@@ -268,6 +280,54 @@ HuTime.TRange.prototype = {
     },
     get postPRangeDuration() {
         return this._postPRangeDuration;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        //references: "references",
+        _pBegin: "pBegin",
+        _rBegin: "rBegin",
+        _rEnd: "rEnd",
+        _pEnd: "pEnd",
+        _centralValue: "centralValue",
+        _isTotalPRangeOnly: "isTotalPRangeOnly",
+        _isNonRRange: "isNonRRange",
+        _pRangeBegin: "pRangeBegin",
+        _pRangeEnd: "pRangeEnd",
+        _pRangeDuration: "pRangeDuration",
+        _rRangeBegin: "rRangeBegin",
+        _rRangeEnd: "rRangeEnd",
+        _rRangeDuration: "rRangeDuration",
+        _antePRangeBegin: "antePRangeBegin",
+        _antePRangeEnd: "antePRangeEnd",
+        _antePRangeDuration: "antePRangeDuration",
+        _postPRangeBegin: "postPRangeBegin",
+        _postPRangeEnd: "postPRangeEnd",
+        _postPRangeDuration: "postPRangeDuration"
+    },
+    _parseJSONProperties: {
+        pBegin: "_pBegin",
+        rBegin: "_rBegin",
+        rEnd: "_rEnd",
+        pEnd: "_pEnd",
+        centralValue: "_centralValue",
+        isTotalPRangeOnly: "_isTotalPRangeOnly",
+        isNonRRange: "ZisNonRRange",
+        pRangeBegin: "_pRangeBegin",
+        pRangeEnd: "_pRangeEnd",
+        pRangeDuration: "_pRangeDuration",
+        rRangeBegin: "_rRangeBegin",
+        rRangeEnd: "_rRangeEnd",
+        rRangeDuration: "_rRangeDuration",
+        antePRangeBegin: "_antePRangeBegin",
+        antePRangeEnd: "_antePRangeEnd",
+        antePRangeDuration: "_antePRangeDuration",
+        postPRangeBegin: "_postPRangeBegin",
+        postPRangeEnd: "_postPRangeEnd",
+        postPRangeDuration: "_postPRangeDuration"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -323,6 +383,13 @@ HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
     updateTRange: {
         value: function (ref) {
         }
-    }
+    },
+
+    _toJSONProperties: Object.create(HuTime.TRange.prototype._toJSONProperties, {
+        //references: { value: null }
+    }),
+    _parseJSONProperties: Object.create(HuTime.TRange.prototype._parseJSONProperties, {
+    })
+
 });
 
