@@ -8477,7 +8477,7 @@ HuTime.CalendarScaleLayer.prototype = Object.create(HuTime.TickScaleLayer.protot
 });
 
 // 範囲間の関係を示すデータ
-HuTime.TIntervalRelation = function(sub, rel, obj) {
+HuTime.TIntervalRelation = function TIntervalRelation (sub, rel, obj) {
     if (sub instanceof HuTime.TRange)
         this.tSubject = sub;
     this.relation = rel;
@@ -8489,11 +8489,23 @@ HuTime.TIntervalRelation.prototype = {
 
     tSubject: null,     // RDFの主語に相当
     relation: null,     // 関係
-    tObject: null       // RDFの目的語に相当
+    tObject: null,       // RDFの目的語に相当
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        tSubject: "tSubject",
+        relation: "relation",
+        tObject: "tObject"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
+    }
 };
 
 // t値で示された範囲
-HuTime.TRange = function() {
+HuTime.TRange = function TRange () {
     this.references = [];
 };
 HuTime.TRange.prototype = {
@@ -8745,6 +8757,54 @@ HuTime.TRange.prototype = {
     },
     get postPRangeDuration() {
         return this._postPRangeDuration;
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        //references: "references",
+        _pBegin: "pBegin",
+        _rBegin: "rBegin",
+        _rEnd: "rEnd",
+        _pEnd: "pEnd",
+        _centralValue: "centralValue",
+        _isTotalPRangeOnly: "isTotalPRangeOnly",
+        _isNonRRange: "isNonRRange",
+        _pRangeBegin: "pRangeBegin",
+        _pRangeEnd: "pRangeEnd",
+        _pRangeDuration: "pRangeDuration",
+        _rRangeBegin: "rRangeBegin",
+        _rRangeEnd: "rRangeEnd",
+        _rRangeDuration: "rRangeDuration",
+        _antePRangeBegin: "antePRangeBegin",
+        _antePRangeEnd: "antePRangeEnd",
+        _antePRangeDuration: "antePRangeDuration",
+        _postPRangeBegin: "postPRangeBegin",
+        _postPRangeEnd: "postPRangeEnd",
+        _postPRangeDuration: "postPRangeDuration"
+    },
+    _parseJSONProperties: {
+        pBegin: "_pBegin",
+        rBegin: "_rBegin",
+        rEnd: "_rEnd",
+        pEnd: "_pEnd",
+        centralValue: "_centralValue",
+        isTotalPRangeOnly: "_isTotalPRangeOnly",
+        isNonRRange: "ZisNonRRange",
+        pRangeBegin: "_pRangeBegin",
+        pRangeEnd: "_pRangeEnd",
+        pRangeDuration: "_pRangeDuration",
+        rRangeBegin: "_rRangeBegin",
+        rRangeEnd: "_rRangeEnd",
+        rRangeDuration: "_rRangeDuration",
+        antePRangeBegin: "_antePRangeBegin",
+        antePRangeEnd: "_antePRangeEnd",
+        antePRangeDuration: "_antePRangeDuration",
+        postPRangeBegin: "_postPRangeBegin",
+        postPRangeEnd: "_postPRangeEnd",
+        postPRangeDuration: "_postPRangeDuration"
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -8800,7 +8860,14 @@ HuTime.TRangeLiteral.prototype = Object.create(HuTime.TRange.prototype, {
     updateTRange: {
         value: function (ref) {
         }
-    }
+    },
+
+    _toJSONProperties: Object.create(HuTime.TRange.prototype._toJSONProperties, {
+        //references: { value: null }
+    }),
+    _parseJSONProperties: Object.create(HuTime.TRange.prototype._parseJSONProperties, {
+    })
+
 });
 
 // **** レコード関係の基底クラス ****
@@ -9144,6 +9211,7 @@ HuTime.RecordsetBase.prototype = {
     // **** JSON出力 ****
     _toJSONProperties: {
         visible: "visible",
+        records: "records",
         _reader: "reader",
         _recordSettings: "recordSettings",
         disableSortRecords: "disableSortRecords",
@@ -9174,7 +9242,7 @@ HuTime.RecordsetBase.prototype = {
 // レコードクラス
 HuTime.RecordBase = function RecordBase(tRange) {
     this.data = {};        // 初期化（連想配列として初期化）
-    Object.defineProperty(this, "data", {writable: false});
+    //Object.defineProperty(this, "data", {writable: false});
     this.tRange = tRange;
 };
 HuTime.RecordBase.prototype = {
@@ -9209,6 +9277,17 @@ HuTime.RecordBase.prototype = {
             return;
         if (itemName in this.data)
             delete this.data[itemName];
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _tRange: "tRange",
+        data: "data"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -9300,6 +9379,17 @@ HuTime.RecordData.prototype = {
     },
     get text() {
         return this._getText();
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _content: "content",
+        _type: "type"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -10114,6 +10204,15 @@ HuTime.ChartRecord = function ChartRecord(tRange) {
 HuTime.ChartRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.ChartRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -10506,12 +10605,21 @@ HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
 };
 Object.freeze(HuTime.PlotDirection);
 
-HuTime.TLineRecord = function TLineRecord(tRange) {
+HuTime.TLineRecord = function TLineRecord (tRange) {
     HuTime.RecordBase.call(this, tRange);
 };
 HuTime.TLineRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.TLineRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });
 // **** 年表、グラフレイヤの基底クラス ****
@@ -11776,7 +11884,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                         this.appendRecordset(
                             HuTime.JSON.parse(json.recordsets[i]));
                     }
-                    this.loadRecordsets();
+                    //this.loadRecordsets();
                 }
             }
         })

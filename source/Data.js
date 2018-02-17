@@ -339,6 +339,7 @@ HuTime.RecordsetBase.prototype = {
     // **** JSON出力 ****
     _toJSONProperties: {
         visible: "visible",
+        records: "records",
         _reader: "reader",
         _recordSettings: "recordSettings",
         disableSortRecords: "disableSortRecords",
@@ -369,7 +370,7 @@ HuTime.RecordsetBase.prototype = {
 // レコードクラス
 HuTime.RecordBase = function RecordBase(tRange) {
     this.data = {};        // 初期化（連想配列として初期化）
-    Object.defineProperty(this, "data", {writable: false});
+    //Object.defineProperty(this, "data", {writable: false});
     this.tRange = tRange;
 };
 HuTime.RecordBase.prototype = {
@@ -404,6 +405,17 @@ HuTime.RecordBase.prototype = {
             return;
         if (itemName in this.data)
             delete this.data[itemName];
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _tRange: "tRange",
+        data: "data"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -495,6 +507,17 @@ HuTime.RecordData.prototype = {
     },
     get text() {
         return this._getText();
+    },
+
+    // **** JSON出力 ****
+    _toJSONProperties: {
+        _content: "content",
+        _type: "type"
+    },
+    _parseJSONProperties: {
+    },
+    toJSON: function toJSON () {
+        return HuTime.JSON.stringify(this);
     }
 };
 
@@ -1309,6 +1332,15 @@ HuTime.ChartRecord = function ChartRecord(tRange) {
 HuTime.ChartRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.ChartRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });
 
@@ -1701,11 +1733,20 @@ HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
 };
 Object.freeze(HuTime.PlotDirection);
 
-HuTime.TLineRecord = function TLineRecord(tRange) {
+HuTime.TLineRecord = function TLineRecord (tRange) {
     HuTime.RecordBase.call(this, tRange);
 };
 HuTime.TLineRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
     constructor: {
         value: HuTime.TLineRecord
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordBase.prototype._parseJSONProperties, {
+        })
     }
 });

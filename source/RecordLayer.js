@@ -1260,7 +1260,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                         this.appendRecordset(
                             HuTime.JSON.parse(json.recordsets[i]));
                     }
-                    this.loadRecordsets();
+                    //this.loadRecordsets();
                 }
             }
         })
