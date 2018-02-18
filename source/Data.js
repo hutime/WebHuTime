@@ -96,9 +96,10 @@ HuTime.RecordsetBase.prototype = {
 
     // **** 読み込み関係 ****
     loadRecordset: function () {
+        if (!this._reader || !(this._reader instanceof HuTime.StreamReaderBase))
+            return;
         this.records.length = 0;
-        if (this._reader instanceof HuTime.StreamReaderBase)
-            this._reader.load();
+        this._reader.load();
     },
     _reader: null,
     get reader() {
@@ -337,10 +338,22 @@ HuTime.RecordsetBase.prototype = {
     drawRange: function (){},
 
     // **** JSON出力 ****
+    useRemoteDataForJSON: null,     // JSONでリモートソースの情報を保存、ロード
+    useLoadedDataForJSON: null,     // 既にロードしたデータを保存、展開
+    // 両方指定された場合、リモートが優先。ロードに失敗した場合、保存データを利用。
+
     _toJSONProperties: {
         visible: "visible",
-        records: "records",
-        _reader: "reader",
+        records: function (json) {
+            if (this.useLoadedDataForJSON ||
+                this.useLoadedDataForJSON == null && !(this.reader.stream instanceof HuTime.HttpStream))
+                    json["records"] = HuTime.JSON.stringify(this.records);
+        },
+        _reader: function (json) {
+            if (this.useRemoteDataForJSON ||
+                this.useRemoteDataForJSON == null && this.reader.stream instanceof HuTime.HttpStream)
+                    json["reader"] = HuTime.JSON.stringify(this._reader);
+        },
         _recordSettings: "recordSettings",
         disableSortRecords: "disableSortRecords",
         showRecordset: "showRecordset",
