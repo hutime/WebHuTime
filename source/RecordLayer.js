@@ -495,7 +495,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             for (var i = 0; i < this.recordsets.length; ++i) {  // 最大値、最小値の探索
                 if (!this.recordsets[i].visible)
                     continue;
-                loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
+                if (this.recordsets[i]._reader)
+                    loadend &= this.recordsets[i]._reader._stream.loadState == "loadend";
                 for (var j = 0; j < this.recordsets[i].records.length; ++j) {
                     for (var k = 0; k < this.recordsets[i]._valueItems.length; ++k) {
                         var value = this.recordsets[i].records[j].data[this.recordsets[i]._valueItems[k].name].content;
@@ -1292,8 +1293,9 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                     for (var i = 0; i < json.recordsets.length; ++i) {
                         this.appendRecordset(
                             HuTime.JSON.parse(json.recordsets[i]));
+
                     }
-                    //this.loadRecordsets();
+                    this.loadRecordsets();
                 }
             }
         })
