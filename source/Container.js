@@ -606,12 +606,12 @@ HuTime.ContainerBase.prototype = {
     _toJSONProperties: {
         id: "id",
         name: "name",
-        _contents: function (obj) {
+        _contents: function (objForJSON) {
             if (this._contents.length > 0)
-                obj["contents"] = HuTime.JSON.stringify(this._contents);
+                objForJSON["contents"] = HuTime.JSON.stringify(this._contents);
         },
-        style: function (obj) {
-            obj["style"] = this._element.style.cssText;
+        style: function (objForJSON) {
+            objForJSON["style"] = this._element.style.cssText;
         },
 
         _tRotation: "tRotation",
@@ -632,16 +632,16 @@ HuTime.ContainerBase.prototype = {
         _mouseEventCapture: "mouseEventCapture"
     },
     _parseJSONProperties: {
-        contents: function (json) {
+        contents: function (objRaw) {
             var content;
-            for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.JSON.parse(json.contents[i]);
+            for (var i = 0; i < objRaw.contents.length; ++i) {
+                content = HuTime.JSON.parse(objRaw.contents[i]);
                 if (content)
                     this.appendContent(content);
             }
         },
-        style: function (json) {
-            this._element.style.cssText = json.style;
+        style: function (objRaw) {
+            this._element.style.cssText = objRaw.style;
         },
 
         tRotation: "_tRotation",
@@ -659,7 +659,7 @@ HuTime.ContainerBase.prototype = {
     },
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
+    }
 };
 
 // ******** パネルコレクション ********
@@ -2507,11 +2507,11 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
     _toJSONProperties: {
         value: Object.create(HuTime.PanelBase.prototype._toJSONProperties, {
             _contents: {
-                value: function (obj) {
-                    obj["contents"] = [];
+                value: function (objForJSON) {
+                    objForJSON["contents"] = [];
                     for (var i = 0; i < this._contents.length; ++i) {
                         if (this._contents[i].constructor.name != "PanelBorder")
-                            obj["contents"][i] = this._contents[i];
+                            objForJSON["contents"][i] = this._contents[i];
                     }
                 }
             },

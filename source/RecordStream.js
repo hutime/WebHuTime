@@ -26,10 +26,10 @@ HuTime.StreamBase.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        _source: function (json) {
+        _source: function (objForJSON) {
             var element = document.createElement("a");
             element.href = this._source;
-            json.source = element.href;     // フルパスを入力
+            objForJSON.source = element.href;     // フルパスを入力
         }
     },
     _parseJSONProperties: {
@@ -237,10 +237,10 @@ HuTime.StreamReaderBase.prototype = {
     // **** JSON出力 ****
     _toJSONProperties: {
         _stream: "stream",
-        _source: function (json) {
+        _source: function (objForJSON) {
             var element = document.createElement("a");
             element.href = this._source;
-            json.source = element.href;     // フルパスを入力
+            objForJSON.source = element.href;     // フルパスを入力
         }
     },
     _parseJSONProperties: {

@@ -1304,22 +1304,23 @@ HuTime.JSON = {
         if (typeof obj === "function")      // function
             return obj.toString();
 
-        var json;   // 出力結果の収容用
-        var p;      // 再帰によるHuTime.JSON.stringigyの結果収容用
+        var objForJSON; // 出力結果の収容用（JSONに変換するための整形済みオブジェクト）
+        var propObj;    // 再帰によるHuTime.JSON.stringigyの結果収容用
+        var prop;       // 処理対象のプロパティ名
         if (obj instanceof Array) {         // Array
-            json = [];
+            objForJSON = [];
             for (var i = 0; i < obj.length; ++i) {
-                p = HuTime.JSON.stringify(obj[i]);
-                if (typeof p !== "undefined")
-                    json.push(p);
+                propObj = HuTime.JSON.stringify(obj[i]);
+                if (typeof propObj !== "undefined")
+                    objForJSON.push(propObj);
             }
-            return json;
+            return objForJSON;
         }
         if (typeof obj === "object") {      // object（Arrayを含む）
-            json = {};
+            objForJSON = {};
             if ("_toJSONProperties" in obj) {   // JSONへの変換テーブルあり -> HuTime関係のオブジェクト
-                json["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructerの名前を保存
-                for (var prop in obj) {
+                objForJSON["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructorの名前を保存
+                for (prop in obj) {
                     switch (prop) {     // 各クラスに共通の読み飛ばすプロパティ
                         case "constructor":
                         case "_toJSONProperties":
@@ -1335,58 +1336,62 @@ HuTime.JSON = {
                             if (obj[prop] == obj.__proto__[prop])   // 既定値と同じ場合は出力しない
                                 continue;
 
-                            p = HuTime.JSON.stringify(obj[prop]);
-                            if (typeof p !== "undefined")
-                                json[obj._toJSONProperties[prop]] = p;
+                            propObj = HuTime.JSON.stringify(obj[prop]);
+                            if (typeof propObj !== "undefined")
+                                objForJSON[obj._toJSONProperties[prop]] = propObj;
                         }
                         else if (typeof obj._toJSONProperties[prop] === "function") {     // 出力関数が指定されている場合
-                            obj._toJSONProperties[prop].apply(obj, [json]);
+                            obj._toJSONProperties[prop].apply(obj, [objForJSON]);
                         }
                     }
                     else {  // JSONへの変換定義が無い場合
                         if (prop in obj.__proto__)
                             continue;     // プロトタイプで定義されているのにJSONへの変換定義なし －＞ 出力しない
-                        json[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
+                        objForJSON[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
                     }
                 }
             }
             else {          // HuTime関係以外のオブジェクト
-                for (var prop in obj) {
-                    json[prop] = HuTime.JSON.stringify(obj[prop]);
+                for (prop in obj) {
+                    objForJSON[prop] = HuTime.JSON.stringify(obj[prop]);
                 }
             }
-            return json;
+            return objForJSON;
         }
         return obj;     // 数値、文字列など
     },
     parse: function parse (json) {
-        var p;
-        var obj;
-        var prop;
+        var objRaw;         // パースしただけの生のオブジェクト
+        var obj;            // 結果（出力するオブジェクト）
+        var prop;           // 処理対象のプロパティ名
         if (typeof json === "string") {
             try {           // jsonをいったん標準的な方法でparseseする
-                p = JSON.parse(json);
-                json = p;
+                var p = JSON.parse(json);
+                objRaw = p;
             }
             catch (e) {     // JSONとしてパースできない（JSONでない生の値 -> そのまま）
+                objRaw = json;
             }
         }
+        else {
+            objRaw = json;
+        }
 
-        if (typeof json === "undefined")
+        if (typeof objRaw === "undefined")
             return undefined;
-        if (json == null)                   // null
+        if (objRaw == null)                   // null
             return null;
-        if (json instanceof Array) {        // Array
+        if (objRaw instanceof Array) {        // Array
             obj = [];
-            for (var i = 0; i < json.length; ++i) {
-                obj.push(HuTime.JSON.parse(json[i]));
+            for (var i = 0; i < objRaw.length; ++i) {
+                obj.push(HuTime.JSON.parse(objRaw[i]));
             }
             return obj;
         }
-        if (typeof json === "object") {     // オブジェクト一般
+        if (typeof objRaw === "object") {     // オブジェクト一般
             // オブジェクトの生成
-            if (typeof json.constructor === "string") {     // HuTime関係のオブジェクト
-                var constructor = eval("HuTime." + json.constructor);
+            if (typeof objRaw.constructor === "string") {     // HuTime関係のオブジェクト
+                var constructor = eval("HuTime." + objRaw.constructor);
                 if (constructor == undefined)
                     obj = {};   // コンストラクタの取得失敗
                 else
@@ -1398,7 +1403,7 @@ HuTime.JSON = {
 
             // 各プロパティのデシリアライズ
             if ("_parseJSONProperties" in obj) {    // 出力指定がある場合（HuTime関係のオブジェクト）
-                for (prop in json) {
+                for (prop in objRaw) {
                     switch (prop) {             // 各クラスに共通の読み飛ばすプロパティ
                         case "constructor":
                             continue;
@@ -1408,28 +1413,28 @@ HuTime.JSON = {
                         if (obj._parseJSONProperties[prop] == null)   // 出力指定がnullの場合は出力しない
                             continue;
                         if (typeof obj._parseJSONProperties[prop] === "string") {     // 出力方法が文字列指定
-                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(json[prop]);
+                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(objRaw[prop]);
                         }
                         else if (typeof obj._parseJSONProperties[prop] === "function") {  // 出力方法が関数指定
-                            obj._parseJSONProperties[prop].apply(obj, [json]);
+                            obj._parseJSONProperties[prop].apply(obj, [objRaw]);
                         }
                     }
                     else {      // 出力指定が無い場合は、プロパティ名をそのまま利用
-                        obj[prop] = HuTime.JSON.parse(json[prop]);
+                        obj[prop] = HuTime.JSON.parse(objRaw[prop]);
                     }
                 }
             }
             else {      // 出力指定が無い場合（HuTime関係以外のオブジェクト）
-                for (var prop in json) {
-                    obj[prop] = HuTime.JSON.parse(json[prop]);
+                for (var prop in objRaw) {
+                    obj[prop] = HuTime.JSON.parse(objRaw[prop]);
                 }
             }
 
             return obj;
         }
-        if (typeof json === "string" && json.substr(0, 8) == "function")    // function
-            return eval("(" + json + ")");
-        return json;        // その他（数値、文字列など）
+        if (typeof objRaw === "string" && objRaw.substr(0, 8) == "function")    // function
+            return eval("(" + objRaw + ")");
+        return objRaw;        // その他（数値、文字列など）
     },
 
     // シリアライズデータの保存と取得
@@ -2116,12 +2121,12 @@ HuTime.ContainerBase.prototype = {
     _toJSONProperties: {
         id: "id",
         name: "name",
-        _contents: function (obj) {
+        _contents: function (objForJSON) {
             if (this._contents.length > 0)
-                obj["contents"] = HuTime.JSON.stringify(this._contents);
+                objForJSON["contents"] = HuTime.JSON.stringify(this._contents);
         },
-        style: function (obj) {
-            obj["style"] = this._element.style.cssText;
+        style: function (objForJSON) {
+            objForJSON["style"] = this._element.style.cssText;
         },
 
         _tRotation: "tRotation",
@@ -2142,16 +2147,16 @@ HuTime.ContainerBase.prototype = {
         _mouseEventCapture: "mouseEventCapture"
     },
     _parseJSONProperties: {
-        contents: function (json) {
+        contents: function (objRaw) {
             var content;
-            for (var i = 0; i < json.contents.length; ++i) {
-                content = HuTime.JSON.parse(json.contents[i]);
+            for (var i = 0; i < objRaw.contents.length; ++i) {
+                content = HuTime.JSON.parse(objRaw.contents[i]);
                 if (content)
                     this.appendContent(content);
             }
         },
-        style: function (json) {
-            this._element.style.cssText = json.style;
+        style: function (objRaw) {
+            this._element.style.cssText = objRaw.style;
         },
 
         tRotation: "_tRotation",
@@ -2169,7 +2174,7 @@ HuTime.ContainerBase.prototype = {
     },
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
+    }
 };
 
 // ******** パネルコレクション ********
@@ -4017,11 +4022,11 @@ HuTime.TilePanel.prototype = Object.create(HuTime.PanelBase.prototype, {
     _toJSONProperties: {
         value: Object.create(HuTime.PanelBase.prototype._toJSONProperties, {
             _contents: {
-                value: function (obj) {
-                    obj["contents"] = [];
+                value: function (objForJSON) {
+                    objForJSON["contents"] = [];
                     for (var i = 0; i < this._contents.length; ++i) {
                         if (this._contents[i].constructor.name != "PanelBorder")
-                            obj["contents"][i] = this._contents[i];
+                            objForJSON["contents"][i] = this._contents[i];
                     }
                 }
             },
@@ -4974,11 +4979,6 @@ HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
     _parseJSONProperties: {
         value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
-            position: {
-                value: function (json) {
-                    this.position = HuTime.PositionBase.createFromJSON(json.position);
-                }
-            }
         })
     }
 });
@@ -5026,11 +5026,6 @@ HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
     _parseJSONProperties: {
         value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
-            position: {
-                value: function (json) {
-                    this.position = HuTime.PositionBase.createFromJSON(json.position);
-                }
-            }
         })
     }
 });
@@ -5238,9 +5233,9 @@ HuTime.OnLayerObjectBase.prototype = {
         _visible: "visible",
         processBeforeRedraw: "processBeforeRedraw",
         processAfterRedraw: "processAfterRedraw",
-        _userEvents: function (obj) {
+        _userEvents: function (objForJSON) {
             if (this._userEvents.length > 0)
-                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+                objForJSON["userEvents"] = HuTime.JSON.stringify(this._userEvents);
         }
     },
     _parseJSONProperties: {
@@ -5629,11 +5624,11 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
     _toJSONProperties: {
         value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
             src: {
-                value: function (json) {
+                value: function (objForJSON) {
                     // 絶対パスを出力
                     var elem = document.createElement("img");
                     elem.src = this.src;
-                    json.src = elem.src;
+                    objForJSON.src = elem.src;
                 }
             },
             width: { value: "width" },
@@ -6275,9 +6270,6 @@ HuTime.FigureStyle.prototype = {
     },
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
-    parseJSON: function parseJSON (json) {
-        HuTime.JSON.parse(json, this);
     }
 };
 
@@ -6558,12 +6550,8 @@ HuTime.StringStyle.prototype = {
         lineColor: "_lineColor",
         alpha: "_alpha"
     },
-
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
-    parseJSON: function parseJSON (json) {
-        HuTime.JSON.parse(json, this);
     }
 };
 
@@ -7562,6 +7550,7 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
             return data;
         }
     },
+
     _toJSONProperties: {
         value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
             minCnvTickInterval: { value: "minCnvTickInterval" },
@@ -7609,6 +7598,7 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
             return this._scaleData;
         }
     },
+
     _toJSONProperties: {
         value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
             _scaleData: { value: "scaleData" }
@@ -9850,15 +9840,15 @@ HuTime.RecordsetBase.prototype = {
 
     _toJSONProperties: {
         visible: "visible",
-        records: function (json) {
+        records: function (objForJSON) {
             if (this.useLoadedDataForJSON ||
                 this.useLoadedDataForJSON == null && !(this.reader.stream instanceof HuTime.HttpStream))
-                    json["records"] = HuTime.JSON.stringify(this.records);
+                    objForJSON["records"] = HuTime.JSON.stringify(this.records);
         },
-        _reader: function (json) {
+        _reader: function (objForJSON) {
             if (this.useRemoteDataForJSON ||
                 this.useRemoteDataForJSON == null && this.reader.stream instanceof HuTime.HttpStream)
-                    json["reader"] = HuTime.JSON.stringify(this._reader);
+                    objForJSON["reader"] = HuTime.JSON.stringify(this._reader);
         },
         _recordSettings: "recordSettings",
         disableSortRecords: "disableSortRecords",
@@ -12518,10 +12508,10 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
             showVScale: { value: "showVScale" },
             vScales: {
-                value: function (json) {
-                    json.vScales = [];
+                value: function (objForJSON) {
+                    objForJSON.vScales = [];
                     for (var i = 0; i < this.vScales.length; ++i) {
-                        json.vScales.push({});
+                        objForJSON.vScales.push({});
                         for (var prop in this.vScales[i]) {
                             switch (prop) {     // 出力しない項目
                                 case "layer":
@@ -12539,7 +12529,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                                         continue;
                                     break;
                             }
-                            json.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
+                            objForJSON.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
                         }
                     }
                 }
@@ -12559,12 +12549,11 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             vBottom: { value: "_vBottom" },
             vForX: { value: "_vForX" },
             recordsets: {
-                value: function (json) {
+                value: function (objRaw) {
                     this.recordsets = [];
-                    for (var i = 0; i < json.recordsets.length; ++i) {
+                    for (var i = 0; i < objRaw.recordsets.length; ++i) {
                         this.appendRecordset(
-                            HuTime.JSON.parse(json.recordsets[i]));
-
+                            HuTime.JSON.parse(objRaw.recordsets[i]));
                     }
                     this.loadRecordsets();
                 }
@@ -13750,10 +13739,10 @@ HuTime.StreamBase.prototype = {
 
     // **** JSON出力 ****
     _toJSONProperties: {
-        _source: function (json) {
+        _source: function (objForJSON) {
             var element = document.createElement("a");
             element.href = this._source;
-            json.source = element.href;     // フルパスを入力
+            objForJSON.source = element.href;     // フルパスを入力
         }
     },
     _parseJSONProperties: {
@@ -13961,10 +13950,10 @@ HuTime.StreamReaderBase.prototype = {
     // **** JSON出力 ****
     _toJSONProperties: {
         _stream: "stream",
-        _source: function (json) {
+        _source: function (objForJSON) {
             var element = document.createElement("a");
             element.href = this._source;
-            json.source = element.href;     // フルパスを入力
+            objForJSON.source = element.href;     // フルパスを入力
         }
     },
     _parseJSONProperties: {

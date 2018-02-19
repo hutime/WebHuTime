@@ -1247,10 +1247,10 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
 
             showVScale: { value: "showVScale" },
             vScales: {
-                value: function (json) {
-                    json.vScales = [];
+                value: function (objForJSON) {
+                    objForJSON.vScales = [];
                     for (var i = 0; i < this.vScales.length; ++i) {
-                        json.vScales.push({});
+                        objForJSON.vScales.push({});
                         for (var prop in this.vScales[i]) {
                             switch (prop) {     // 出力しない項目
                                 case "layer":
@@ -1268,7 +1268,7 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                                         continue;
                                     break;
                             }
-                            json.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
+                            objForJSON.vScales[i][prop] = HuTime.JSON.stringify(this.vScales[i][prop]);
                         }
                     }
                 }
@@ -1288,12 +1288,11 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             vBottom: { value: "_vBottom" },
             vForX: { value: "_vForX" },
             recordsets: {
-                value: function (json) {
+                value: function (objRaw) {
                     this.recordsets = [];
-                    for (var i = 0; i < json.recordsets.length; ++i) {
+                    for (var i = 0; i < objRaw.recordsets.length; ++i) {
                         this.appendRecordset(
-                            HuTime.JSON.parse(json.recordsets[i]));
-
+                            HuTime.JSON.parse(objRaw.recordsets[i]));
                     }
                     this.loadRecordsets();
                 }
