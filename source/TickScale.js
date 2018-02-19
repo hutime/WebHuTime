@@ -482,6 +482,7 @@ HuTime.StandardScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.pr
             return data;
         }
     },
+
     _toJSONProperties: {
         value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
             minCnvTickInterval: { value: "minCnvTickInterval" },
@@ -529,6 +530,7 @@ HuTime.ManualScaleDataset.prototype = Object.create(HuTime.ScaleDatasetBase.prot
             return this._scaleData;
         }
     },
+
     _toJSONProperties: {
         value: Object.create(HuTime.ScaleDatasetBase.prototype._toJSONProperties, {
             _scaleData: { value: "scaleData" }

@@ -399,11 +399,6 @@ HuTime.PositionFloor.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
     _parseJSONProperties: {
         value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
-            position: {
-                value: function (json) {
-                    this.position = HuTime.PositionBase.createFromJSON(json.position);
-                }
-            }
         })
     }
 });
@@ -451,11 +446,6 @@ HuTime.PositionCeil.prototype = Object.create(HuTime.PositionBase.prototype, {
     },
     _parseJSONProperties: {
         value: Object.create(HuTime.PositionBase.prototype._parseJSONProperties, {
-            position: {
-                value: function (json) {
-                    this.position = HuTime.PositionBase.createFromJSON(json.position);
-                }
-            }
         })
     }
 });

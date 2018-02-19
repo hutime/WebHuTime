@@ -124,9 +124,9 @@ HuTime.OnLayerObjectBase.prototype = {
         _visible: "visible",
         processBeforeRedraw: "processBeforeRedraw",
         processAfterRedraw: "processAfterRedraw",
-        _userEvents: function (obj) {
+        _userEvents: function (objForJSON) {
             if (this._userEvents.length > 0)
-                obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
+                objForJSON["userEvents"] = HuTime.JSON.stringify(this._userEvents);
         }
     },
     _parseJSONProperties: {
@@ -515,11 +515,11 @@ HuTime.Image.prototype = Object.create(HuTime.OnLayerObjectBase.prototype, {
     _toJSONProperties: {
         value: Object.create(HuTime.OnLayerObjectBase.prototype._toJSONProperties, {
             src: {
-                value: function (json) {
+                value: function (objForJSON) {
                     // 絶対パスを出力
                     var elem = document.createElement("img");
                     elem.src = this.src;
-                    json.src = elem.src;
+                    objForJSON.src = elem.src;
                 }
             },
             width: { value: "width" },
@@ -1161,9 +1161,6 @@ HuTime.FigureStyle.prototype = {
     },
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
-    parseJSON: function parseJSON (json) {
-        HuTime.JSON.parse(json, this);
     }
 };
 
@@ -1444,11 +1441,7 @@ HuTime.StringStyle.prototype = {
         lineColor: "_lineColor",
         alpha: "_alpha"
     },
-
     toJSON: function toJSON () {
         return HuTime.JSON.stringify(this);
-    },
-    parseJSON: function parseJSON (json) {
-        HuTime.JSON.parse(json, this);
     }
 };

@@ -10,22 +10,23 @@ HuTime.JSON = {
         if (typeof obj === "function")      // function
             return obj.toString();
 
-        var json;   // 出力結果の収容用
-        var p;      // 再帰によるHuTime.JSON.stringigyの結果収容用
+        var objForJSON; // 出力結果の収容用（JSONに変換するための整形済みオブジェクト）
+        var propObj;    // 再帰によるHuTime.JSON.stringigyの結果収容用
+        var prop;       // 処理対象のプロパティ名
         if (obj instanceof Array) {         // Array
-            json = [];
+            objForJSON = [];
             for (var i = 0; i < obj.length; ++i) {
-                p = HuTime.JSON.stringify(obj[i]);
-                if (typeof p !== "undefined")
-                    json.push(p);
+                propObj = HuTime.JSON.stringify(obj[i]);
+                if (typeof propObj !== "undefined")
+                    objForJSON.push(propObj);
             }
-            return json;
+            return objForJSON;
         }
         if (typeof obj === "object") {      // object（Arrayを含む）
-            json = {};
+            objForJSON = {};
             if ("_toJSONProperties" in obj) {   // JSONへの変換テーブルあり -> HuTime関係のオブジェクト
-                json["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructerの名前を保存
-                for (var prop in obj) {
+                objForJSON["constructor"] = obj.constructor.name;     // デシリアライズ用にconstructorの名前を保存
+                for (prop in obj) {
                     switch (prop) {     // 各クラスに共通の読み飛ばすプロパティ
                         case "constructor":
                         case "_toJSONProperties":
@@ -41,58 +42,62 @@ HuTime.JSON = {
                             if (obj[prop] == obj.__proto__[prop])   // 既定値と同じ場合は出力しない
                                 continue;
 
-                            p = HuTime.JSON.stringify(obj[prop]);
-                            if (typeof p !== "undefined")
-                                json[obj._toJSONProperties[prop]] = p;
+                            propObj = HuTime.JSON.stringify(obj[prop]);
+                            if (typeof propObj !== "undefined")
+                                objForJSON[obj._toJSONProperties[prop]] = propObj;
                         }
                         else if (typeof obj._toJSONProperties[prop] === "function") {     // 出力関数が指定されている場合
-                            obj._toJSONProperties[prop].apply(obj, [json]);
+                            obj._toJSONProperties[prop].apply(obj, [objForJSON]);
                         }
                     }
                     else {  // JSONへの変換定義が無い場合
                         if (prop in obj.__proto__)
                             continue;     // プロトタイプで定義されているのにJSONへの変換定義なし －＞ 出力しない
-                        json[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
+                        objForJSON[prop] = obj[prop];     // プロトタイプで定義されていない　－＞ ユーザ定義のプロパティ
                     }
                 }
             }
             else {          // HuTime関係以外のオブジェクト
-                for (var prop in obj) {
-                    json[prop] = HuTime.JSON.stringify(obj[prop]);
+                for (prop in obj) {
+                    objForJSON[prop] = HuTime.JSON.stringify(obj[prop]);
                 }
             }
-            return json;
+            return objForJSON;
         }
         return obj;     // 数値、文字列など
     },
     parse: function parse (json) {
-        var p;
-        var obj;
-        var prop;
+        var objRaw;         // パースしただけの生のオブジェクト
+        var obj;            // 結果（出力するオブジェクト）
+        var prop;           // 処理対象のプロパティ名
         if (typeof json === "string") {
             try {           // jsonをいったん標準的な方法でparseseする
-                p = JSON.parse(json);
-                json = p;
+                var p = JSON.parse(json);
+                objRaw = p;
             }
             catch (e) {     // JSONとしてパースできない（JSONでない生の値 -> そのまま）
+                objRaw = json;
             }
         }
+        else {
+            objRaw = json;
+        }
 
-        if (typeof json === "undefined")
+        if (typeof objRaw === "undefined")
             return undefined;
-        if (json == null)                   // null
+        if (objRaw == null)                   // null
             return null;
-        if (json instanceof Array) {        // Array
+        if (objRaw instanceof Array) {        // Array
             obj = [];
-            for (var i = 0; i < json.length; ++i) {
-                obj.push(HuTime.JSON.parse(json[i]));
+            for (var i = 0; i < objRaw.length; ++i) {
+                obj.push(HuTime.JSON.parse(objRaw[i]));
             }
             return obj;
         }
-        if (typeof json === "object") {     // オブジェクト一般
+        if (typeof objRaw === "object") {     // オブジェクト一般
             // オブジェクトの生成
-            if (typeof json.constructor === "string") {     // HuTime関係のオブジェクト
-                var constructor = eval("HuTime." + json.constructor);
+            if (typeof objRaw.constructor === "string") {     // HuTime関係のオブジェクト
+                var constructor = eval("HuTime." + objRaw.constructor);
                 if (constructor == undefined)
                     obj = {};   // コンストラクタの取得失敗
                 else
@@ -104,7 +109,7 @@ HuTime.JSON = {
 
             // 各プロパティのデシリアライズ
             if ("_parseJSONProperties" in obj) {    // 出力指定がある場合（HuTime関係のオブジェクト）
-                for (prop in json) {
+                for (prop in objRaw) {
                     switch (prop) {             // 各クラスに共通の読み飛ばすプロパティ
                         case "constructor":
                             continue;
@@ -114,28 +119,28 @@ HuTime.JSON = {
                         if (obj._parseJSONProperties[prop] == null)   // 出力指定がnullの場合は出力しない
                             continue;
                         if (typeof obj._parseJSONProperties[prop] === "string") {     // 出力方法が文字列指定
-                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(json[prop]);
+                            obj[obj._parseJSONProperties[prop]] = HuTime.JSON.parse(objRaw[prop]);
                         }
                         else if (typeof obj._parseJSONProperties[prop] === "function") {  // 出力方法が関数指定
-                            obj._parseJSONProperties[prop].apply(obj, [json]);
+                            obj._parseJSONProperties[prop].apply(obj, [objRaw]);
                         }
                     }
                     else {      // 出力指定が無い場合は、プロパティ名をそのまま利用
-                        obj[prop] = HuTime.JSON.parse(json[prop]);
+                        obj[prop] = HuTime.JSON.parse(objRaw[prop]);
                     }
                 }
             }
             else {      // 出力指定が無い場合（HuTime関係以外のオブジェクト）
-                for (var prop in json) {
-                    obj[prop] = HuTime.JSON.parse(json[prop]);
+                for (var prop in objRaw) {
+                    obj[prop] = HuTime.JSON.parse(objRaw[prop]);
                 }
             }
 
             return obj;
         }
-        if (typeof json === "string" && json.substr(0, 8) == "function")    // function
-            return eval("(" + json + ")");
-        return json;        // その他（数値、文字列など）
+        if (typeof objRaw === "string" && objRaw.substr(0, 8) == "function")    // function
+            return eval("(" + objRaw + ")");
+        return objRaw;        // その他（数値、文字列など）
     },
 
     // シリアライズデータの保存と取得

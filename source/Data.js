@@ -344,15 +344,15 @@ HuTime.RecordsetBase.prototype = {
 
     _toJSONProperties: {
         visible: "visible",
-        records: function (json) {
+        records: function (objForJSON) {
             if (this.useLoadedDataForJSON ||
                 this.useLoadedDataForJSON == null && !(this.reader.stream instanceof HuTime.HttpStream))
-                    json["records"] = HuTime.JSON.stringify(this.records);
+                    objForJSON["records"] = HuTime.JSON.stringify(this.records);
         },
-        _reader: function (json) {
+        _reader: function (objForJSON) {
             if (this.useRemoteDataForJSON ||
                 this.useRemoteDataForJSON == null && this.reader.stream instanceof HuTime.HttpStream)
-                    json["reader"] = HuTime.JSON.stringify(this._reader);
+                    objForJSON["reader"] = HuTime.JSON.stringify(this._reader);
         },
         _recordSettings: "recordSettings",
         disableSortRecords: "disableSortRecords",
