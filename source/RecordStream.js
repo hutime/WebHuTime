@@ -7,7 +7,7 @@ HuTime.StreamBase.prototype = {
 
     _source: null,  // 読み込み元
     get source() {
-        return this.source;
+        return this._source;
     },
     set source(val) {
         this._source = val;
@@ -63,7 +63,7 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             return this._source;
         },
         set: function(val) {
-            if (!(val instanceof File)) {
+            if (!(val instanceof File) && !(val instanceof Blob)) {
                 this._source = null;
                 this.loadState = "error";
                 return;
@@ -76,7 +76,7 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     // 基底クラスのオーバライド
     load: {
         value: function load() {
-            if (!(this._source instanceof File)) {
+            if (!(this._source instanceof File) && !(this._source instanceof Blob)) {
                 this.loadState = "error";
                 return;
             }
@@ -207,7 +207,7 @@ HuTime.StreamReaderBase.prototype = {
     set source(val) {       // 取得元に応じて、適切なstreamオブジェクトを設定
         if (typeof val == "string" && val != "")  // URLとして入力された場合
             this.stream = new HuTime.HttpStream(val);
-        else if (val instanceof File)                // Fileオブジェクトが入力された場合
+        else if (val instanceof File || val instanceof Blob)                // Fileオブジェクトが入力された場合
             this.stream = new HuTime.FileStream(val);
         else if (val instanceof HuTime.StreamBase)   // streamオブジェクトが直接入力された場合
             this.stream = val;
