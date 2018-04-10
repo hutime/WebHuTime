@@ -1792,8 +1792,8 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             }
 
             // 可動範囲の制限（再下端のパネル幅を変更できるようにするため、上（左）方向には限界値まで移動可能）
-            const bottomLimit = 30;     // 上（左）方向の限界値（再下端のパネルが隠れないようにするため）
-            const moveSensitivity = 5;  // パネルが端で接した位置で止まるマウスの移動速度
+            var bottomLimit = 30;     // 上（左）方向の限界値（再下端のパネルが隠れないようにするため）
+            var moveSensitivity = 5;  // パネルが端で接した位置で止まるマウスの移動速度
             if (this._currentVBreadth > this._panelsVBreadth) {    // PanelCollection内に余白がある場合
                 // 上端（左端）が接した位置で一旦止める
                 if (this._vScrolled * vScrolledOld <= 0 &&
