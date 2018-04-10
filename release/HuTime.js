@@ -3307,8 +3307,8 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             }
 
             // 可動範囲の制限（再下端のパネル幅を変更できるようにするため、上（左）方向には限界値まで移動可能）
-            const bottomLimit = 30;     // 上（左）方向の限界値（再下端のパネルが隠れないようにするため）
-            const moveSensitivity = 5;  // パネルが端で接した位置で止まるマウスの移動速度
+            var bottomLimit = 30;     // 上（左）方向の限界値（再下端のパネルが隠れないようにするため）
+            var moveSensitivity = 5;  // パネルが端で接した位置で止まるマウスの移動速度
             if (this._currentVBreadth > this._panelsVBreadth) {    // PanelCollection内に余白がある場合
                 // 上端（左端）が接した位置で一旦止める
                 if (this._vScrolled * vScrolledOld <= 0 &&
@@ -9546,6 +9546,8 @@ HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
 HuTime.RecordsetBase.prototype = {
     // 基本構造
     constructor: HuTime.RecordsetBase,
+    id: "",
+    name: "",
     visible: true,              // レコードセット全体の表示・非表示切り替え
 
     // **** レコードセット内のレコード ****
@@ -9839,6 +9841,8 @@ HuTime.RecordsetBase.prototype = {
     // 両方指定された場合、リモートが優先。ロードに失敗した場合、保存データを利用。
 
     _toJSONProperties: {
+        id: "id",
+        name: "name",
         visible: "visible",
         records: function (objForJSON) {
             if (this.useLoadedDataForJSON ||
@@ -13720,7 +13724,7 @@ HuTime.StreamBase.prototype = {
 
     _source: null,  // 読み込み元
     get source() {
-        return this.source;
+        return this._source;
     },
     set source(val) {
         this._source = val;
@@ -13776,7 +13780,7 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             return this._source;
         },
         set: function(val) {
-            if (!(val instanceof File)) {
+            if (!(val instanceof File) && !(val instanceof Blob)) {
                 this._source = null;
                 this.loadState = "error";
                 return;
@@ -13789,7 +13793,7 @@ HuTime.FileStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     // 基底クラスのオーバライド
     load: {
         value: function load() {
-            if (!(this._source instanceof File)) {
+            if (!(this._source instanceof File) && !(this._source instanceof Blob)) {
                 this.loadState = "error";
                 return;
             }
@@ -13920,7 +13924,7 @@ HuTime.StreamReaderBase.prototype = {
     set source(val) {       // 取得元に応じて、適切なstreamオブジェクトを設定
         if (typeof val == "string" && val != "")  // URLとして入力された場合
             this.stream = new HuTime.HttpStream(val);
-        else if (val instanceof File)                // Fileオブジェクトが入力された場合
+        else if (val instanceof File || val instanceof Blob)                // Fileオブジェクトが入力された場合
             this.stream = new HuTime.FileStream(val);
         else if (val instanceof HuTime.StreamBase)   // streamオブジェクトが直接入力された場合
             this.stream = val;

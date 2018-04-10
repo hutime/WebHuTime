@@ -50,6 +50,8 @@ HuTime.RecordsetBase = function RecordsetBase(source, rangeStyle) {
 HuTime.RecordsetBase.prototype = {
     // 基本構造
     constructor: HuTime.RecordsetBase,
+    id: "",
+    name: "",
     visible: true,              // レコードセット全体の表示・非表示切り替え
 
     // **** レコードセット内のレコード ****
@@ -343,6 +345,8 @@ HuTime.RecordsetBase.prototype = {
     // 両方指定された場合、リモートが優先。ロードに失敗した場合、保存データを利用。
 
     _toJSONProperties: {
+        id: "id",
+        name: "name",
         visible: "visible",
         records: function (objForJSON) {
             if (this.useLoadedDataForJSON ||
