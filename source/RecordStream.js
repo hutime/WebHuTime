@@ -588,6 +588,66 @@ HuTime.RecordTSetting.prototype = Object.create(HuTime.RecordSettingBase.prototy
     }
 });
 
+// t値の取得設定（あいまいな時間）
+HuTime.RecordUTSetting = function RecordUTSetting (
+    itemNamePBegin, itemNameRBegin, itemNameREnd, itemNamePEnd, getValue) {
+    HuTime.RecordSettingBase.apply(this, [itemNamePBegin, getValue]);
+    this.itemNamePBegin = itemNamePBegin;
+    this.itemNameRBegin = itemNameRBegin;
+    this.itemNameREnd = itemNameREnd;
+    this.itemNamePEnd = itemNamePEnd;
+};
+HuTime.RecordUTSetting.prototype = Object.create(HuTime.RecordTSetting.prototype, {
+    constructor: {
+        value: HuTime.RecordUTSetting
+    },
+    itemNamePBegin: {
+        writable: true,
+        value: null
+    },
+    itemNameRBegin: {
+        writable: true,
+        value: null
+    },
+    itemNameREnd: {
+        writable: true,
+        value: null
+    },
+    itemNamePEnd: {
+        writable: true,
+        value: null
+    },
+    getValueDefault: {     // TRangeとして出力
+        value: function getValue(streamRecord) {
+            var pBegin = HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                this, [streamRecord, this.itemNamePBegin]);
+            var rBegin = HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                this, [streamRecord, this.itemNameRBegin]);
+            var rEnd = HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                this, [streamRecord, this.itemNameREnd]);
+            var pEnd = HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                this, [streamRecord, this.itemNamePEnd]);
+
+            if (pBegin == null || rBegin == null || rEnd == null || pEnd == null)
+                return null;
+            return new HuTime.TRange(pBegin, rBegin, rEnd, pEnd);
+        }
+    },
+
+    _toJSONProperties: {
+        value: {
+            itemNamePBegin: "itemNamePBegin",
+            itemNameRBegin: "itemNameRBegin",
+            itemNameREnd: "itemNameREnd",
+            itemNamePEnd: "itemNamePEnd"
+        }
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordTSetting.prototype._parseJSONProperties, {
+        })
+    }
+});
+
 // t値の取得設定（暦データ）
 HuTime.RecordTCalendarSetting = function RecordTCalendarSetting (itemNameBegin, itemNameEnd, getValue) {
     HuTime.RecordTSetting.apply(this, arguments);
@@ -608,10 +668,6 @@ HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.pr
             if (isNaN(beginRange[0]) || isNaN(endRange[1]))
                 return null;
             return new HuTime.TRange.createFromBeginEnd(beginRange[0], endRange[1]);
-
-            //return new HuTime.TRange.createFromBeginEnd(
-            //    new HuTime.TRange.createFromBeginEnd(beginRange[0], beginRange[1]),
-            //    new HuTime.TRange.createFromBeginEnd(endRange[0], endRange[1]));
         }
     },
 
@@ -624,6 +680,47 @@ HuTime.RecordTCalendarSetting.prototype = Object.create(HuTime.RecordTSetting.pr
         })
     }
 });
+
+// t値の取得設定（暦データ・あいまいな時間）
+HuTime.RecordUTCalendarSetting = function RecordUTCalendarSetting (
+    itemNamePBegin, itemNameRBegin, itemNameREnd, itemNamePEnd, getValue) {
+    HuTime.RecordUTSetting.apply(this, arguments);
+};
+HuTime.RecordUTCalendarSetting.prototype = Object.create(HuTime.RecordUTSetting.prototype, {
+    constructor: {
+        value: HuTime.RecordUTCalendarSetting
+    },
+    getValueDefault: {     // TRangeとして出力
+        value: function getValue(streamRecord) {
+            var bBegin = HuTime.isoToJdRange(
+                HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                    this, [streamRecord, this.itemNamePBegin]));
+            var bEnd = HuTime.isoToJdRange(
+                HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                    this, [streamRecord, this.itemNameRBegin]));
+            var eBegin = HuTime.isoToJdRange(
+                HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                    this, [streamRecord, this.itemNameREnd]));
+            var eEnd = HuTime.isoToJdRange(
+                HuTime.RecordSettingBase.prototype.getValueBase.apply(
+                    this, [streamRecord, this.itemNamePEnd]));
+
+            if (bBegin[0] == null || bEnd[1] == null || eBegin[0] == null || eEnd[1] == null)
+                return null;
+            return new HuTime.TRange(bBegin[0], bEnd[1], eBegin[0], eEnd[1]);
+        }
+    },
+
+    _toJSONProperties: {
+        value: Object.create(HuTime.RecordUTSetting.prototype._toJSONProperties, {
+        })
+    },
+    _parseJSONProperties: {
+        value: Object.create(HuTime.RecordUTSetting.prototype._parseJSONProperties, {
+        })
+    }
+});
+
 
 // 設定を収容するコンテナ
 HuTime.RecordSettings = function RecordSettings () {
