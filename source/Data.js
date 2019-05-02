@@ -1362,15 +1362,16 @@ HuTime.ChartRecord.prototype = Object.create(HuTime.RecordBase.prototype, {
 });
 
 // ++++ TLine（年表等）用 ++++
-HuTime.TLineRecordset = function TLineRecordset(source, tBeginItem, tEndItem, labelItem, rangeStyle, labelStyle) {    // タイムライン（年表）用のレコードセット
+// タイムライン（年表）用のレコードセット
+HuTime.TLineRecordset = function TLineRecordset(source, tBeginItem, tEndItem, labelItem, rangeStyle, labelStyle) {
     HuTime.RecordsetBase.call(this, source);
 
     this.labelItem = labelItem;
     if (this._labelItem)
         this._recordSettings.appendDataSetting(new HuTime.RecordDataSetting(this._labelItem));
 
-    if (typeof tBeginItem == "number" || typeof tBeginItem == "string") {
-        if (typeof tEndItem != "number" && typeof tEndItem != "string")
+    if (typeof tBeginItem === "number" || typeof tBeginItem === "string") {
+        if (typeof tEndItem !== "number" && typeof tEndItem !== "string")
             tEndItem = tBeginItem;
         this._recordSettings.tSetting = new HuTime.RecordTSetting(tBeginItem, tEndItem);
     }
@@ -1421,15 +1422,15 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._showRecordAtTResolution;
         },
         set: function (val){
-            if (typeof val == "boolean" || typeof val == "function")
+            if (typeof val === "boolean" || typeof val === "function")
                 this._showRecordAtTResolution = val;
-            else if (val == null && typeof val == "object")
+            else if (val == null && typeof val === "object")
                 this._showRecordAtTResolution = this.__proto__._showRecordAtTResolution;
         }
     },
     _appliedShowRecordAtTResolution: {
         value: function getBandBreadth(tResolution, record){
-            if (typeof this._showRecordAtTResolution == "function")
+            if (typeof this._showRecordAtTResolution === "function")
                 return this._showRecordAtTResolution(tResolution, record);
             else
                 return this._showRecordAtTResolution;
@@ -1450,16 +1451,16 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._bandBreadth;
         },
         set: function (val){
-            if ((typeof val == "number" && val >= 0 && val <= 100) ||
-                typeof val == "function")
+            if ((typeof val === "number" && val >= 0 && val <= 100) ||
+                typeof val === "function")
                 this._bandBreadth = val;
-            else if (val == null && typeof val == "object")
+            else if (val == null && typeof val === "object")
                 this._bandBreadth = HuTime.TLineRecordset.prototype._bandBreadth;
         }
     },
     _appliedBandBreadth: {
         value: function getBandBreadth(record){
-            if (typeof this._bandBreadth == "function")
+            if (typeof this._bandBreadth === "function")
                 return this._bandBreadth(record);
             else
                 return this._bandBreadth;
@@ -1476,8 +1477,8 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._labelItem;
         },
         set: function (val){
-            if ((typeof val != "string" || val.trim().length == 0) &&
-                (typeof val != "number" || !isFinite(val)))
+            if ((typeof val !== "string" || val.trim().length === 0) &&
+                (typeof val !== "number" || !isFinite(val)))
                 return;
             this._labelItem = val.toString().trim();
         }
@@ -1493,15 +1494,15 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._showLabel;
         },
         set: function (val) {
-            if (typeof val == "boolean" || typeof val == "function")
+            if (typeof val === "boolean" || typeof val === "function")
                 this._showLabel = val;
-            else if (val == null && typeof val == "object")
+            else if (val == null && typeof val === "object")
                 this._showLabel = this.__proto__._showLabel;
         }
     },
     _appliedShowLabel: {
         value: function _appliedShowLabel(record){
-            if (typeof this._showLabel == "function")
+            if (typeof this._showLabel === "function")
                 return this._showLabel(record);
             else
                 return this._showLabel;
@@ -1517,7 +1518,7 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._labelOffsetT;
         },
         set: function (val){
-            if (typeof val == "number" && val >= -1000 && val <= 1000)
+            if (typeof val === "number" && val >= -1000 && val <= 1000)
                 this._labelOffsetT = val;
         }
     },
@@ -1530,7 +1531,7 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._labelOffsetV;
         },
         set: function (val){
-            if (typeof val == "number" && isFinite(val) && val >= -100 && val <= 100)
+            if (typeof val === "number" && isFinite(val) && val >= -100 && val <= 100)
                 this._labelOffsetV = val;
         }
     },
@@ -1543,7 +1544,7 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
             return this._labelRotate;
         },
         set: function (val){
-            if (typeof val == "number" && isFinite(val))
+            if (typeof val === "number" && isFinite(val))
                 this._labelRotate = val;
         }
     },
@@ -1565,15 +1566,15 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
                 this._labelStyle = val;
                 this._labelStyle.textBaseline = "middle";
             }
-            else if (typeof val == "function")
+            else if (typeof val === "function")
                 this._labelStyle = val;
-            else if (val == null && typeof val == "object")
+            else if (val == null && typeof val === "object")
                 this._labelStyle = this.__proto__._labelStyle;
         }
     },
     _appliedLabelStyle: {
         value: function getLabelStyle(record){
-            if (typeof this._labelStyle == "function")
+            if (typeof this._labelStyle === "function")
                 return this._labelStyle(record);
             else
                 return this._labelStyle;
@@ -1608,12 +1609,21 @@ HuTime.TLineRecordset.prototype = Object.create(HuTime.RecordsetBase.prototype, 
     }
 });
 
+// タイムライン（年表）用のレコードセットをあまいな時間（JD指定）で生成
+HuTime.TLineRecordset.createFromBeginEndRange =
+    function createFromBeginEndRange(source, tBBeginItem, tBEndItem, tEBeginItem, tEEndItem, labelItem, rangeStyle, labelStyle) {
+
+    let recordset = new HuTime.TLineRecordset(source, tBBeginItem, tEEndItem, labelItem, rangeStyle, labelStyle);
+    recordset._recordSettings.tSetting = new HuTime.RecordUTSetting(tBBeginItem, tBEndItem, tEBeginItem, tEEndItem);
+    return recordset;
+};
+
 // 暦変換を含むレコードセット
 HuTime.CalendarTLineRecordset = function CalendarTLineRecordset(source, tBeginItem, tEndItem, label, calendarId, rangeStyle, labelStyle) {
     HuTime.TLineRecordset.apply(this, [source, null, null, label, rangeStyle, labelStyle]);
 
-    if (typeof tBeginItem == "number" || typeof tBeginItem == "string") {
-        if (typeof tEndItem != "number" && typeof tEndItem != "string")
+    if (typeof tBeginItem === "number" || typeof tBeginItem === "string") {
+        if (typeof tEndItem !== "number" && typeof tEndItem !== "string")
             tEndItem = tBeginItem;
         this._tBeginDataSetting = new HuTime.RecordDataSetting(tBeginItem, "tBegin");
         this._tEndDataSetting = new HuTime.RecordDataSetting(tEndItem, "tEnd");
@@ -1628,6 +1638,8 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
         writable: true,
         value: null
     },
+
+    // 確定時間用
     _tBeginDataSetting: {       // t値の始点に関する項目名等
         writable: true,
         value: null
@@ -1636,6 +1648,26 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
         writable: true,
         value: null
     },
+
+    // あいまい時間用
+    _tBBeginDataSetting: {       // t値の始点範囲の始点に関する項目名等
+        writable: true,
+        value: null
+    },
+    _tBEndDataSetting: {         // t値の始点範囲の終点に関する項目名等
+        writable: true,
+        value: null
+    },
+    _tEBeginDataSetting: {       // t値の終点範囲の始点に関する項目名等
+        writable: true,
+        value: null
+    },
+    _tEEndDataSetting: {         // t値の終点範囲の終点に関する項目名等
+        writable: true,
+        value: null
+    },
+
+
     onloadendCalendar: {
         writable: true,
         value: null
@@ -1649,15 +1681,14 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             if (!(val instanceof HuTime.StreamReaderBase))
                 return;
             this._reader = val;
-            var onloadend = function (obj) {
+            let onloadend = function (obj) {
                 obj._reader.onloadend = function () {
                     obj._getRecords.apply(obj);
                 }
             }(this);
-            var onloadendCalendar = function (obj) {
+            let onloadendCalendar = function (obj) {
                 obj.onloadendCalendar = function (obj) {
                     this.onloadend();
-                    //obj.onloadend.apply(obj);
                 }.bind(obj)
             }(this);
         }
@@ -1665,16 +1696,33 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
 
     _getRecords: {
         value: function _getRecords() { // StreamReaderのデータをDataItemSettingに基づいてRecordsetに変換
-            var record;
-            var itemData;
-            var tBegin = [];
-            var tEnd = [];
-            var i, j;
+            let record;
+            let itemData;
+
+            // 各定時間用
+            let tBegin = [];
+            let tEnd = [];
+
+            // あいまい時間用
+            let tBBegin = [];
+            let tBEnd = [];
+            let tEBegin = [];
+            let tEEnd = [];
+
+            let i, j;
+
             for (i = 0; i < this.reader.recordData.length; ++i) {
                 record = this.appendRecord(new HuTime.TLineRecord(null));
-                tBegin.push(this._tBeginDataSetting.getValue(this.reader.recordData[i]));
-                tEnd.push(this._tEndDataSetting.getValue(this.reader.recordData[i]));
-
+                if (this._recordSettings.tSetting instanceof HuTime.RecordUTSetting) {
+                    tBBegin.push(this._tBBeginDataSetting.getValue(this.reader.recordData[i]));
+                    tBEnd.push(this._tBEndDataSetting.getValue(this.reader.recordData[i]));
+                    tEBegin.push(this._tEBeginDataSetting.getValue(this.reader.recordData[i]));
+                    tEEnd.push(this._tEEndDataSetting.getValue(this.reader.recordData[i]));
+                }
+                else {
+                    tBegin.push(this._tBeginDataSetting.getValue(this.reader.recordData[i]));
+                    tEnd.push(this._tEndDataSetting.getValue(this.reader.recordData[i]));
+                }
                 for (j = 0; j < this.recordSettings._dataSettings.length; ++j) {
                     itemData = this.recordSettings._dataSettings[j].getValue(this.reader.recordData[i]);
                     if (itemData != null)
@@ -1683,36 +1731,62 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
             }
 
             // 始点、終点のt値の範囲を取得
-            var beginRanges = [];
-            var endRanges = [];
+            let beginRanges = [];
+            let endRanges = [];
 
             if (this.calendarId) {
-                var data = this.calendarId;
-                for (i = 0; i < this.reader.recordData.length; ++i) {
-                    data += "\n\"" + tBegin[i] + "\",\"" + tEnd[i] + "\"";
+                let data = this.calendarId;
+                let request = new XMLHttpRequest();
+                if (this._recordSettings.tSetting instanceof HuTime.RecordUTSetting) {
+                    // createFromBeginEndRangeで生成した場合（あいまい時間で指定）
+                    for (i = 0; i < this.reader.recordData.length; ++i) {
+                        data += "\n\"" + tBBegin[i] + "\",\"" + tBEnd[i] + "\"";
+                        data += "\n\"" + tEBegin[i] + "\",\"" + tEEnd[i] + "\"";
+                    }
+                    let onload = function (obj) {
+                        request.onreadystatechange = function () {
+                            if (this.readyState !== 4 || this.status !== 200)
+                                return;
+                            let a = request.responseText;
+                            let ranges = JSON.parse(request.responseText);
+                            for (i = 0; i < obj.reader.recordData.length; ++i) {
+                                if (isNaN(ranges[i].beginBegin) || isNaN(ranges[i].endEnd))
+                                    continue; // 無限大の場合の処理要検討
+                                obj.records[i].tRange = HuTime.TRange.createFromBeginEnd(
+                                    HuTime.TRange.createFromBeginEnd(ranges[2 * i].beginBegin, ranges[2*i].endEnd),
+                                    HuTime.TRange.createFromBeginEnd(ranges[2 * i + 1].beginBegin, ranges[2 * i + 1].endEnd));
+                            }
+                            obj.onloadendCalendar(obj);
+                        };
+                    }(this);
                 }
-                var request = new XMLHttpRequest();
-                var onload = function (obj) {
-                    request.onreadystatechange = function () {
-                        if (this.readyState != 4 || this.status != 200)
-                            return;
-                        var ranges = JSON.parse(request.responseText);
-                        for (i = 0; i < obj.reader.recordData.length; ++i) {
-                            if (isNaN(ranges[i].beginBegin) || isNaN(ranges[i].endEnd))
-                                continue;
-                            obj.records[i].tRange = new HuTime.TRange.createFromBeginEnd(
-                                new HuTime.TRange.createFromBeginEnd(ranges[i].beginBegin, ranges[i].beginEnd),
-                                new HuTime.TRange.createFromBeginEnd(ranges[i].endBegin, ranges[i].endEnd));
-                        }
-                        obj.onloadendCalendar(obj);
-                    };
-                }(this);
-
+                else {
+                    // あいまいな時間の指定でない場合
+                    for (i = 0; i < this.reader.recordData.length; ++i) {
+                        data += "\n\"" + tBegin[i] + "\",\"" + tEnd[i] + "\"";
+                    }
+                    let onload = function (obj) {
+                        request.onreadystatechange = function () {
+                            if (this.readyState !== 4 || this.status !== 200)
+                                return;
+                            let ranges = JSON.parse(request.responseText);
+                            for (i = 0; i < obj.reader.recordData.length; ++i) {
+                                if (isNaN(ranges[i].beginBegin) || isNaN(ranges[i].endEnd))
+                                    continue;
+                                obj.records[i].tRange = HuTime.TRange.createFromBeginEnd(
+                                    HuTime.TRange.createFromBeginEnd(ranges[i].beginBegin, ranges[i].beginEnd),
+                                    HuTime.TRange.createFromBeginEnd(ranges[i].endBegin, ranges[i].endEnd));
+                            }
+                            obj.onloadendCalendar(obj);
+                        };
+                    }(this);
+                }
                 request.open("POST", "http://ap.hutime.org/CalendarRecord", true);
                 request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
                 request.send(data);
             }
             else {
+                // あいまいな時間未対応
                 for (i = 0; i < this.reader.recordData.length; ++i) {
                     beginRanges.push(HuTime.isoToJdRange(tBegin[i]));
                     endRanges.push(HuTime.isoToJdRange(tEnd[i]));
@@ -1743,6 +1817,22 @@ HuTime.CalendarTLineRecordset.prototype = Object.create(HuTime.TLineRecordset.pr
         })
     }
 });
+
+// 暦変換を含むレコードセットをあまいな時間で生成
+HuTime.CalendarTLineRecordset.createFromBeginEndRange = function createFromBeginEndRange(
+    source, tBBeginItem, tBEndItem, tEBeginItem, tEEndItem, labelItem, calendarId, rangeStyle, labelStyle) {
+
+    let recordset = new HuTime.CalendarTLineRecordset(source, tBBeginItem, tEEndItem, labelItem, calendarId, rangeStyle, labelStyle);
+    recordset._recordSettings.tSetting = new HuTime.RecordUTSetting(tBBeginItem, tBEndItem, tEBeginItem, tEEndItem);
+    recordset._tBBeginDataSetting = new HuTime.RecordDataSetting(tBBeginItem, "tBBegin");
+    recordset._tBEndDataSetting = new HuTime.RecordDataSetting(tBEndItem, "tBEnd");
+    recordset._tEBeginDataSetting = new HuTime.RecordDataSetting(tEBeginItem, "tEBegin");
+    recordset._tEEndDataSetting = new HuTime.RecordDataSetting(tEEndItem, "tEEnd");
+    return recordset;
+};
+
+
+
 
 HuTime.PlotDirection = {    // TLineLayerでプロットを描画する方向
     topToBottom: 0,     // 上から下の順でプロットが描画する
