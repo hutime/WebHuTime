@@ -90,6 +90,9 @@ HuTime.TRange.prototype = {
     },
 
     // 状態表示（今後要修正）
+    get isDetermined() {
+        return this._pBegin === this._rBegin && this._pEnd === this._pEnd;
+    },
     get isTotalPRangeOnly() {       // 全可能期間のみの場合 true
         return this._rBegin == null && this._rEnd == null;
     },
