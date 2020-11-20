@@ -263,6 +263,11 @@ HuTime.ContainerBase.prototype = {
     redraw: function () {   // コンテンツの再描画
         this.clear();   // 消去
 
+        if (!(this instanceof HuTime.PanelCollection)) {    // 互換性のため暫定的にPanelCollectionをはずす
+            for (let i = 0; i < this._contents.length; ++i) {
+                this._contents[i]._contentsIndex = i;
+            }
+        }
         this._contents.sort(this.compZIndex);  // zIndexにしたがって並び替える
 
         this._updateCurrentTLength();
@@ -313,10 +318,10 @@ HuTime.ContainerBase.prototype = {
             return 1;
 
         // zIndexが同じ場合は配列順を維持（配列はzIndexの低い方から高い方の順で入っている）
-        if (a._contentsIndex < b._contentsIndex)
-            return -1;
         if (a._contentsIndex > b._contentsIndex)
             return 1;
+        if (a._contentsIndex < b._contentsIndex)
+            return -1;
         return 0;
     },
     clear: function () {    // 画面クリア
