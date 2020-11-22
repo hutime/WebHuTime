@@ -122,7 +122,18 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
     constructor: {
         value: HuTime.HttpStream
     },
-
+    authorization: {
+        writable: true,
+        value: false
+    },
+    id: {
+        writable: true,
+        value: null
+    },
+    pass: {
+        writable: true,
+        value: null
+    },
     // HttpStream固有のプロパティ等
     _request: {          // XMLHttpRequest
         writable: true,
@@ -142,6 +153,7 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             this.loadState = "ready";
         }
     },
+
     _responseText: {
         writable: true,
         value: null
@@ -158,6 +170,10 @@ HuTime.HttpStream.prototype = Object.create(HuTime.StreamBase.prototype, {
             this._responseText = null;
             this.loadState = "loading";
             this._request.open("get", this._source, true);
+            if (this.authorization && this.id.length > 0 && this.pass.length > 0) {
+                let auth = window.btoa(this.id + ":" + this.pass);
+                this._request.setRequestHeader("Authorization", "Basic " + auth);
+            }
             this._request.send(null);
         }
     },

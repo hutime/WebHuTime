@@ -154,10 +154,15 @@ HuTime.JSON = {
         elm.click();
         document.body.removeChild(elm);
     },
-    load: function load (source, handler) {     // ソースと取得後の処理関数を設定
+    load: function load (source, handler, id, pass) {     // ソースと取得後の処理関数を設定
         var reader = new HuTime.JSON.Reader(source);
         if (typeof handler === "function")
             reader.onloadend = handler;
+        if (id && id.length > 0 && pass && pass.length > 0) {
+            reader._stream.authorization = true;
+            reader._stream.id = id;
+            reader._stream.pass = pass;
+        }
         reader.load();
         return reader;
     }
