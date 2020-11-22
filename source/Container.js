@@ -84,8 +84,9 @@ HuTime.ContainerBase.prototype = {
     },
     set vBreadth(val) {
         if ((typeof val) != "number" || val < 0 || !isFinite(val))
-            return;
-        this._vBreadth = val;
+            this._vBreadth = null;
+        else
+            this._vBreadth = val;
     },
     _vMarginTop: null,       // v軸方向の余白（上, 左）－nullの場合は自動設定
     get vMarginTop() {
@@ -93,8 +94,9 @@ HuTime.ContainerBase.prototype = {
     },
     set vMarginTop(val) {
         if ((typeof val) != "number" || val < 0 || !isFinite(val))
-            return;
-        this._vMarginTop = val;
+            this._vMarginTop = null;
+        else
+            this._vMarginTop = val;
     },
     _vMarginBottom: null,    // v軸方向の余白（下, 右）－nullの場合は自動設定
     get vMarginBottom() {
@@ -102,8 +104,9 @@ HuTime.ContainerBase.prototype = {
     },
     set vMarginBottom(val) {
         if ((typeof val) != "number" || val < 0 || !isFinite(val))
-            return;
-        this._vMarginBottom = val;
+            this._vMarginBottom = null;
+        else
+            this._vMarginBottom = val;
     },
 
     _vMarginForX: 0,         // v軸がヨコの時の余白の適用（0: vMarginTopが左の余白, 1: vMarginBottomが左の余白）
@@ -185,7 +188,7 @@ HuTime.ContainerBase.prototype = {
             return;
         if (val) {
             this._visible = true;
-            this._element.style.visibility = "visible";
+            this._element.style.visibility = null;  // 親要素のvisibilityと連動させるため、visibleではなくnull
         }
         else {
             this._visible = false;

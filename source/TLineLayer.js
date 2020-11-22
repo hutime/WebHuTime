@@ -140,6 +140,8 @@ HuTime.TLineLayer.prototype = Object.create(HuTime.RecordLayerBase.prototype, {
                 if (!this._sortedRecords[i].recordset._appliedShowRecordAtTResolution(
                           this._lyrTResolution, this._sortedRecords[i].record))
                     continue;
+                if (!this._sortedRecords[i].recordset.showRecordset)
+                    continue;
                 if (!this._sortedRecords[i].recordset.showReliableTRange &&   // 可能・確実範囲とも非表示の場合
                     !this._sortedRecords[i].recordset.showPossibleTRange)
                     continue;
