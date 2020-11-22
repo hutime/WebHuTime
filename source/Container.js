@@ -1986,7 +1986,10 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
             this._setPanelVBreadth();
 
             // porderchangedイベント発火
-            this._hutimeRoot._handleEvent(new HuTime.Event("porderchanged", this));
+            let ev = new HuTime.Event("porderchanged", this);
+            ev.sourcePanel = source;
+            ev.destinationPanel = target;
+            this._hutimeRoot._handleEvent(ev);
         }
     },
 
