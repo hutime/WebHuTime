@@ -633,10 +633,12 @@ HuTime.ContainerBase.prototype = {
         processBeforeRedraw: "processBeforeRedraw",
         processAfterRedraw: "processAfterRedraw",
 
+        /*
         _userEvents: function (obj) {
             if (this._userEvents.length > 0)
                 obj["userEvents"] = HuTime.JSON.stringify(this._userEvents);
         },
+        // */
         _mouseEventCapture: "mouseEventCapture"
     },
     _parseJSONProperties: {

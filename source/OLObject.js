@@ -953,6 +953,11 @@ HuTime.Drawing = {
 
     // 文字列（positionはstyleの設定（上下、左右の揃え）による）
     pathString: function(style, layer, position, text, rotate, canvas) {
+        if (typeof text != "string")
+            if (typeof text == "number" || typeof  text == "boolean")
+                text = text.toString();
+            else
+                text = "";
         if (!style)
             style = new HuTime.StringStyle();
         var ctx;
@@ -1028,6 +1033,11 @@ HuTime.Drawing = {
         return ctx;
     },
     drawString: function(style, layer, position, text, rotate, canvas) {
+        if (typeof text != "string")
+            if (typeof text == "number" || typeof  text == "boolean")
+                text = text.toString();
+            else
+                text = "";
         if (!style)
             style = new HuTime.StringStyle();
         var ctx;
@@ -1040,7 +1050,7 @@ HuTime.Drawing = {
 
         ctx.translate(cnvX, cnvY);
         ctx.rotate(rotate * HuTime.Drawing._constDegToRad);
-        style.applyStyle(ctx, text.toString());
+        style.applyStyle(ctx, text);
         ctx.rotate(-rotate * HuTime.Drawing._constDegToRad);
         ctx.translate(-cnvX, -cnvY);
     }
