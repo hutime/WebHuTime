@@ -266,11 +266,11 @@ HuTime.ContainerBase.prototype = {
     redraw: function () {   // コンテンツの再描画
         this.clear();   // 消去
 
-        if (!(this instanceof HuTime.PanelCollection)) {    // 互換性のため暫定的にPanelCollectionをはずす
+        //if (!(this instanceof HuTime.PanelCollection)) {    // 互換性のため暫定的にPanelCollectionをはずす
             for (let i = 0; i < this._contents.length; ++i) {
                 this._contents[i]._contentsIndex = i;
             }
-        }
+        //}
         this._contents.sort(this.compZIndex);  // zIndexにしたがって並び替える
 
         this._updateCurrentTLength();
@@ -944,8 +944,20 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     appendPanel: {
         value: function (panel) {
-            if (panel instanceof HuTime.PanelBase)
-                HuTime.ContainerBase.prototype.appendContent.apply(this, arguments);    // 継承元を直接呼び出す
+            ///*
+            if (panel instanceof HuTime.PanelBase) {
+                if (panel._parent)
+                    panel._parent.removeContent(panel);    // 既に他に属している場合は削除
+                panel._setParent(this);
+                panel._setHutimeRoot(this._hutimeRoot);
+                panel._setCaptureElement(this._captureElement);
+                panel._setDisplayMode(this._tRotation, this._tDirection);
+                this._contents.unshift(panel);      // Panelは逆順なので先頭に追加
+                this._element.appendChild(panel._element);
+            }
+            //*/
+//            if (panel instanceof HuTime.PanelBase)
+//                HuTime.ContainerBase.prototype.appendContent.apply(this, arguments);    // 継承元を直接呼び出す
         }
     },
     removePanel: {
@@ -2221,12 +2233,16 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
     },
     minPnlT: {      // 表示幅の拡大率を反映させたPanelのt軸の表示範囲（最小値）
         get: function() {
+            if (!this._hutimeRoot)
+                return 0;   // 暫定措置（PanelCollectionのJSONを読み込むとここにはまることがある）
             return this._hutimeRoot.minT -
                 (this._hutimeRoot.maxT - this._hutimeRoot.minT) * (this.tRatio - 1) / 2 ;
         }
     },
     maxPnlT: {      // 表示幅の拡大率を反映させたPanelのt軸の表示範囲（最大値）
         get: function() {
+            if (!this._hutimeRoot)
+                return 0;   // 暫定措置（PanelCollectionのJSONを読み込むとここにはまることがある）
             return this._hutimeRoot.maxT +
                 (this._hutimeRoot.maxT - this._hutimeRoot.minT) * (this.tRatio - 1) / 2 ;
         }

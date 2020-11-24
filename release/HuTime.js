@@ -1786,11 +1786,11 @@ HuTime.ContainerBase.prototype = {
     redraw: function () {   // コンテンツの再描画
         this.clear();   // 消去
 
-        if (!(this instanceof HuTime.PanelCollection)) {    // 互換性のため暫定的にPanelCollectionをはずす
+        //if (!(this instanceof HuTime.PanelCollection)) {    // 互換性のため暫定的にPanelCollectionをはずす
             for (let i = 0; i < this._contents.length; ++i) {
                 this._contents[i]._contentsIndex = i;
             }
-        }
+        //}
         this._contents.sort(this.compZIndex);  // zIndexにしたがって並び替える
 
         this._updateCurrentTLength();
@@ -2464,8 +2464,20 @@ HuTime.PanelCollection.prototype = Object.create(HuTime.ContainerBase.prototype,
     },
     appendPanel: {
         value: function (panel) {
-            if (panel instanceof HuTime.PanelBase)
-                HuTime.ContainerBase.prototype.appendContent.apply(this, arguments);    // 継承元を直接呼び出す
+            ///*
+            if (panel instanceof HuTime.PanelBase) {
+                if (panel._parent)
+                    panel._parent.removeContent(panel);    // 既に他に属している場合は削除
+                panel._setParent(this);
+                panel._setHutimeRoot(this._hutimeRoot);
+                panel._setCaptureElement(this._captureElement);
+                panel._setDisplayMode(this._tRotation, this._tDirection);
+                this._contents.unshift(panel);      // Panelは逆順なので先頭に追加
+                this._element.appendChild(panel._element);
+            }
+            //*/
+//            if (panel instanceof HuTime.PanelBase)
+//                HuTime.ContainerBase.prototype.appendContent.apply(this, arguments);    // 継承元を直接呼び出す
         }
     },
     removePanel: {
@@ -3741,12 +3753,16 @@ HuTime.PanelBase.prototype = Object.create(HuTime.ContainerBase.prototype, {
     },
     minPnlT: {      // 表示幅の拡大率を反映させたPanelのt軸の表示範囲（最小値）
         get: function() {
+            if (!this._hutimeRoot)
+                return 0;   // 暫定措置（PanelCollectionのJSONを読み込むとここにはまることがある）
             return this._hutimeRoot.minT -
                 (this._hutimeRoot.maxT - this._hutimeRoot.minT) * (this.tRatio - 1) / 2 ;
         }
     },
     maxPnlT: {      // 表示幅の拡大率を反映させたPanelのt軸の表示範囲（最大値）
         get: function() {
+            if (!this._hutimeRoot)
+                return 0;   // 暫定措置（PanelCollectionのJSONを読み込むとここにはまることがある）
             return this._hutimeRoot.maxT +
                 (this._hutimeRoot.maxT - this._hutimeRoot.minT) * (this.tRatio - 1) / 2 ;
         }
@@ -9293,7 +9309,9 @@ HuTime.RecordsetBase.prototype = {
         },
         _reader: function (objForJSON) {
             if (this.useRemoteDataForJSON ||
-                this.useRemoteDataForJSON == null && this.reader.stream instanceof HuTime.HttpStream)
+                this.useRemoteDataForJSON == null &&
+                    this.reader &&
+                    this.reader.stream instanceof HuTime.HttpStream)
                     objForJSON["reader"] = HuTime.JSON.stringify(this._reader);
         },
         _recordSettings: "recordSettings",
@@ -11338,6 +11356,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 if (!this.recordsets[i].disableSortRecords) {
                     this.recordsets[i].records.sort(function (record1, record2) {
                         // 代表値がNaNのレコードは末尾
+                        if (!record1.tRange || !record2.tRange)
+                            return 0;   // 読み込み完了前に処理した場合など
                         if (isNaN(record1.tRange._centralValue)) {
                             if (isNaN(record2.tRange._centralValue))
                                 return 0;
@@ -11395,6 +11415,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             // 範囲外の判定
             for (i = 0; i < this.recordsets.length; ++i) {
                 for (j = 0; j < this.recordsets[i].records.length; ++j) {
+                    if (!this.recordsets[i].records[j].tRange)
+                        continue;
                     if (this.recordsets[i].records[j].tRange._pBegin > this._maxLyrT ||
                         (this.recordsets[i].records[j].tRange._pEnd < this._minLyrT)) {
                         this.recordsets[i].records[j]._oLVisible = false;   // 範囲外のレコード
