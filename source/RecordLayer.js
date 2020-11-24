@@ -541,6 +541,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                 if (!this.recordsets[i].disableSortRecords) {
                     this.recordsets[i].records.sort(function (record1, record2) {
                         // 代表値がNaNのレコードは末尾
+                        if (!record1.tRange || !record2.tRange)
+                            return 0;   // 読み込み完了前に処理した場合など
                         if (isNaN(record1.tRange._centralValue)) {
                             if (isNaN(record2.tRange._centralValue))
                                 return 0;
@@ -598,6 +600,8 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
             // 範囲外の判定
             for (i = 0; i < this.recordsets.length; ++i) {
                 for (j = 0; j < this.recordsets[i].records.length; ++j) {
+                    if (!this.recordsets[i].records[j].tRange)
+                        continue;
                     if (this.recordsets[i].records[j].tRange._pBegin > this._maxLyrT ||
                         (this.recordsets[i].records[j].tRange._pEnd < this._minLyrT)) {
                         this.recordsets[i].records[j]._oLVisible = false;   // 範囲外のレコード

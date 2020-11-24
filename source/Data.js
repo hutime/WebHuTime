@@ -355,7 +355,9 @@ HuTime.RecordsetBase.prototype = {
         },
         _reader: function (objForJSON) {
             if (this.useRemoteDataForJSON ||
-                this.useRemoteDataForJSON == null && this.reader.stream instanceof HuTime.HttpStream)
+                this.useRemoteDataForJSON == null &&
+                    this.reader &&
+                    this.reader.stream instanceof HuTime.HttpStream)
                     objForJSON["reader"] = HuTime.JSON.stringify(this._reader);
         },
         _recordSettings: "recordSettings",
