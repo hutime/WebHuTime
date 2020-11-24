@@ -1273,6 +1273,18 @@ HuTime.RecordLayerBase.prototype = Object.create(HuTime.Layer.prototype, {
                     }
                     this.loadRecordsets();
                 }
+            },
+            vScales: {
+                value: function (objRaw) {
+                    while (this.vScales.length > 0) {
+                        this.removeVScale(0);
+                    }
+                    let vScales =HuTime.JSON.parse(objRaw.vScales);
+                    for (let i = 0; i < vScales.length; ++i) {
+                        this.appendVScale(vScales[i].side, vScales[i].offset, vScales[i].legend,
+                            vScales[i].vBottom, vScales[i].vTop, vScales[i].style, vScales[i].dataset);
+                    }
+                }
             }
         })
     }
